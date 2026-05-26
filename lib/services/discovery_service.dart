@@ -8,6 +8,7 @@ import 'dart:convert';
 
 class DiscoveryService {
   static const int _discoveryPort = 8082;
+  static const String _multicastGroup = '239.255.0.1'; // 组播备用
 
   RawDatagramSocket? _socket;
   StreamSubscription? _subscription;
@@ -38,6 +39,15 @@ class DiscoveryService {
     _isServer = true;
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _discoveryPort);
     _socket!.broadcastEnabled = true;
+    _socket!.multicastLoopback = false;
+
+    // 加入组播组 — 部分路由器阻断广播但放行组播
+    try {
+      _socket!.joinMulticast(InternetAddress(_multicastGroup));
+      print('📡 已加入组播组 $_multicastGroup');
+    } catch (_) {
+      print('⚠️ 无法加入组播组，仅使用广播');
+    }
 
     _subscription = _socket!.listen((event) {
       if (event != RawSocketEvent.read) return;
@@ -95,8 +105,8 @@ class DiscoveryService {
         } catch (_) {}
       });
 
-      // 广播发现请求 — 双保险：全局广播 + 子网广播
-      // 某些 Android 设备会丢掉 255.255.255.255，但接受子网广播
+      // 广播发现请求 — 三保险：全局广播 + 子网广播 + 组播
+      // 某些 Android 设备/路由器会丢掉 255.255.255.255，但接受子网广播或组播
       client.send(
         utf8.encode('WEIGHTNEST_DISCOVER'),
         InternetAddress('255.255.255.255'),
@@ -110,6 +120,14 @@ class DiscoveryService {
           _discoveryPort,
         );
       }
+      // 组播通道
+      try {
+        client.send(
+          utf8.encode('WEIGHTNEST_DISCOVER'),
+          InternetAddress(_multicastGroup),
+          _discoveryPort,
+        );
+      } catch (_) {}
 
       // 等待收集响应
       Timer(timeout, () {
@@ -125,6 +143,9 @@ class DiscoveryService {
   /// 停止服务
   Future<void> stop() async {
     await _subscription?.cancel();
+    if (_socket != null && _isServer) {
+      try { _socket!.leaveMulticast(InternetAddress(_multicastGroup)); } catch (_) {}
+    }
     _socket?.close();
     _socket = null;
     _subscription = null;

@@ -60,7 +60,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('作为局域网主机，其他设备可连接到此设备', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Text('作为局域网主机，其他设备可连接到此设备', style: TextStyle(color: Color(0xFF555555), fontSize: 13)),
                   const SizedBox(height: 12),
                   if (net.isServerRunning) ...[
                     if (net.localIp != null)
@@ -116,11 +116,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.grey.shade500),
+                  Icon(Icons.info_outline, size: 16, color: Colors.grey.shade700),
                   const SizedBox(width: 6),
                   Text(
                     '服务器模式下不可连接其他设备',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ],
               ),
@@ -158,7 +158,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   // 发现的服务器列表
                   if (_discoveredServers.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    const Text('发现的设备:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+                    const Text('发现的设备:', style: TextStyle(fontSize: 13, color: Color(0xFF555555), fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
                     ..._discoveredServers.map((s) => Card(
                       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -166,7 +166,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         dense: true,
                         leading: const Icon(Icons.dns, color: Colors.green, size: 22),
                         title: Text(s.address, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                        subtitle: const Text('点击自动填入', style: TextStyle(fontSize: 11)),
+                        subtitle: const Text('点击自动填入', style: TextStyle(fontSize: 12, color: Color(0xFF666666))),
                         onTap: () {
                           setState(() {
                             _ipController.text = s.ip;
@@ -178,7 +178,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     )),
                   ],
                   const SizedBox(height: 8),
-                  Text('或手动输入', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  Text('或手动输入', style: TextStyle(fontSize: 13, color: Color(0xFF666666))),
                   const SizedBox(height: 4),
                   const SizedBox(height: 12),
                   Row(
@@ -259,7 +259,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text('按月份导出所有鹦鹉体重记录为 Excel', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Text('按月份导出所有鹦鹉体重记录为 Excel', style: TextStyle(color: Color(0xFF555555), fontSize: 13)),
                   const SizedBox(height: 12),
                   // 年月选择
                   Row(
@@ -312,10 +312,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _syncStatus.contains('成功') ? Colors.green.shade50 : Colors.orange.shade50,
+                color: (_syncStatus.contains('✅') || _syncStatus.contains('成功'))
+                    ? Colors.green.shade50
+                    : Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(_syncStatus, style: const TextStyle(fontSize: 13)),
+              child: Text(_syncStatus,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: (_syncStatus.contains('✅') || _syncStatus.contains('成功'))
+                        ? Colors.green.shade800
+                        : Colors.orange.shade900,
+                  )),
             ),
           ],
         ],
@@ -330,13 +338,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() => _syncStatus = '请输入服务器 IP');
       return;
     }
-    setState(() => _syncStatus = '正在测试...');
+    final url = 'http://$ip:$port';
+    setState(() => _syncStatus = '正在测试 $url ...');
     final db = ref.read(databaseProvider);
     final service = SyncService(db, ip, port: port);
     final ok = await service.testConnection();
-    setState(() => _syncStatus = ok ? '✅ 连接成功' : '❌ 连接失败');
-    if (ok) {
-      ref.read(networkProvider.notifier).connectToServer(ip, port: port);
+    if (mounted) {
+      setState(() {
+        _syncStatus = ok
+            ? '✅ 连接成功 — $url'
+            : '❌ 无法连接 $url\n请确认：①主机已点「启动服务器」②IP和端口正确'
+                ' ③两台手机在同一WiFi ④未开VPN';
+      });
+      if (ok) {
+        ref.read(networkProvider.notifier).connectToServer(ip, port: port);
+      }
     }
   }
 
@@ -344,16 +360,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final ip = net.serverIp ?? _ipController.text.trim();
     final port = net.serverPort;
     if (ip.isEmpty) {
-      setState(() => _syncStatus = '请先连接服务器');
+      setState(() => _syncStatus = '⚠️ 请先连接服务器');
       return;
     }
-    setState(() => _syncStatus = '正在同步...');
+    setState(() => _syncStatus = '⏳ 正在同步...');
     final db = ref.read(databaseProvider);
     final service = SyncService(db, ip, port: port);
     final result = await service.syncAll();
+    if (!mounted) return;
     if (result.success) {
       setState(() => _syncStatus =
-          '✅ 同步成功！鸟${result.birdsSynced} 体重${result.weightsSynced} 房间${result.roomsSynced}');
+          '✅ 同步成功！鸟${result.birdsSynced} 体重${result.weightsSynced}'
+          ' 房间${result.roomsSynced} 物种${result.speciesSynced}'
+          ' 用户${result.usersSynced}');
       ref.invalidate(allBirdsProvider);
       ref.invalidate(allRoomsProvider);
     } else {
@@ -400,20 +419,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _scanNetwork() async {
-    setState(() { _isScanning = true; _discoveredServers = []; });
+    setState(() { _isScanning = true; _discoveredServers = []; _syncStatus = ''; });
     final service = DiscoveryService();
     final servers = await service.discover();
-    if (mounted) {
-      setState(() {
-        _isScanning = false;
-        _discoveredServers = servers;
-        if (servers.isEmpty) {
-          _syncStatus = '未发现设备，请检查是否在同一局域网';
-        } else {
-          _syncStatus = '发现 ${servers.length} 台设备';
-        }
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isScanning = false;
+      _discoveredServers = servers;
+      if (servers.isEmpty) {
+        _syncStatus = '❌ 未发现设备\n请确认：①两台手机连同一WiFi ②路由器没有开AP隔离'
+            ' ③主机已点「启动服务器」';
+      } else {
+        _syncStatus = '✅ 发现 ${servers.length} 台设备';
+      }
+    });
   }
 }
 
@@ -468,7 +487,7 @@ class _StatusCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   net.localIp != null ? '本机: ${net.localIp}' : '检测中...',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                  style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF666666), fontSize: 13),
                 ),
               ],
             ),
