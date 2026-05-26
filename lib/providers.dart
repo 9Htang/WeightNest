@@ -4,6 +4,7 @@ import 'repositories/bird_repository.dart';
 import 'repositories/weight_repository.dart';
 import 'repositories/room_repository.dart';
 import 'repositories/species_repository.dart';
+import 'repositories/task_repository.dart';
 
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -42,4 +43,17 @@ final allRoomsProvider = FutureProvider<List<Room>>((ref) async {
 final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
   final db = ref.watch(databaseProvider);
   return db.getAllSpecies();
+});
+
+/// 今日任务
+final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  await db.generateTodayTasks();
+  return db.getTodayTasks(null);
+});
+
+/// 逾期任务
+final overdueTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return db.getOverdueTasks();
 });

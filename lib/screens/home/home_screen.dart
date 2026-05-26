@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../weigh/weigh_screen.dart';
 import '../birds/birds_screen.dart';
+import '../tasks/tasks_screen.dart';
+import '../alerts/alerts_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -74,12 +76,14 @@ class HomeScreen extends ConsumerWidget {
                   _NavChip(
                     icon: Icons.assignment_turned_in,
                     label: '今日任务',
-                    onTap: () {},
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const TasksScreen())),
                   ),
                   _NavChip(
                     icon: Icons.warning_amber,
                     label: '异常提醒',
-                    onTap: () {},
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const AlertsScreen())),
                   ),
                 ],
               ),
