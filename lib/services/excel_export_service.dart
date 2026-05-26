@@ -34,7 +34,7 @@ class ExcelExportService {
       data[i] = {};
       final weights = await _db.getByBirdInRange(birds[i].bird.id, from: monthStart, to: monthEnd);
       for (final w in weights) {
-        final timeStr = '${w.weightG.toStringAsFixed(1)}';
+        final timeStr = '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')} ${w.weightG.toStringAsFixed(1)}';
         final existing = data[i]![w.recordedAt.day];
         data[i]![w.recordedAt.day] = existing != null ? '$existing\n$timeStr' : timeStr;
       }
