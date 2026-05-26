@@ -44,7 +44,7 @@ class ExcelExportService {
     final ringRow = <String>['脚环号'];
     final speciesRow = <String>['品种'];
     for (final b in birds) {
-      ringRow.add(b.bird.ringNumber?.isNotEmpty == true ? b.bird.ringNumber : b.bird.name);
+      ringRow.add((b.bird.ringNumber?.isNotEmpty == true ? b.bird.ringNumber : b.bird.name) ?? b.bird.name);
       speciesRow.add(b.species.name);
     }
     final dateHeaderRow = <String>['日期'];
