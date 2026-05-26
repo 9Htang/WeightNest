@@ -1,7 +1,7 @@
-import 'dart:math';
-import '../../database/database.dart';
-import '../../repositories/bird_repository.dart';
-import '../../repositories/weight_repository.dart';
+﻿import 'dart:math';
+import '../database/database.dart';
+import '../repositories/bird_repository.dart';
+import '../repositories/weight_repository.dart';
 
 class AnomalyAlert {
   final BirdWithDetails bird;
@@ -79,7 +79,7 @@ class AlertService {
     // 取最近 48h 内的所有记录，计算平均 Log 增长率
     final now = DateTime.now();
     final cutoff = now.subtract(const Duration(hours: 48));
-    final recent = weights.where((w) => w.recordedAt.isAfter(cutoff)).toList();
+    final recent = weights.where((w) => w.recordedAt.isAfter(cutoff.subtract(const Duration(seconds: 1)))).toList();
     if (recent.length < 2) return [];
 
     // 计算每对相邻记录的时间标准化 Log 增长率
@@ -140,10 +140,10 @@ class AlertService {
     // ===== 7日 EMA 趋势 =====
     final now = DateTime.now();
     final cutoff7d = now.subtract(const Duration(days: 7));
-    final recent7d = weights.where((w) => w.recordedAt.isAfter(cutoff7d)).toList();
+    final recent7d = weights.where((w) => w.recordedAt.isAfter(cutoff7d.subtract(const Duration(seconds: 1)))).toList();
     
     if (recent7d.length >= 3) {
-      final values = recent7d.map((w) => w.weightG).toList();
+      final values = recent7d.map((w) => w.weightG).toList().cast<double>();
       final ema = _ema(values);
       final trendPct = (ema.last - ema.first) / ema.first * 100;
       
@@ -222,9 +222,9 @@ class AlertService {
     // 30日趋势（简单线性判断）
     final now = DateTime.now();
     final cutoff30 = now.subtract(const Duration(days: 30));
-    final recent30 = weights.where((w) => w.recordedAt.isAfter(cutoff30)).toList();
+    final recent30 = weights.where((w) => w.recordedAt.isAfter(cutoff30.subtract(const Duration(seconds: 1)))).toList();
     if (recent30.length >= 4) {
-      final values30 = recent30.map((w) => w.weightG).toList();
+      final values30 = recent30.map((w) => w.weightG).toList().cast<double>();
       final ema30 = _ema(values30, alpha: 0.15);
       final trend30 = (ema30.last - ema30.first) / ema30.first * 100;
       if (trend30 < -10) {
