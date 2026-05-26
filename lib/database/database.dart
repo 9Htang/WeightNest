@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Birds, Weights, Tasks, AlertRecords, SyncLog],
+  tables: [Species, Users, Rooms, Birds, Weights, Tasks, SyncLog],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
