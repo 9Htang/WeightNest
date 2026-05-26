@@ -13,6 +13,8 @@ class ExcelExportService {
   /// 按月导出体重宽表
   Future<File?> exportMonthly(int year, int month) async {
     final excel = Excel.createExcel();
+    // 删除默认的 Sheet1，只保留体重记录表
+    excel.delete('Sheet1');
     final sheet = excel['体重记录'];
 
     // 计算当月天数
