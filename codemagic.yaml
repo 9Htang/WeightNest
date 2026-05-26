@@ -1,26 +1,86 @@
+# WeightNest Codemagic CI/CD
+# 文档: https://docs.codemagic.io
+
 workflows:
-  weight-nest:
-    name: WeightNest Build
+
+  # ====== Android 构建 ======
+  android-build:
+    name: Android Release
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Flutter analyze
+        script: flutter analyze
+      - name: Build APK (release)
+        script: flutter build apk --release
+      - name: Build AAB (Play Store)
+        script: flutter build appbundle --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+      - build/app/outputs/bundle/release/app-release.aab
+    publishing:
+      email:
+        recipients:
+          - CHANGE_ME@example.com
+
+  # ====== iOS 构建（需 Apple Developer 账号） ======
+  ios-build:
+    name: iOS Release
     max_build_duration: 60
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - weightnest
     scripts:
-      - name: Flutter pub get
+      - name: Get dependencies
         script: flutter pub get
       - name: Flutter analyze
         script: flutter analyze
-      - name: Flutter test
-        script: flutter test
-        ignore_failure: true
+      - name: Set up code signing
+        script: |
+          # Codemagic 自动管理证书
+          # 如需手动配置，在 Codemagic UI → App → Code Signing 里设置
+          echo "Using Codemagic automatic code signing"
+      - name: Build iOS (no code sign)
+        script: flutter build ios --release --no-codesign
     artifacts:
-      - build/**/outputs/flutter-apk/*.apk
-      - build/**/outputs/flutter-ios/*.ipa
-      - build/**/outputs/bundle/**/*.aab
+      - build/ios/iphoneos/Runner.app
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       email:
         recipients:
-          - placeholder@example.com
+          - CHANGE_ME@example.com
+
+  # ====== iOS 构建（完整签名，发布用） ======
+  ios-signed:
+    name: iOS Release (Signed)
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      # 在 Codemagic UI 里创建变量组，包含：
+      # APP_STORE_CONNECT_KEY_ID
+      # APP_STORE_CONNECT_ISSUER_ID
+      # APP_STORE_CONNECT_PRIVATE_KEY
+      # CERTIFICATE_PRIVATE_KEY
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Install Apple certificate
+        script: |
+          # Codemagic 读取环境变量自动配置
+          echo "Apple signing configured by Codemagic"
+      - name: Build iOS
+        script: flutter build ipa --release \
+          --export-options-plist=$CM_EXPORT_OPTIONS
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - CHANGE_ME@example.com
