@@ -36,9 +36,7 @@ class ExcelExportService {
       for (final w in weights) {
         final timeStr = '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')} ${w.weightG.toStringAsFixed(1)}';
         final existing = data[i]![w.recordedAt.day];
-        data[i]![w.recordedAt.day] = existing != null ? '$existing
-
-$timeStr' : timeStr;
+        data[i]![w.recordedAt.day] = existing != null ? '$existing\n\n$timeStr' : timeStr;
       }
     }
 
