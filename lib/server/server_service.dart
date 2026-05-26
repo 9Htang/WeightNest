@@ -57,11 +57,22 @@ class ServerService {
   /// 获取本机局域网 IP
   Future<String> _getLocalIp() async {
     try {
-      for (final interface in await NetworkInterface.list()) {
+      final interfaces = await NetworkInterface.list();
+      for (final wifiName in ['wlan0', 'en0', 'wlp', 'eth0']) {
+        for (final interface in interfaces) {
+          if (interface.name.toLowerCase().contains(wifiName)) {
+            for (final addr in interface.addresses) {
+              if (addr.type == InternetAddressType.IPv4) {
+                return addr.address;
+              }
+            }
+          }
+        }
+      }
+      for (final interface in interfaces) {
         for (final addr in interface.addresses) {
-          if (addr.type == InternetAddressType.IPv4 &&
-              !addr.isLoopback &&
-              addr.address.startsWith('192')) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback &&
+              !addr.address.startsWith('169.254')) {
             return addr.address;
           }
         }

@@ -51,9 +51,25 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
 
   Future<void> _detectLocalIp() async {
     try {
-      for (final interface in await NetworkInterface.list()) {
+      final interfaces = await NetworkInterface.list();
+      // 优先找 WiFi 接口（Android: wlan0，其他: en0/en1/wlp*）
+      for (final wifiName in ['wlan0', 'en0', 'wlp', 'eth0']) {
+        for (final interface in interfaces) {
+          if (interface.name.toLowerCase().contains(wifiName)) {
+            for (final addr in interface.addresses) {
+              if (addr.type == InternetAddressType.IPv4) {
+                state = state.copyWith(localIp: addr.address);
+                return;
+              }
+            }
+          }
+        }
+      }
+      // 回退：找第一个非 loopback IPv4
+      for (final interface in interfaces) {
         for (final addr in interface.addresses) {
-          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback &&
+              !addr.address.startsWith('169.254')) {
             state = state.copyWith(localIp: addr.address);
             return;
           }
