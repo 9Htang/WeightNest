@@ -1,0 +1,29 @@
+{
+    "dart.flutterSdkPath": "C:\\tools\\flutter",
+    "dart.lineLength": 120,
+    "dart.showTodos": true,
+    "dart.openTestView": ["testFailures"],
+    "[dart]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.rulers": [120],
+        "editor.selectionHighlight": false,
+        "editor.suggest.snippetsPreventQuickSuggestions": false,
+        "editor.suggestSelection": "first",
+        "editor.tabCompletion": "onlySnippets",
+        "editor.wordBasedSuggestions": "off"
+    },
+    "files.watcherExclude": {
+        "**/.dart_tool/**": true,
+        "**/build/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true
+    },
+    "search.exclude": {
+        "**/build": true,
+        "**/.dart_tool": true,
+        "**/database.g.dart": true
+    },
+    "explorer.excludeGitIgnore": false
+}
