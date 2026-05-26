@@ -1,7 +1,7 @@
 name: weight_nest
 description: "鹦鹉体重记录系统 - 支持局域网多人协同"
 publish_to: 'none'
-version: 1.7.3+19
+version: 1.7.4+20
 
 environment:
   sdk: ^3.6.0
@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-
+  share_plus: ^10.0.0
   # 数据库
   drift: ^2.22.0
   drift_flutter: ^0.2.1

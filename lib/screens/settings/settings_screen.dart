@@ -5,6 +5,7 @@ import '../../services/sync_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../services/discovery_service.dart';
 import '../../providers.dart';
+import 'package:share_plus/share_plus.dart';
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -249,15 +250,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       label: const Text('导出 Excel'),
                     ),
                   ),
+                  if (_exportPath != null && _exportPath != '正在导出...' && !_exportPath!.startsWith('导出失败')) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Share.shareXFiles([XFile(_exportPath!)]),
+                        icon: const Icon(Icons.share, size: 18),
+                        label: const Text('分享文件'),
+                      ),
+                    ),
+                  ],
                   if (_exportPath != null) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: _exportPath!.startsWith('导出失败') ? Colors.orange.shade50 : Colors.green.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('✅ 已导出: $_exportPath', style: const TextStyle(fontSize: 12)),
+                      child: Text(_exportPath!, style: const TextStyle(fontSize: 12)),
                     ),
                   ],
                 ],
