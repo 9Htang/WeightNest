@@ -30,7 +30,7 @@ class ExcelExportService {
       await _exportSpecies(excel);
       await _exportTasks(excel);
 
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await _getExportDir();
       final timestamp = DateTime.now()
           .toIso8601String()
           .replaceAll(':', '-')
@@ -45,6 +45,14 @@ class ExcelExportService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// 获取导出目录——Android 用公共 Downloads
+  Future<Directory> _getExportDir() async {
+    if (Platform.isAndroid) {
+      return Directory('/storage/emulated/0/Download');
+    }
+    return getApplicationDocumentsDirectory();
   }
 
   Future<void> _exportBirds(Excel excel) async {

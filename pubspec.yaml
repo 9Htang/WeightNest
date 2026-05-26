@@ -1,7 +1,7 @@
 name: weight_nest
 description: "鹦鹉体重记录系统 - 支持局域网多人协同"
 publish_to: 'none'
-version: 1.7.2+18
+version: 1.7.3+19
 
 environment:
   sdk: ^3.6.0

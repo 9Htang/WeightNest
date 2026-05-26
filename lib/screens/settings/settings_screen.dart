@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/network_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../services/discovery_service.dart';
 import '../../providers.dart';
-
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
