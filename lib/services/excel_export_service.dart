@@ -15,24 +15,33 @@ class ExcelExportService {
   ExcelExportService(this._db);
 
   /// 导出所有数据到 Excel 文件
-  Future<File> exportAll() async {
-    final excel = Excel.createExcel();
-    excel.delete('Sheet1'); // 删除默认 sheet
+  Future<File?> exportAll() async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel.sheets['Sheet1'];
+      if (sheet != null) excel.delete('Sheet1');
 
-    await _exportBirds(excel);
-    await _exportWeights(excel);
-    await _exportRooms(excel);
-    await _exportSpecies(excel);
-    await _exportTasks(excel);
+      await _exportBirds(excel);
+      await _exportWeights(excel);
+      await _exportRooms(excel);
+      await _exportSpecies(excel);
+      await _exportTasks(excel);
 
-    final dir = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
-    final file = File('${dir.path}/WeightNest_$timestamp.xlsx');
-    await file.writeAsBytes(excel.encode()!);
-    return file;
+      final dir = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
+      final file = File('${dir.path}/WeightNest_$timestamp.xlsx');
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('编码失败：数据为空');
+      }
+      await file.writeAsBytes(bytes);
+      return file;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> _exportBirds(Excel excel) async {

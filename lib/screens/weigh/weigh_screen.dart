@@ -111,7 +111,7 @@ class _BirdInfoHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  lastWeight != null ? '${lastWeight.weightG}g' : '-',
+                  lastWeight != null ? '${lastWeight.weightG.toStringAsFixed(1)}g' : '-',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.primary,

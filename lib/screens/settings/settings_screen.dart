@@ -288,7 +288,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final db = ref.read(databaseProvider);
       final service = ExcelExportService(db);
       final file = await service.exportAll();
-      setState(() => _exportPath = file.path);
+      if (file != null) {
+        setState(() => _exportPath = file.path);
+      } else {
+        setState(() => _exportPath = '导出失败：无数据');
+      }
     } catch (e) {
       setState(() => _exportPath = '导出失败: $e');
     }

@@ -94,9 +94,32 @@ class BirdDetailScreen extends ConsumerWidget {
               child: weightsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('加载失败')),
-                data: (weights) => weights.length < 2
-                    ? const Center(child: Text('数据不足，需要至少2条记录'))
-                    : _WeightChart(weights: weights),
+                data: (weights) {
+                  if (weights.length == 1) {
+                    // 单点：显示大数字
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${weights.first.weightG.toStringAsFixed(1)}g',
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('仅有一条记录，再称一次即可显示趋势',
+                            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                        ],
+                      ),
+                    );
+                  }
+                  if (weights.length < 2) {
+                    return const Center(child: Text('暂无记录'));
+                  }
+                  return _WeightChart(weights: weights);
+                },
               ),
             ),
 
@@ -387,7 +410,7 @@ class _WeightRow extends StatelessWidget {
                 child: Chip(label: Text('空腹', style: TextStyle(fontSize: 11)), visualDensity: VisualDensity.compact),
               ),
             Text(
-              '${weight.weightG}g',
+              '${weight.weightG.toStringAsFixed(1)}g',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
             ),
           ],

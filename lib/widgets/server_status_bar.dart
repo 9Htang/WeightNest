@@ -12,12 +12,10 @@ class ServerStatusBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final net = ref.watch(networkProvider);
 
-    if (!net.isServerRunning) return const SizedBox.shrink();
+    if (!net.isServerRunning || net.localIp == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final address = net.localIp != null
-        ? '${net.localIp}:${net.serverPort}'
-        : '启动中...';
+    final address = '${net.localIp}:${net.serverPort}';
 
     return Container(
       width: double.infinity,

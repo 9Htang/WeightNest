@@ -492,7 +492,7 @@ class _BirdListTile extends ConsumerWidget {
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('${w.weightG}g',
+                          Text('${w.weightG.toStringAsFixed(1)}g',
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.primary)),

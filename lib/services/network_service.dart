@@ -65,6 +65,7 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
   Future<void> startServer({int port = 8080}) async {
     final service = ServerService(_db);
     await service.start(port: port);
+    await _detectLocalIp(); // 刷新 IP
     state = state.copyWith(
       mode: ConnectionMode.server,
       serverService: service,

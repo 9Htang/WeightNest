@@ -107,6 +107,15 @@ extension TaskRepository on AppDatabase {
 
       if (intervalDays > 0 &&
           (today.difference(bird.birthDate).inDays) % intervalDays == 0) {
+        // 检查该鸟今天是否已有任务
+        final existing = await (select(tasks)
+              ..where((t) =>
+                  t.birdId.equals(bird.id) &
+                  t.dueDate.isBiggerOrEqualValue(dayStart) &
+                  t.dueDate.isSmallerThanValue(dayEnd)))
+            .getSingleOrNull();
+        if (existing != null) continue;
+
         await into(tasks).insert(TasksCompanion.insert(
           birdId: bird.id,
           roomId: Value(bird.roomId),
