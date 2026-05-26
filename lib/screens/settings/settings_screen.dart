@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/network_service.dart';
 import '../../services/sync_service.dart';
+import '../../services/excel_export_service.dart';
 import '../../providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -15,6 +16,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _ipController = TextEditingController();
   final _portController = TextEditingController(text: '8080');
   String _syncStatus = '';
+  String? _exportPath;
 
   @override
   void dispose() {
@@ -183,6 +185,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 12),
+
+          // ── 数据导出 ──
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.table_chart, size: 22),
+                      const SizedBox(width: 8),
+                      Text('数据导出', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('导出全部数据为 Excel 文件', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => _exportData(),
+                      icon: const Icon(Icons.download),
+                      label: const Text('导出 Excel'),
+                    ),
+                  ),
+                  if (_exportPath != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('✅ 已导出: $_exportPath', style: const TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
           if (_syncStatus.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
@@ -234,6 +279,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(allRoomsProvider);
     } else {
       setState(() => _syncStatus = '❌ 同步失败: ${result.error}');
+    }
+  }
+
+  Future<void> _exportData() async {
+    setState(() => _exportPath = '正在导出...');
+    try {
+      final db = ref.read(databaseProvider);
+      final service = ExcelExportService(db);
+      final file = await service.exportAll();
+      setState(() => _exportPath = file.path);
+    } catch (e) {
+      setState(() => _exportPath = '导出失败: $e');
     }
   }
 }

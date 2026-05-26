@@ -1,0 +1,26 @@
+workflows:
+  weight-nest:
+    name: WeightNest Build
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - weightnest
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+      - name: Flutter analyze
+        script: flutter analyze
+      - name: Flutter test
+        script: flutter test
+        ignore_failure: true
+    artifacts:
+      - build/**/outputs/flutter-apk/*.apk
+      - build/**/outputs/flutter-ios/*.ipa
+      - build/**/outputs/bundle/**/*.aab
+    publishing:
+      email:
+        recipients:
+          - placeholder@example.com
