@@ -57,3 +57,16 @@ final overdueTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
   return db.getOverdueTasks();
 });
+
+/// 首次启动预置默认品种
+final initDefaultsProvider = FutureProvider<void>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final existing = await db.getAllSpecies();
+  if (existing.isEmpty) {
+    await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+    await db.createSpecies('金太阳', nestlingEndDays: 60, juvenileEndDays: 180);
+    await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 30, juvenileEndDays: 90);
+    await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 150);
+    await db.createSpecies('金刚鹦鹉', nestlingEndDays: 90, juvenileEndDays: 365);
+  }
+});

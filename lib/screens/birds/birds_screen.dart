@@ -172,23 +172,33 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
     });
   }
 
-  void _showAddBirdDialog(BuildContext context) {
-    final speciesAsync = ref.read(allSpeciesProvider);
-
-    speciesAsync.whenData((spList) {
+  void _showAddBirdDialog(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final spList = await ref.read(allSpeciesProvider.future);
+      final roomList = await ref.read(allRoomsProvider.future);
+      if (!context.mounted) return;
+      Navigator.pop(context); // close loading
       showDialog(
         context: context,
-        builder: (ctx) => _AddBirdDialog(spList: spList),
+        builder: (ctx) => _AddBirdDialog(spList: spList, roomList: roomList),
       ).then((_) => ref.invalidate(allBirdsProvider));
-    });
+    } catch (_) {
+      if (context.mounted) Navigator.pop(context);
+    }
   }
 }
 
 /// 新增鹦鹉弹窗
 class _AddBirdDialog extends StatefulWidget {
   final List<Specy> spList;
+  final List<Room> roomList;
 
-  const _AddBirdDialog({required this.spList});
+  const _AddBirdDialog({required this.spList, required this.roomList});
 
   @override
   State<_AddBirdDialog> createState() => _AddBirdDialogState();
@@ -198,6 +208,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
   final _nameCtrl = TextEditingController();
   final _ringCtrl = TextEditingController();
   int? _selectedSpeciesId;
+  int? _selectedRoomId;
   String _gender = '未知';
   DateTime _birthDate = DateTime.now();
 
@@ -275,6 +286,60 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // 房间选择
+            InkWell(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  useRootNavigator: true,
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('选择房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                        ListTile(
+                          title: const Text('不分配房间'),
+                          leading: const Icon(Icons.block),
+                          selected: _selectedRoomId == null,
+                          onTap: () {
+                            setState(() => _selectedRoomId = null);
+                            Navigator.pop(ctx);
+                          },
+                        ),
+                        ...widget.roomList.map((r) => ListTile(
+                          title: Text(r.name),
+                          selected: _selectedRoomId == r.id,
+                          onTap: () {
+                            setState(() => _selectedRoomId = r.id);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '房间 (选填)',
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(
+                  _selectedRoomId != null
+                      ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name
+                      : '不分配',
+                  style: TextStyle(
+                    color: _selectedRoomId != null ? null : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 性别
             Row(
               children: ['公', '母', '未知'].map((g) => Expanded(
                 child: Padding(
@@ -333,6 +398,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               name: name,
               speciesId: _selectedSpeciesId!,
               birthDate: _birthDate,
+              roomId: _selectedRoomId,
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );

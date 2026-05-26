@@ -123,12 +123,23 @@ class BirdDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context, WidgetRef ref) {
-    final spList = ref.read(allSpeciesProvider).valueOrNull ?? [];
+  void _showEditDialog(BuildContext context, WidgetRef ref) async {
     showDialog(
       context: context,
-      builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList),
-    ).then((_) => ref.invalidate(allBirdsProvider));
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final spList = await ref.read(allSpeciesProvider.future);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      showDialog(
+        context: context,
+        builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList),
+      ).then((_) => ref.invalidate(allBirdsProvider));
+    } catch (_) {
+      if (context.mounted) Navigator.pop(context);
+    }
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref) {

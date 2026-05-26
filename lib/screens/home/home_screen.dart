@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers.dart';
 import '../weigh/weigh_screen.dart';
 import '../birds/birds_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../alerts/alerts_screen.dart';
 import '../settings/settings_screen.dart';
+import '../species/species_screen.dart';
+import '../rooms/rooms_screen.dart';
 import '../../../widgets/server_status_bar.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -12,6 +15,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(initDefaultsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -80,7 +84,14 @@ class HomeScreen extends ConsumerWidget {
                   _NavChip(
                     icon: Icons.meeting_room,
                     label: '房间管理',
-                    onTap: () {},
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const RoomsScreen())),
+                  ),
+                  _NavChip(
+                    icon: Icons.pets,
+                    label: '品种管理',
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const SpeciesScreen())),
                   ),
                   _NavChip(
                     icon: Icons.assignment_turned_in,
