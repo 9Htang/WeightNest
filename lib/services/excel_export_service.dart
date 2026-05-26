@@ -40,17 +40,21 @@ class ExcelExportService {
       }
     }
 
-    // ── 表头：日期 | 鸟1(品种) | 鸟2(品种) | ... ──
-    final headers = <String>['日期'];
+    // ── 表头三行：第1行脚环号 | 第2行品种 | 第3行日期 ──
+    final ringRow = <String>['脚环号'];
+    final speciesRow = <String>['品种'];
     for (final b in birds) {
-      final label = b.bird.ringNumber?.isNotEmpty == true
-          ? '${b.bird.ringNumber}(${b.species.name})'
-          : '${b.bird.name}(${b.species.name})';
-      headers.add(label);
+      ringRow.add(b.bird.ringNumber?.isNotEmpty == true ? b.bird.ringNumber : b.bird.name);
+      speciesRow.add(b.species.name);
     }
-    _writeRow(sheet, 0, headers, bold: true);
+    final dateHeaderRow = <String>['日期'];
+    for (final b in birds) {
+      dateHeaderRow.add(''); // 日期行对应鸟列留空，日期在第一列
+    }
+    _writeRow(sheet, 0, ringRow, bold: true);
+    _writeRow(sheet, 1, speciesRow, bold: true);
 
-    // ── 每天一行 ──
+    // ── 每天一行：日期 | 鸟1数据 | 鸟2数据 | ... ──
     for (int d = 1; d <= daysInMonth; d++) {
       final row = <dynamic>['$d日'];
       for (int i = 0; i < birds.length; i++) {
@@ -60,7 +64,7 @@ class ExcelExportService {
           row.add(data[i]?[d] ?? '');
         }
       }
-      _writeRow(sheet, d, row);
+      _writeRow(sheet, d + 1, row);
     }
 
     // 保存文件
