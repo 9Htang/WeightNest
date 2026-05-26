@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/network_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/excel_export_service.dart';
+import '../../services/discovery_service.dart';
 import '../../providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _portController = TextEditingController(text: '8080');
   String _syncStatus = '';
   String? _exportPath;
+  bool _isScanning = false;
+  List<DiscoveredServer> _discoveredServers = [];
 
   @override
   void dispose() {
@@ -121,8 +124,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       Text('连接服务器', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text('输入主设备的 IP 地址和端口', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  // 自动发现按钮
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isScanning ? null : () => _scanNetwork(),
+                      icon: _isScanning
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.wifi_find, size: 18),
+                      label: Text(_isScanning ? '扫描中...' : '扫描局域网设备'),
+                    ),
+                  ),
+                  // 发现的服务器列表
+                  if (_discoveredServers.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text('发现的设备:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    ..._discoveredServers.map((s) => Card(
+                      margin: const EdgeInsets.symmetric(vertical: 2),
+                      child: ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.dns, color: Colors.green, size: 22),
+                        title: Text(s.address, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                        subtitle: const Text('点击自动填入', style: TextStyle(fontSize: 11)),
+                        onTap: () {
+                          setState(() {
+                            _ipController.text = s.ip;
+                            _portController.text = s.port.toString();
+                            _discoveredServers = [];
+                          });
+                        },
+                      ),
+                    )),
+                  ],
+                  const SizedBox(height: 8),
+                  Text('或手动输入', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  const SizedBox(height: 4),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -295,6 +333,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       setState(() => _exportPath = '导出失败: $e');
+    }
+  }
+
+  Future<void> _scanNetwork() async {
+    setState(() { _isScanning = true; _discoveredServers = []; });
+    final service = DiscoveryService();
+    final servers = await service.discover();
+    if (mounted) {
+      setState(() {
+        _isScanning = false;
+        _discoveredServers = servers;
+        if (servers.isEmpty) {
+          _syncStatus = '未发现设备，请检查是否在同一局域网';
+        } else {
+          _syncStatus = '发现 ${servers.length} 台设备';
+        }
+      });
     }
   }
 }

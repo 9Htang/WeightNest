@@ -1,8 +1,9 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../server/server_service.dart';
 import '../database/database.dart';
 import '../providers.dart';
+import 'discovery_service.dart';
 
 /// 客户端连接状态
 enum ConnectionMode { standalone, server, client }
@@ -44,6 +45,7 @@ class NetworkState {
 
 class NetworkNotifier extends StateNotifier<NetworkState> {
   final AppDatabase _db;
+  final DiscoveryService _discovery = DiscoveryService();
 
   NetworkNotifier(this._db) : super(NetworkState()) {
     _detectLocalIp();
@@ -91,6 +93,7 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
   }
 
   Future<void> stopServer() async {
+    await _discovery.stop();
     await state.serverService?.stop();
     state = state.copyWith(
       mode: ConnectionMode.standalone,
