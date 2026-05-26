@@ -3,6 +3,7 @@ import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import '../database/database.dart';
 import '../repositories/bird_repository.dart';
+import '../repositories/weight_repository.dart';
 
 /// Excel 导出服务
 class ExcelExportService {
