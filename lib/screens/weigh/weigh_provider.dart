@@ -159,6 +159,13 @@ class WeighNotifier extends StateNotifier<WeighState> {
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedWeights[bird.bird.id] = newWeight;
 
+    // 离线同步：入队待推送
+    offlineSyncQueue.addWeightUpdate(bird.bird.id, {
+      'weightG': w,
+      'recordedAt': DateTime.now().toIso8601String(),
+      'isFasting': state.isFasting,
+    });
+
     final todayTasks = await _db.getTodayTasks(null);
     final done = todayTasks.where((t) => t.task.status == '已完成').length;
 

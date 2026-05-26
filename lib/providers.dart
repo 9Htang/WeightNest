@@ -6,6 +6,7 @@ import 'repositories/room_repository.dart';
 import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
 import 'services/alert_service.dart';
+import 'services/offline_sync_queue.dart';
 
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -85,3 +86,6 @@ final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref
   final db = ref.watch(databaseProvider);
   return db.getByRoom(roomId);
 });
+
+/// 全局离线同步队列
+final offlineSyncQueue = OfflineSyncQueue();
