@@ -4,6 +4,7 @@ import '../weigh/weigh_screen.dart';
 import '../birds/birds_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../alerts/alerts_screen.dart';
+import '../settings/settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -15,6 +16,13 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('WeightNest'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+        ],
       ),
       body: Center(
         child: Padding(

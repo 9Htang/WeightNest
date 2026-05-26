@@ -8,6 +8,9 @@ extension SpeciesRepository on AppDatabase {
   Future<Specy?> getSpeciesById(int id) =>
       (select(species)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  Future<Specy?> getSpeciesByName(String name) =>
+      (select(species)..where((t) => t.name.equals(name))).getSingleOrNull();
+
   Future<Specy> createSpecies(String name,
       {int nestlingEndDays = 45,
       int juvenileEndDays = 120,
