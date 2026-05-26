@@ -375,6 +375,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ' 用户${result.usersSynced}');
       ref.invalidate(allBirdsProvider);
       ref.invalidate(allRoomsProvider);
+      ref.invalidate(allSpeciesProvider);
+      ref.invalidate(todayTasksProvider);
+      ref.invalidate(alertCountProvider);
     } else {
       setState(() => _syncStatus = '❌ 同步失败: ${result.error}');
     }

@@ -17,6 +17,15 @@ extension BirdRepository on AppDatabase {
   Future<Bird?> getBirdById(int id) =>
       (select(birds)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  /// 按名字 + 出生日期查重（用于同步去重）
+  Future<Bird?> getBirdByNameAndBirth(String name, DateTime birthDate) {
+    final start = DateTime(birthDate.year, birthDate.month, birthDate.day);
+    final end = start.add(const Duration(days: 1));
+    return (select(birds)
+      ..where((t) => t.name.equals(name) & t.birthDate.isBiggerOrEqualValue(start) & t.birthDate.isSmallerThanValue(end)))
+        .getSingleOrNull();
+  }
+
   Future<Bird> createBird({
     required String name,
     required int speciesId,

@@ -94,12 +94,15 @@ Router createApiRouter(AppDatabase db) {
         .map((b) => {
               'id': b.bird.id, 'name': b.bird.name,
               'ringNumber': b.bird.ringNumber,
+              'speciesId': b.bird.speciesId,
               'speciesName': b.species.name,
+              'roomId': b.bird.roomId,
               'roomName': b.room?.name,
               'gender': b.bird.gender,
               'birthDate': b.bird.birthDate.toIso8601String(),
               'ageDays': b.ageDays, 'growthStage': b.growthStage,
               'sortOrder': b.bird.sortOrder, 'status': b.bird.status,
+              'notes': b.bird.notes,
             }).toList());
   });
 

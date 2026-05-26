@@ -38,35 +38,30 @@ class SyncService {
 
   /// 从服务端同步所有数据
   Future<SyncResult> syncAll() async {
-    try {
-      int birds = 0, weights = 0, rooms = 0, species = 0, users = 0;
+    int birds = 0, weights = 0, rooms = 0, species = 0, users = 0;
+    final errors = <String>[];
 
-      final spResult = await _syncSpecies();
-      species = spResult;
+    // 单表失败不中断全程
+    try { species = await _syncSpecies(); } catch (e) { errors.add('物种: $e'); }
+    try { rooms = await _syncRooms(); } catch (e) { errors.add('房间: $e'); }
+    try { users = await _syncUsers(); } catch (e) { errors.add('用户: $e'); }
+    try { birds = await _syncBirds(); } catch (e) { errors.add('鹦鹉: $e'); }
+    try { weights = await _syncWeights(); } catch (e) { errors.add('体重: $e'); }
 
-      final roomResult = await _syncRooms();
-      rooms = roomResult;
-
-      final userResult = await _syncUsers();
-      users = userResult;
-
-      final birdResult = await _syncBirds();
-      birds = birdResult;
-
-      final weightResult = await _syncWeights();
-      weights = weightResult;
-
-      return SyncResult(
-        success: true,
-        birdsSynced: birds,
-        weightsSynced: weights,
-        roomsSynced: rooms,
-        speciesSynced: species,
-        usersSynced: users,
-      );
-    } catch (e) {
-      return SyncResult(success: false, error: e.toString());
+    final total = birds + weights + rooms + species + users;
+    if (errors.isNotEmpty && total == 0) {
+      return SyncResult(success: false, error: errors.join('; '));
     }
+
+    return SyncResult(
+      success: true,
+      birdsSynced: birds,
+      weightsSynced: weights,
+      roomsSynced: rooms,
+      speciesSynced: species,
+      usersSynced: users,
+      error: errors.isNotEmpty ? errors.join('; ') : null,
+    );
   }
 
   Future<int> _syncSpecies() async {
@@ -135,14 +130,20 @@ class SyncService {
     final list = body['data'] as List;
     int count = 0;
     for (final item in list) {
+      // 去重：按名字 + 出生日期判断是否已存在
+      final existing = await _db.getBirdByNameAndBirth(
+        item['name'],
+        DateTime.parse(item['birthDate']),
+      );
+      if (existing != null) continue;
       await _db.createBird(
         name: item['name'],
-        speciesId: item['speciesId'],
+        speciesId: item['speciesId'] ?? 1,
         birthDate: DateTime.parse(item['birthDate']),
-        roomId: item['roomId'],
-        ringNumber: item['ringNumber'],
-        gender: item['gender'] ?? '未知',
-        notes: item['notes'],
+        roomId: item['roomId'] as int?,
+        ringNumber: item['ringNumber'] as String?,
+        gender: item['gender'] as String? ?? '未知',
+        notes: item['notes'] as String?,
       );
       count++;
     }

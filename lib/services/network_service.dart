@@ -124,8 +124,8 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
   }
 
   Future<void> stopServer() async {
-    await _discovery.stop();
-    await state.serverService?.stop();
+    try { await _discovery.stop(); } catch (_) {}
+    try { await state.serverService?.stop(); } catch (_) {}
     state = state.copyWith(
       mode: ConnectionMode.standalone,
       serverService: null,

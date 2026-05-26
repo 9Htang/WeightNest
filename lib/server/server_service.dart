@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_router/shelf_router.dart';
 import '../database/database.dart';
 import 'routes.dart';
 
@@ -27,7 +28,8 @@ class ServerService {
     _errorMessage = null;
 
     try {
-      final router = createApiRouter(_db);
+      final apiRouter = createApiRouter(_db);
+      final router = Router()..mount('/api/', apiRouter);
 
       // 中间件：CORS + 日志
       final handler = Pipeline()
