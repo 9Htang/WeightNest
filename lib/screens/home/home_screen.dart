@@ -22,7 +22,9 @@ class HomeScreen extends ConsumerWidget {
     final tasksAsync = ref.watch(todayTasksProvider);
     final alertsAsync = ref.watch(alertCountProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
+    final myRoomsAsync = ref.watch(myRoomsProvider);
     final worker = ref.watch(workerProvider);
+    final isAdmin = worker.userId == 1; // admin is always user id 1
 
     return Scaffold(
       appBar: AppBar(
@@ -91,9 +93,10 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // ── 房间列表 ──
-            Text('房间', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(worker.isSelected && !isAdmin ? '我的房间' : '房间',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            roomsAsync.when(
+            (worker.isSelected && !isAdmin ? myRoomsAsync : roomsAsync).when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),
               data: (rooms) => rooms.isEmpty
@@ -194,9 +197,9 @@ class _StatsCard extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const WeighScreen())),
-                  icon: const Icon(Icons.monitor_weight, size: 20),
-                  label: Text('开始称重 ($pending 只)'),
+                      MaterialPageRoute(builder: (_) => const TasksScreen())),
+                  icon: const Icon(Icons.assignment_turned_in, size: 20),
+                  label: Text('查看任务 ($pending 只)'),
                 ),
               ),
           ],

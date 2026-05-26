@@ -529,28 +529,32 @@ class _ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
+    if (points.length < 1) return;
 
-    final paint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    path.moveTo(points.first.dx * size.width, points.first.dy * size.height);
-
+    // 逐段绘制，根据升降用不同颜色
     for (int i = 1; i < points.length; i++) {
       final prev = points[i - 1];
       final curr = points[i];
+
+      // values[i-1] 是旧值, values[i] 是新值
+      // 如果新值 >= 旧值 → 正常/增长 → 绿色；否则 → 下降 → 红色
+      final isUp = values[i] >= values[i - 1];
+      final segmentPaint = Paint()
+        ..color = isUp ? Colors.green : Colors.red
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      final path = Path();
       final midX = (prev.dx + curr.dx) / 2 * size.width;
+      path.moveTo(prev.dx * size.width, prev.dy * size.height);
       path.cubicTo(
         midX, prev.dy * size.height,
         midX, curr.dy * size.height,
         curr.dx * size.width, curr.dy * size.height,
       );
+      canvas.drawPath(path, segmentPaint);
     }
-
-    canvas.drawPath(path, paint);
 
     // 数据点
     final dotPaint = Paint()..color = dotColor..style = PaintingStyle.fill;

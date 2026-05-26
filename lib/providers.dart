@@ -5,8 +5,10 @@ import 'repositories/weight_repository.dart';
 import 'repositories/room_repository.dart';
 import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
+import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
 import 'services/offline_sync_queue.dart';
+import 'screens/worker/worker_screen.dart';
 
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -60,9 +62,11 @@ final overdueTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   return db.getOverdueTasks();
 });
 
-/// 首次启动预置默认品种
+/// 首次启动预置默认品种 + 管理员账号
 final initDefaultsProvider = FutureProvider<void>((ref) async {
   final db = ref.watch(databaseProvider);
+
+  // 品种
   final existing = await db.getAllSpecies();
   if (existing.isEmpty) {
     await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
@@ -70,6 +74,12 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
     await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 30, juvenileEndDays: 90);
     await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 150);
     await db.createSpecies('金刚鹦鹉', nestlingEndDays: 90, juvenileEndDays: 365);
+  }
+
+  // 默认管理员
+  final users = await db.getAllUsers();
+  if (users.isEmpty) {
+    await db.createUser('admin', '管理员', '', role: 'admin');
   }
 });
 
@@ -89,3 +99,11 @@ final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref
 
 /// 全局离线同步队列
 final offlineSyncQueue = OfflineSyncQueue();
+
+/// 当前员工的房间（多房间支持）
+final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
+  final worker = ref.watch(workerProvider);
+  final db = ref.watch(databaseProvider);
+  if (!worker.isSelected) return [];
+  return db.getByUser(worker.userId!);
+});
