@@ -2,15 +2,27 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "WeightNest (debug)",
+            "name": "🚀 Windows (debug)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart"
+        },
+        {
+            "name": "🌐 Chrome (debug)",
             "type": "dart",
             "request": "launch",
             "program": "lib/main.dart",
-            "flutterMode": "debug",
+            "deviceId": "chrome"
+        },
+        {
+            "name": "📱 Android (debug)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
             "deviceId": "android"
         },
         {
-            "name": "WeightNest (release)",
+            "name": "📱 Android (release)",
             "type": "dart",
             "request": "launch",
             "program": "lib/main.dart",
@@ -18,25 +30,16 @@
             "deviceId": "android"
         },
         {
-            "name": "WeightNest (profile)",
+            "name": "🧪 All Tests",
             "type": "dart",
             "request": "launch",
-            "program": "lib/main.dart",
-            "flutterMode": "profile"
+            "program": "test/"
         },
         {
-            "name": "Run All Tests",
+            "name": "🧪 Current Test",
             "type": "dart",
             "request": "launch",
-            "program": "test/",
-            "flutterMode": "debug"
-        },
-        {
-            "name": "Current Test File",
-            "type": "dart",
-            "request": "launch",
-            "program": "${file}",
-            "flutterMode": "debug"
+            "program": "${file}"
         }
     ]
 }

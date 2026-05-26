@@ -1,3 +1,4 @@
+﻿import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import '../database/database.dart';
 import '../repositories/species_repository.dart';
@@ -7,6 +8,22 @@ import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../repositories/task_repository.dart';
 import 'json_response.dart';
+
+/// 安全解析 URL 参数为 int
+int? _int(String? s) => s != null ? int.tryParse(s) : null;
+
+/// 全局错误处理：int.parse 崩溃 → 400
+Middleware _errorHandler() {
+  return (Handler inner) {
+    return (request) async {
+      try {
+        return await inner(request);
+      } on FormatException catch (e) {
+        return jsonError('参数格式错误: ${e.message}', statusCode: 400);
+      }
+    };
+  };
+}
 
 Router createApiRouter(AppDatabase db) {
   final router = Router();
