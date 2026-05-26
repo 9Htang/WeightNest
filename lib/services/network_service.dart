@@ -108,6 +108,13 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
     final service = ServerService(_db);
     await service.start(port: port);
     await _detectLocalIp(); // 刷新 IP
+
+    // 启动 UDP 发现响应器，让其他设备能找到本机
+    final localIp = state.localIp;
+    if (localIp != null && localIp.isNotEmpty && localIp != '0.0.0.0') {
+      await _discovery.startServer(localIp, port);
+    }
+
     state = state.copyWith(
       mode: ConnectionMode.server,
       serverService: service,

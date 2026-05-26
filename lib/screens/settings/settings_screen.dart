@@ -111,9 +111,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          if (net.mode == ConnectionMode.server)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.grey.shade500),
+                  const SizedBox(width: 6),
+                  Text(
+                    '服务器模式下不可连接其他设备',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
 
-          // ── 客户端模式 ──
+          const SizedBox(height: 4),
+
+          // ── 客户端模式（服务器运行时禁用） ──
+          if (net.mode != ConnectionMode.server)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),

@@ -13,6 +13,25 @@ class DiscoveryService {
   StreamSubscription? _subscription;
   bool _isServer = false;
 
+  /// 获取子网广播地址 (如 192.168.1.255)
+  static Future<String?> _getSubnetBroadcast() async {
+    try {
+      final interfaces = await NetworkInterface.list();
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (addr.type == InternetAddressType.IPv4 &&
+              addr.address.startsWith('192.168.')) {
+            // 从 IP 和子网掩码计算广播地址
+            final parts = addr.address.split('.');
+            // 常见家用路由器 /24 子网
+            return '${parts[0]}.${parts[1]}.${parts[2]}.255';
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// 启动服务端发现（响应客户端的扫描请求）
   Future<void> startServer(String serverIp, int serverPort) async {
     if (_socket != null) return;
@@ -76,12 +95,21 @@ class DiscoveryService {
         } catch (_) {}
       });
 
-      // 广播发现请求
+      // 广播发现请求 — 双保险：全局广播 + 子网广播
+      // 某些 Android 设备会丢掉 255.255.255.255，但接受子网广播
       client.send(
         utf8.encode('WEIGHTNEST_DISCOVER'),
         InternetAddress('255.255.255.255'),
         _discoveryPort,
       );
+      final subnetBroadcast = await _getSubnetBroadcast();
+      if (subnetBroadcast != null) {
+        client.send(
+          utf8.encode('WEIGHTNEST_DISCOVER'),
+          InternetAddress(subnetBroadcast),
+          _discoveryPort,
+        );
+      }
 
       // 等待收集响应
       Timer(timeout, () {
