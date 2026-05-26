@@ -67,6 +67,11 @@ class ExcelExportService {
       _writeRow(sheet, d + 1, row);
     }
 
+    // 设置列宽自适应：日期列 + 每只鸟一列
+    for (int c = 0; c <= birds.length; c++) {
+      sheet.setColumnAutoFit(c);
+    }
+
     // 保存文件
     final dir = await _getExportDir();
     final file = File('${dir.path}/${year}年${month}月体重记录.xlsx');
