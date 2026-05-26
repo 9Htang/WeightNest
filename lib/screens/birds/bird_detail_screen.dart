@@ -213,15 +213,47 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               decoration: const InputDecoration(labelText: '脚环号 (选填)'),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              value: _selectedSpeciesId,
-              decoration: const InputDecoration(labelText: '品种'),
-              isExpanded: true,
-              menuMaxHeight: 300,
-              items: widget.spList.map((s) => DropdownMenuItem(
-                value: s.id, child: Text(s.name),
-              )).toList(),
-              onChanged: (v) => setState(() => _selectedSpeciesId = v),
+            InkWell(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  useRootNavigator: true,
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('选择品种', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                        ...widget.spList.map((s) => ListTile(
+                          title: Text(s.name),
+                          selected: _selectedSpeciesId == s.id,
+                          onTap: () {
+                            setState(() => _selectedSpeciesId = s.id);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '品种',
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(
+                  _selectedSpeciesId != null
+                      ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name
+                      : '请选择品种',
+                  style: TextStyle(
+                    color: _selectedSpeciesId != null ? null : Colors.grey,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
