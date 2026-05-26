@@ -431,27 +431,80 @@ class _WeightChart extends StatelessWidget {
     final theme = Theme.of(context);
     // 按时间升序
     final sorted = List<Weight>.from(weights)..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-    final minW = sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 5;
-    final maxW = sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 5;
+    final minW = (sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 5);
+    final maxW = (sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 5);
     final range = maxW - minW;
     if (range <= 0) return const SizedBox();
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-        child: CustomPaint(
-          size: const Size(double.infinity, 180),
-          painter: _ChartPainter(
-            points: sorted.map((w) {
-              final x = (sorted.indexOf(w) / (sorted.length - 1));
-              final y = 1 - ((w.weightG - minW) / range);
-              return Offset(x, y);
-            }).toList(),
-            values: sorted.map((w) => w.weightG).toList(),
-            dates: sorted.map((w) =>
-                '${w.recordedAt.month}/${w.recordedAt.day}').toList(),
-            lineColor: theme.colorScheme.primary,
-            dotColor: theme.colorScheme.primary,
+        padding: const EdgeInsets.fromLTRB(8, 16, 16, 20),
+        child: SizedBox(
+          height: 200,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Y 轴标签
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${maxW.toStringAsFixed(0)}g', style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: Colors.grey)),
+                  Text('${((maxW + minW) / 2).toStringAsFixed(0)}g', style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: Colors.grey)),
+                  Text('${minW.toStringAsFixed(0)}g', style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+              const SizedBox(width: 4),
+              // 图表
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: CustomPaint(
+                        size: const Size(double.infinity, double.infinity),
+                        painter: _ChartPainter(
+                          points: sorted.map((w) {
+                            final x = sorted.length > 1
+                                ? (sorted.indexOf(w) / (sorted.length - 1))
+                                : 0.5;
+                            final y = 1 - ((w.weightG - minW) / range);
+                            return Offset(x, y);
+                          }).toList(),
+                          values: sorted.map((w) => w.weightG).toList(),
+                          dates: sorted.map((w) => '${w.recordedAt.month}/${w.recordedAt.day}').toList(),
+                          lineColor: theme.colorScheme.primary,
+                          dotColor: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // X 轴标签
+                    SizedBox(
+                      height: 16,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final labels = <Widget>[];
+                          final step = sorted.length > 5 ? (sorted.length / 4).ceil() : 1;
+                          for (int i = 0; i < sorted.length; i += step) {
+                            labels.add(
+                              SizedBox(
+                                width: constraints.maxWidth / sorted.length * (step.toDouble()),
+                                child: Text(
+                                  '${sorted[i].recordedAt.month}/${sorted[i].recordedAt.day}',
+                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }
+                          return Row(children: labels);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

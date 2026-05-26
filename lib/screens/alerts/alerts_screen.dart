@@ -14,7 +14,20 @@ class AlertsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('异常提醒')),
+      appBar: AppBar(
+        title: const Text('异常提醒'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已确认提醒（下次启动重新检测）'), behavior: SnackBarBehavior.floating),
+              );
+              ref.invalidate(alertCountProvider);
+            },
+            child: const Text('忽略全部', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<AnomalyAlert>>(
         future: service.detectAll(),
         builder: (context, snapshot) {

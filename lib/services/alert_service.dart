@@ -46,22 +46,28 @@ class AlertService {
   List<AnomalyAlert> _checkWeightDrop(BirdWithDetails bird, List<Weight> weights) {
     if (weights.length < 3) return [];
 
+    // weights 按时间降序: [最新, 中间, 最旧]
     final recent = weights.sublist(0, 3);
     var dropping = true;
     for (int i = 1; i < recent.length; i++) {
-      if (recent[i].weightG >= recent[i - 1].weightG) {
+      // recent[i-1] 是较新的, recent[i] 是较旧的
+      // 如果较新的 >= 较旧的, 体重没有下降
+      if (recent[i - 1].weightG >= recent[i].weightG) {
         dropping = false;
         break;
       }
     }
 
     if (dropping) {
-      final drop = recent.last.weightG - recent.first.weightG;
-      final pct = (drop / recent.first.weightG * 100).abs();
+      // oldest.recent 是最高值, newest.recent 是最低值
+      final oldWeight = recent.last.weightG;
+      final newWeight = recent.first.weightG;
+      final drop = oldWeight - newWeight;
+      final pct = (drop / oldWeight * 100);
       return [AnomalyAlert(
         bird: bird,
         type: '体重下降',
-        description: '连续3次下降，${recent.first.weightG}g → ${recent.last.weightG}g (${pct.toStringAsFixed(0)}%)',
+        description: '连续3次下降，${oldWeight.toStringAsFixed(1)}g → ${newWeight.toStringAsFixed(1)}g (-${pct.toStringAsFixed(0)}%)',
         severity: pct > 10 ? AlertSeverity.danger : AlertSeverity.warning,
       )];
     }
@@ -73,13 +79,15 @@ class AlertService {
     if (bird.growthStage == '成鸟') return [];
     if (weights.length < 2) return [];
 
+    // recent = [最新, 较旧]
     final recent = weights.sublist(0, 2);
-    if (recent.first.weightG <= recent.last.weightG) return [];
+    // 如果最新 > 较旧, 体重在增长, 不报警
+    if (recent.first.weightG > recent.last.weightG) return [];
 
     return [AnomalyAlert(
       bird: bird,
       type: '增长停滞',
-      description: '${bird.growthStage}体重从 ${recent.last.weightG}g 降至 ${recent.first.weightG}g',
+      description: '${bird.growthStage}体重从 ${recent.last.weightG.toStringAsFixed(1)}g 变为 ${recent.first.weightG.toStringAsFixed(1)}g，未见增长',
       severity: AlertSeverity.danger,
     )];
   }
