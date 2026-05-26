@@ -26,6 +26,7 @@ final allBirdsProvider = FutureProvider<List<BirdWithDetails>>((ref) async {
 /// 某只鹦鹉的体重列表
 final birdWeightsProvider =
     FutureProvider.family<List<Weight>, int>((ref, birdId) async {
+  ref.watch(weightSavedProvider); // 监听保存通知，自动刷新
   final db = ref.watch(databaseProvider);
   return db.getByBird(birdId);
 });
@@ -33,6 +34,7 @@ final birdWeightsProvider =
 /// 某只鹦鹉的最新体重
 final latestWeightProvider =
     FutureProvider.family<Weight?, int>((ref, birdId) async {
+  ref.watch(weightSavedProvider);
   final db = ref.watch(databaseProvider);
   return db.getLatestByBird(birdId);
 });
@@ -99,6 +101,9 @@ final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref
 
 /// 全局离线同步队列
 final offlineSyncQueue = OfflineSyncQueue();
+
+/// 体重保存通知——用于触发图表刷新
+final weightSavedProvider = StateProvider<int>((ref) => 0);
 
 /// 当前员工的房间（多房间支持）
 final myRoomsProvider = FutureProvider<List<Room>>((ref) async {

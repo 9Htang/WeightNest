@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
@@ -59,8 +60,11 @@ class WeighState {
 class WeighNotifier extends StateNotifier<WeighState> {
   final AppDatabase _db;
   int? _userId;
+  final VoidCallback? _onWeightSaved;
 
-  WeighNotifier(this._db) : super(WeighState(birds: []));
+  WeighNotifier(this._db, {VoidCallback? onWeightSaved})
+      : _onWeightSaved = onWeightSaved,
+        super(WeighState(birds: []));
 
   void setUserId(int? id) => _userId = id;
 
@@ -163,6 +167,9 @@ class WeighNotifier extends StateNotifier<WeighState> {
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedWeights[bird.bird.id] = newWeight;
 
+    // 通知外部刷新
+    _onWeightSaved?.call();
+
     // 离线同步：入队待推送
     offlineSyncQueue.addWeightUpdate(bird.bird.id, {
       'weightG': w,
@@ -196,5 +203,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
 final weighProvider =
     StateNotifierProvider<WeighNotifier, WeighState>((ref) {
   final db = ref.watch(databaseProvider);
-  return WeighNotifier(db);
+  return WeighNotifier(db, onWeightSaved: () {
+    ref.read(weightSavedProvider.notifier).state++;
+  });
 });
