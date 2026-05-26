@@ -5,6 +5,7 @@ import 'repositories/weight_repository.dart';
 import 'repositories/room_repository.dart';
 import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
+import 'services/alert_service.dart';
 
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -69,4 +70,18 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
     await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 150);
     await db.createSpecies('金刚鹦鹉', nestlingEndDays: 90, juvenileEndDays: 365);
   }
+});
+
+/// 异常提醒数量
+final alertCountProvider = FutureProvider<int>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final service = AlertService(db);
+  final alerts = await service.detectAll();
+  return alerts.length;
+});
+
+/// 某房间的鹦鹉列表
+final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref, roomId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getByRoom(roomId);
 });
