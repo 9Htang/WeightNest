@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
@@ -285,7 +286,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
                 ),
                 child: Text(
                   _selectedSpeciesId != null
-                      ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name
+                      ? (widget.spList.any((s) => s.id == _selectedSpeciesId) ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name : "??")
                       : '请选择品种',
                   style: TextStyle(
                     color: _selectedSpeciesId != null ? null : Colors.grey,
@@ -315,7 +316,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               },
               child: InputDecorator(
                 decoration: const InputDecoration(labelText: '房间', suffixIcon: Icon(Icons.arrow_drop_down)),
-                child: Text(_selectedRoomId != null ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name : '不分配', style: TextStyle(color: _selectedRoomId != null ? null : Colors.grey)),
+                child: Text(_selectedRoomId != null ? (widget.roomList.any((r) => r.id == _selectedRoomId) ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name : "??") : '不分配', style: TextStyle(color: _selectedRoomId != null ? null : Colors.grey)),
               ),
             ),
             const SizedBox(height: 12),
@@ -497,13 +498,25 @@ class _WeightChart extends StatelessWidget {
                       child: CustomPaint(
                         size: const Size(double.infinity, double.infinity),
                         painter: _ChartPainter(
-                          points: sorted.map((w) {
-                            final x = sorted.length > 1
-                                ? (sorted.indexOf(w) / (sorted.length - 1))
-                                : 0.5;
-                            final y = 1 - ((w.weightG - minW) / range);
-                            return Offset(x, y);
-                          }).toList(),
+                          points: (() {
+                            if (sorted.length == 1) {
+                              return [const Offset(0.5, 0.5)];
+                            }
+                            // 时间轴比例：用实际时间戳映射 X 位置
+                            final firstTime = sorted.first.recordedAt.millisecondsSinceEpoch.toDouble();
+                            final lastTime = sorted.last.recordedAt.millisecondsSinceEpoch.toDouble();
+                            var span = (lastTime - firstTime) / 1000 / 3600; // 小时
+                            // 上限：最小跨度 12 小时，避免挤压
+                            if (span < 12) span = 12;
+                            return sorted.map((w) {
+                              final t = w.recordedAt.millisecondsSinceEpoch.toDouble();
+                              final x = sorted.length > 1
+                                  ? (t - firstTime) / (lastTime - firstTime)
+                                  : 0.5;
+                              final y = 1 - ((w.weightG - minW) / range);
+                              return Offset(x, y);
+                            }).toList();
+                          })(),
                           values: sorted.map((w) => w.weightG).toList(),
                           dates: sorted.map((w) => '${w.recordedAt.month}/${w.recordedAt.day}').toList(),
                           lineColor: theme.colorScheme.primary,
@@ -512,27 +525,24 @@ class _WeightChart extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // X 轴标签
+                    // X 轴标签——首尾 + 中间 2 个关键日期
                     SizedBox(
-                      height: 16,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final labels = <Widget>[];
-                          final step = sorted.length > 5 ? (sorted.length / 4).ceil() : 1;
-                          for (int i = 0; i < sorted.length; i += step) {
-                            labels.add(
-                              SizedBox(
-                                width: constraints.maxWidth / sorted.length * (step.toDouble()),
-                                child: Text(
-                                  '${sorted[i].recordedAt.month}/${sorted[i].recordedAt.day}',
-                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          }
-                          return Row(children: labels);
-                        },
+                      height: 14,
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 14),
+                        painter: _DateLabelPainter(
+                          dates: sorted.map((w) => '${w.recordedAt.month}/${w.recordedAt.day}').toList(),
+                          points: (() {
+                            if (sorted.length == 1) return [const Offset(0.5, 0)];
+                            final firstTime = sorted.first.recordedAt.millisecondsSinceEpoch.toDouble();
+                            final lastTime = sorted.last.recordedAt.millisecondsSinceEpoch.toDouble();
+                            return sorted.map((w) {
+                              final t = w.recordedAt.millisecondsSinceEpoch.toDouble();
+                              final x = (t - firstTime) / (lastTime - firstTime);
+                              return Offset(x, 0);
+                            }).toList();
+                          })(),
+                        ),
                       ),
                     ),
                   ],
@@ -598,6 +608,35 @@ class _ChartPainter extends CustomPainter {
         Offset(p.dx * size.width, p.dy * size.height),
         4, dotPaint,
       );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+/// 日期标签画笔——在 X 轴关键位置画日期
+class _DateLabelPainter extends CustomPainter {
+  final List<String> dates;
+  final List<Offset> points;
+
+  _DateLabelPainter({required this.dates, required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    // 显示首尾 + 中间 2 个（均匀间隔）
+    final indices = <int>[0, points.length - 1];
+    if (points.length > 3) indices.insert(1, points.length ~/ 3);
+    if (points.length > 4) indices.insert(2, points.length * 2 ~/ 3);
+
+    final tp = TextPainter(textDirection: ui.TextDirection.ltr);
+    for (final i in indices) {
+      if (i >= points.length) continue;
+      tp.text = TextSpan(text: dates[i], style: const TextStyle(fontSize: 9, color: Colors.grey));
+      tp.layout();
+      final x = points[i].dx * size.width - tp.width / 2;
+      tp.paint(canvas, Offset(x.clamp(0, size.width - tp.width), 0));
     }
   }
 

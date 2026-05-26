@@ -181,13 +181,14 @@ class SyncService {
   }
 
   Future<bool> _checkWeightExists(int birdId, DateTime recordedAt) async {
-    final hourStart = DateTime(
-        recordedAt.year, recordedAt.month, recordedAt.day, recordedAt.hour);
+    final minuteStart = DateTime(
+        recordedAt.year, recordedAt.month, recordedAt.day,
+        recordedAt.hour, recordedAt.minute);
     final weights = await _db.getByBird(birdId);
     return weights.any((w) {
-      final wh = DateTime(w.recordedAt.year, w.recordedAt.month,
-          w.recordedAt.day, w.recordedAt.hour);
-      return wh == hourStart;
+      final wm = DateTime(w.recordedAt.year, w.recordedAt.month,
+          w.recordedAt.day, w.recordedAt.hour, w.recordedAt.minute);
+      return wm == minuteStart;
     });
   }
 

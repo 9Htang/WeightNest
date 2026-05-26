@@ -277,7 +277,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                 ),
                 child: Text(
                   _selectedSpeciesId != null
-                      ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name
+                      ? (widget.spList.any((s) => s.id == _selectedSpeciesId)
+                          ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name
+                          : '未知品种')
                       : '请选择品种',
                   style: TextStyle(
                     color: _selectedSpeciesId != null ? null : Colors.grey,
@@ -330,7 +332,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                 ),
                 child: Text(
                   _selectedRoomId != null
-                      ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name
+                      ? (widget.roomList.any((r) => r.id == _selectedRoomId)
+                          ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name
+                          : '未知房间')
                       : '不分配',
                   style: TextStyle(
                     color: _selectedRoomId != null ? null : Colors.grey,

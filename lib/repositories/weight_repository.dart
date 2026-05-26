@@ -23,15 +23,17 @@ extension WeightRepository on AppDatabase {
     bool isFasting = false,
     String? notes,
   }) async {
-    final hourStart = DateTime(
-        recordedAt.year, recordedAt.month, recordedAt.day, recordedAt.hour);
-    final hourEnd = hourStart.add(const Duration(hours: 1));
+    // 同一分钟内的记录自动覆盖
+    final minuteStart = DateTime(
+        recordedAt.year, recordedAt.month, recordedAt.day,
+        recordedAt.hour, recordedAt.minute);
+    final minuteEnd = minuteStart.add(const Duration(minutes: 1));
 
     final existing = await (select(weights)
           ..where((t) =>
               t.birdId.equals(birdId) &
-              t.recordedAt.isBiggerOrEqualValue(hourStart) &
-              t.recordedAt.isSmallerThanValue(hourEnd)))
+              t.recordedAt.isBiggerOrEqualValue(minuteStart) &
+              t.recordedAt.isSmallerThanValue(minuteEnd)))
         .getSingleOrNull();
 
     if (existing != null) {
