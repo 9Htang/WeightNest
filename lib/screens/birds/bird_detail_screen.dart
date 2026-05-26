@@ -16,7 +16,21 @@ class BirdDetailScreen extends ConsumerWidget {
     final weightsAsync = ref.watch(birdWeightsProvider(bird.bird.id));
 
     return Scaffold(
-      appBar: AppBar(title: Text(bird.bird.name)),
+      appBar: AppBar(
+        title: Text(bird.bird.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: '编辑',
+            onPressed: () => _showEditDialog(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '删除',
+            onPressed: () => _confirmDelete(context, ref),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -106,6 +120,177 @@ class BirdDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    final spList = ref.read(allSpeciesProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList),
+    ).then((_) => ref.invalidate(allBirdsProvider));
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除「${bird.bird.name}」吗？\n此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await ref.read(databaseProvider).removeBird(bird.bird.id);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              }
+              ref.invalidate(allBirdsProvider);
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditBirdDialog extends StatefulWidget {
+  final BirdWithDetails bird;
+  final List<Specy> spList;
+
+  const _EditBirdDialog({required this.bird, required this.spList});
+
+  @override
+  State<_EditBirdDialog> createState() => _EditBirdDialogState();
+}
+
+class _EditBirdDialogState extends State<_EditBirdDialog> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _ringCtrl;
+  late int? _selectedSpeciesId;
+  late String _gender;
+  late DateTime _birthDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.bird.bird.name);
+    _ringCtrl = TextEditingController(text: widget.bird.bird.ringNumber ?? '');
+    _selectedSpeciesId = widget.bird.bird.speciesId;
+    _gender = widget.bird.bird.gender;
+    _birthDate = widget.bird.bird.birthDate;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _ringCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('编辑鹦鹉'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: '名称'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _ringCtrl,
+              decoration: const InputDecoration(labelText: '脚环号 (选填)'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              value: _selectedSpeciesId,
+              decoration: const InputDecoration(labelText: '品种'),
+              isExpanded: true,
+              menuMaxHeight: 300,
+              items: widget.spList.map((s) => DropdownMenuItem(
+                value: s.id, child: Text(s.name),
+              )).toList(),
+              onChanged: (v) => setState(() => _selectedSpeciesId = v),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: ['公', '母', '未知'].map((g) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
+                  child: ChoiceChip(
+                    label: Text(g),
+                    selected: _gender == g,
+                    onSelected: (v) => setState(() => _gender = g),
+                  ),
+                ),
+              )).toList(),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _birthDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (d != null && mounted) setState(() => _birthDate = d);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: '出生日期'),
+                child: Text(
+                  '${_birthDate.year}-${_birthDate.month.toString().padLeft(2, '0')}-${_birthDate.day.toString().padLeft(2, '0')}',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final name = _nameCtrl.text.trim();
+            if (name.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请输入名称'), behavior: SnackBarBehavior.floating),
+              );
+              return;
+            }
+            if (_selectedSpeciesId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请选择品种'), behavior: SnackBarBehavior.floating),
+              );
+              return;
+            }
+            final db = ProviderScope.containerOf(context).read(databaseProvider);
+            await db.updateBird(
+              widget.bird.bird.id,
+              name: name,
+              speciesId: _selectedSpeciesId,
+              birthDate: _birthDate,
+              ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
+              gender: _gender,
+            );
+            if (mounted) Navigator.pop(context);
+          },
+          child: const Text('保存'),
+        ),
+      ],
     );
   }
 }

@@ -47,6 +47,7 @@ extension BirdRepository on AppDatabase {
   Future<Bird> updateBird(int id, {
     String? name, int? speciesId, int? roomId, DateTime? birthDate,
     String? gender, int? sortOrder, String? status, String? notes,
+    String? ringNumber,
   }) async {
     final list = await (update(birds)..where((t) => t.id.equals(id)))
         .writeReturning(BirdsCompanion(
@@ -58,6 +59,7 @@ extension BirdRepository on AppDatabase {
       sortOrder: sortOrder != null ? Value(sortOrder) : const Value.absent(),
       status: status != null ? Value(status) : const Value.absent(),
       notes: notes != null ? Value(notes) : const Value.absent(),
+      ringNumber: ringNumber != null ? Value(ringNumber) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;
