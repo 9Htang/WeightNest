@@ -4,6 +4,7 @@ import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_screen.dart';
+import '../../../widgets/server_status_bar.dart';
 
 /// 鹦鹉列表页 — 按房间分组、支持拖动排序
 class BirdsScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,10 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
             onPressed: () => _showRoomFilter(context),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddBirdDialog(context),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -75,6 +80,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
           ),
         ],
       ),
+      persistentFooterButtons: const [ServerStatusBar()],
     );
   }
 
@@ -163,6 +169,110 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
         ),
       );
     });
+  }
+
+  void _showAddBirdDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final ringCtrl = TextEditingController();
+    int? selectedSpeciesId;
+    String gender = '未知';
+    DateTime birthDate = DateTime.now();
+
+    final speciesAsync = ref.read(allSpeciesProvider);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => speciesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('加载失败')),
+        data: (spList) => StatefulBuilder(
+          builder: (ctx, setInner) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              left: 16, right: 16, top: 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('新增鹦鹉', style: Theme.of(ctx).textTheme.titleLarge),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: '名称', hintText: '例如: 小绿'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ringCtrl,
+                  decoration: const InputDecoration(labelText: '脚环号 (选填)'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(labelText: '品种'),
+                  items: spList.map((s) => DropdownMenuItem(
+                    value: s.id, child: Text(s.name),
+                  )).toList(),
+                  onChanged: (v) => selectedSpeciesId = v,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: ['公', '母', '未知'].map((g) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
+                      child: ChoiceChip(
+                        label: Text(g),
+                        selected: gender == g,
+                        onSelected: (v) => setInner(() => gender = g),
+                      ),
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final d = await showDatePicker(
+                      context: ctx,
+                      initialDate: birthDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (d != null && ctx.mounted) setInner(() => birthDate = d);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: '出生日期'),
+                    child: Text(
+                      '${birthDate.year}-${birthDate.month.toString().padLeft(2, '0')}-${birthDate.day.toString().padLeft(2, '0')}',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () async {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    if (selectedSpeciesId == null) return;
+                    final db = ref.read(databaseProvider);
+                    await db.createBird(
+                      name: name,
+                      speciesId: selectedSpeciesId!,
+                      birthDate: birthDate,
+                      ringNumber: ringCtrl.text.trim().isEmpty ? null : ringCtrl.text.trim(),
+                      gender: gender,
+                    );
+                    ref.invalidate(allBirdsProvider);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('创建'),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

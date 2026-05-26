@@ -5,6 +5,7 @@ import '../birds/birds_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../alerts/alerts_screen.dart';
 import '../settings/settings_screen.dart';
+import '../../../widgets/server_status_bar.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -99,6 +100,7 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+      persistentFooterButtons: const [ServerStatusBar()],
     );
   }
 }
