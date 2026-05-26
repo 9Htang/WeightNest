@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
+import '../birds/birds_screen.dart';
 
 /// 房间管理页面
 class RoomsScreen extends ConsumerStatefulWidget {
@@ -49,6 +50,11 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.meeting_room),
                       title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('点击查看鹦鹉'),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
+                      ),
                       trailing: PopupMenuButton(
                         itemBuilder: (_) => [
                           const PopupMenuItem(value: 'edit', child: Text('编辑')),

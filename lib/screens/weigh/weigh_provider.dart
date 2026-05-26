@@ -71,15 +71,23 @@ class WeighNotifier extends StateNotifier<WeighState> {
     }
     final weights = await _db.getLatestByBirds(
         birds.map((b) => b.bird.id).toList());
-    state = state.copyWith(birds: birds, latestWeights: weights);
+    // 自动填入第一只鸟的上次体重
+    final firstWeight = birds.isNotEmpty ? weights[birds.first.bird.id] : null;
+    state = state.copyWith(
+      birds: birds,
+      latestWeights: weights,
+      weightText: firstWeight != null ? firstWeight.weightG.toStringAsFixed(1) : '',
+    );
   }
 
   /// 跳转到指定鸟
   void goToBird(int index) {
     if (index < 0 || index >= state.birds.length) return;
+    final bird = state.birds[index];
+    final lastW = state.latestWeights[bird.bird.id];
     state = state.copyWith(
       currentIndex: index,
-      weightText: '',
+      weightText: lastW != null ? lastW.weightG.toStringAsFixed(1) : '',
       isFasting: false,
       message: null,
     );
@@ -146,11 +154,17 @@ class WeighNotifier extends StateNotifier<WeighState> {
       isFasting: state.isFasting,
     );
 
+    // 更新最新体重缓存
+    final newWeight = await _db.getLatestByBird(bird.bird.id);
+    final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
+    updatedWeights[bird.bird.id] = newWeight;
+
     final todayTasks = await _db.getTodayTasks(null);
     final done = todayTasks.where((t) => t.task.status == '已完成').length;
 
     state = state.copyWith(
       isSaving: false,
+      latestWeights: updatedWeights,
       todayCompleted: done,
     );
 
