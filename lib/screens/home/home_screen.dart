@@ -9,6 +9,7 @@ import '../alerts/alerts_screen.dart';
 import '../species/species_screen.dart';
 import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
+import '../worker/worker_screen.dart';
 import '../../../widgets/server_status_bar.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -21,10 +22,35 @@ class HomeScreen extends ConsumerWidget {
     final tasksAsync = ref.watch(todayTasksProvider);
     final alertsAsync = ref.watch(alertCountProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
+    final worker = ref.watch(workerProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('WeightNest'),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const WorkerSelectScreen())),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: worker.isSelected
+                      ? theme.colorScheme.primary
+                      : Colors.grey,
+                  child: Text(
+                    worker.isSelected ? worker.displayName[0].toUpperCase() : '?',
+                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

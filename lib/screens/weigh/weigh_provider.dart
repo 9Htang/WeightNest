@@ -58,8 +58,11 @@ class WeighState {
 /// 称重流程控制器
 class WeighNotifier extends StateNotifier<WeighState> {
   final AppDatabase _db;
+  int? _userId;
 
   WeighNotifier(this._db) : super(WeighState(birds: []));
+
+  void setUserId(int? id) => _userId = id;
 
   /// 加载鹦鹉列表（按房间或全部）
   Future<void> loadBirds({int? roomId}) async {
@@ -151,6 +154,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
       birdId: bird.bird.id,
       weightG: w,
       recordedAt: DateTime.now(),
+      recordedBy: _userId,
       isFasting: state.isFasting,
     );
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../repositories/bird_repository.dart';
+import '../worker/worker_screen.dart';
 import 'weigh_provider.dart';
 
 class WeighScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
+      final workerId = ref.read(workerProvider).userId;
+      ref.read(weighProvider.notifier).setUserId(workerId);
       ref.read(weighProvider.notifier).loadBirds(roomId: widget.roomId);
     });
   }
