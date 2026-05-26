@@ -100,7 +100,10 @@ class ExcelExportService {
       } else {
         cell.value = TextCellValue(v?.toString() ?? '');
       }
-      if (bold) cell.cellStyle = CellStyle(bold: true);
+      cell.cellStyle = CellStyle(
+        bold: bold,
+        textWrapping: TextWrapping.WrapText,
+      );
     }
   }
 }
