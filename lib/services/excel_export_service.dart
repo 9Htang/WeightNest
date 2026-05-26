@@ -10,7 +10,7 @@ class ExcelExportService {
   final AppDatabase _db;
   ExcelExportService(this._db);
 
-  /// 按月导出体重宽表
+  /// 按月导出体重宽表（纵轴：日期，横轴：鹦鹉 → 手机友好）
   Future<File?> exportMonthly(int year, int month) async {
     final excel = Excel.createExcel();
     // excel 4.0.6 的 delete() 在只剩 1 个 sheet 时无效
@@ -19,55 +19,48 @@ class ExcelExportService {
     excel.rename(defaultSheetName, '体重记录');
     final sheet = excel['体重记录'];
 
-    // 计算当月天数
     final daysInMonth = DateTime(year, month + 1, 0).day;
-
-    // 表头：脚环号 | 品种 | 1 | 2 | ... | 28/29/30/31
-    final headers = <String>['脚环号', '品种'];
-    for (int d = 1; d <= daysInMonth; d++) headers.add('$d日');
-    _writeRow(sheet, 0, headers, bold: true);
-
-    // 获取所有鹦鹉
-    final birds = await _db.getAllWithDetails();
     final now = DateTime.now();
     final isCurrentMonth = (year == now.year && month == now.month);
 
+    // 获取所有鹦鹉
+    final birds = await _db.getAllWithDetails();
+
+    // 先收集所有数据：birdIndex → day → value
+    final monthStart = DateTime(year, month, 1);
+    final monthEnd = DateTime(year, month + 1, 0, 23, 59, 59);
+    final data = <int, Map<int, String>>{}; // birdIndex → day → value
     for (int i = 0; i < birds.length; i++) {
-      final b = birds[i];
-      final row = <dynamic>[b.bird.ringNumber ?? '', b.species.name];
-
-      // 获取该鸟当月的所有体重记录（时间升序）
-      final monthStart = DateTime(year, month, 1);
-      final monthEnd = DateTime(year, month + 1, 0, 23, 59, 59);
-      final allWeights = await _db.getByBirdInRange(
-        b.bird.id,
-        from: monthStart,
-        to: monthEnd,
-      );
-
-      // 按天分组（记录已按时间升序排列）
-      final dayMap = <int, List<String>>{};
-      for (final w in allWeights) {
-        final day = w.recordedAt.day;
+      data[i] = {};
+      final weights = await _db.getByBirdInRange(birds[i].bird.id, from: monthStart, to: monthEnd);
+      for (final w in weights) {
         final timeStr = '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')} ${w.weightG.toStringAsFixed(1)}g';
-        dayMap.putIfAbsent(day, () => []).add(timeStr);
+        final existing = data[i]![w.recordedAt.day];
+        data[i]![w.recordedAt.day] = existing != null ? '$existing\n$timeStr' : timeStr;
       }
+    }
 
-      // 填每天的数据（按时间升序）
-      for (int d = 1; d <= daysInMonth; d++) {
+    // ── 表头：日期 | 鸟1(品种) | 鸟2(品种) | ... ──
+    final headers = <String>['日期'];
+    for (final b in birds) {
+      final label = b.bird.ringNumber?.isNotEmpty == true
+          ? '${b.bird.ringNumber}(${b.species.name})'
+          : '${b.bird.name}(${b.species.name})';
+      headers.add(label);
+    }
+    _writeRow(sheet, 0, headers, bold: true);
+
+    // ── 每天一行 ──
+    for (int d = 1; d <= daysInMonth; d++) {
+      final row = <dynamic>['$d日'];
+      for (int i = 0; i < birds.length; i++) {
         if (isCurrentMonth && d > now.day) {
           row.add('\\');
         } else {
-          final records = dayMap[d] ?? [];
-          if (records.isEmpty) {
-            row.add('');
-          } else {
-            // 按时间排序已在数据库查询中完成
-            row.add(records.join('\n'));
-          }
+          row.add(data[i]?[d] ?? '');
         }
       }
-      _writeRow(sheet, i + 1, row);
+      _writeRow(sheet, d, row);
     }
 
     // 保存文件
