@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../weigh/weigh_screen.dart';
+import '../birds/birds_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -62,7 +63,8 @@ class HomeScreen extends ConsumerWidget {
                   _NavChip(
                     icon: Icons.list_alt,
                     label: '鹦鹉列表',
-                    onTap: () {},
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const BirdsScreen())),
                   ),
                   _NavChip(
                     icon: Icons.meeting_room,
