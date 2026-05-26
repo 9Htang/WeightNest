@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
@@ -90,7 +90,7 @@ class BirdDetailScreen extends ConsumerWidget {
             Text('体重趋势', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             SizedBox(
-              height: 220,
+              height: 260,
               child: weightsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('加载失败')),
@@ -154,11 +154,12 @@ class BirdDetailScreen extends ConsumerWidget {
     );
     try {
       final spList = await ref.read(allSpeciesProvider.future);
+      final roomList = await ref.read(allRoomsProvider.future);
       if (!context.mounted) return;
       Navigator.pop(context);
       showDialog(
         context: context,
-        builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList),
+        builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList, roomList: roomList),
       ).then((_) => ref.invalidate(allBirdsProvider));
     } catch (_) {
       if (context.mounted) Navigator.pop(context);
@@ -197,8 +198,9 @@ class BirdDetailScreen extends ConsumerWidget {
 class _EditBirdDialog extends StatefulWidget {
   final BirdWithDetails bird;
   final List<Specy> spList;
+  final List<Room> roomList;
 
-  const _EditBirdDialog({required this.bird, required this.spList});
+  const _EditBirdDialog({required this.bird, required this.spList, required this.roomList});
 
   @override
   State<_EditBirdDialog> createState() => _EditBirdDialogState();
@@ -208,6 +210,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _ringCtrl;
   late int? _selectedSpeciesId;
+  late int? _selectedRoomId;
   late String _gender;
   late DateTime _birthDate;
 
@@ -217,6 +220,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
     _nameCtrl = TextEditingController(text: widget.bird.bird.name);
     _ringCtrl = TextEditingController(text: widget.bird.bird.ringNumber ?? '');
     _selectedSpeciesId = widget.bird.bird.speciesId;
+    _selectedRoomId = widget.bird.bird.roomId;
     _gender = widget.bird.bird.gender;
     _birthDate = widget.bird.bird.birthDate;
   }
@@ -290,6 +294,32 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // 房间选择
+            InkWell(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  useRootNavigator: true,
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(padding: EdgeInsets.all(16), child: Text('房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        ListTile(title: const Text('不分配'), leading: const Icon(Icons.block), selected: _selectedRoomId == null, onTap: () { setState(() => _selectedRoomId = null); Navigator.pop(ctx); }),
+                        ...widget.roomList.map((r) => ListTile(title: Text(r.name), selected: _selectedRoomId == r.id, onTap: () { setState(() => _selectedRoomId = r.id); Navigator.pop(ctx); })),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: '房间', suffixIcon: Icon(Icons.arrow_drop_down)),
+                child: Text(_selectedRoomId != null ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name : '不分配', style: TextStyle(color: _selectedRoomId != null ? null : Colors.grey)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 性别
             Row(
               children: ['公', '母', '未知'].map((g) => Expanded(
                 child: Padding(
@@ -348,6 +378,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               widget.bird.bird.id,
               name: name,
               speciesId: _selectedSpeciesId,
+              roomId: _selectedRoomId,
               birthDate: _birthDate,
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
@@ -436,10 +467,13 @@ class _WeightChart extends StatelessWidget {
     final range = maxW - minW;
     if (range <= 0) return const SizedBox();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 16, 16, 20),
-        child: SizedBox(
+    return InteractiveViewer(
+      minScale: 1.0,
+      maxScale: 4.0,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 16, 16, 20),
+          child: SizedBox(
           height: 200,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -508,7 +542,8 @@ class _WeightChart extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

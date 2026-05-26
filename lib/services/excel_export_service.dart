@@ -18,8 +18,11 @@ class ExcelExportService {
   Future<File?> exportAll() async {
     try {
       final excel = Excel.createExcel();
-      final sheet = excel.sheets['Sheet1'];
-      if (sheet != null) excel.delete('Sheet1');
+      // 重命名默认 sheet 为鹦鹉信息，避免删除后 encode 失败
+      final defaultSheet = excel.sheets['Sheet1'];
+      if (defaultSheet != null) {
+        excel.rename('Sheet1', '鹦鹉信息');
+      }
 
       await _exportBirds(excel);
       await _exportWeights(excel);

@@ -4,6 +4,7 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
 import '../birds/birds_screen.dart';
+import '../worker/worker_screen.dart';
 
 /// 房间管理页面
 class RoomsScreen extends ConsumerStatefulWidget {
@@ -75,32 +76,59 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
 
   void _showEditDialog(BuildContext context, Room? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final usersAsync = ref.read(allUsersProvider);
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing != null ? '编辑房间' : '新增房间'),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: '房间名称'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(onPressed: () async {
-            final name = nameCtrl.text.trim();
-            if (name.isEmpty) return;
-            final db = ref.read(databaseProvider);
-            if (existing != null) {
-              await db.updateRoom(existing.id, name: name);
-            } else {
-              await db.createRoom(name);
-            }
-            ref.invalidate(allRoomsProvider);
-            if (ctx.mounted) Navigator.pop(ctx);
-          }, child: const Text('保存')),
-        ],
-      ),
+      builder: (ctx) {
+        int? assignedId = existing?.assignedUserId;
+        return AlertDialog(
+          title: Text(existing != null ? '编辑房间' : '新增房间'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: '房间名称'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                usersAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (users) => DropdownButtonFormField<int?>(
+                    value: assignedId,
+                    decoration: const InputDecoration(labelText: '负责人'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('未分配')),
+                      ...users.map((u) => DropdownMenuItem(
+                        value: u.id, child: Text(u.displayName),
+                      )),
+                    ],
+                    onChanged: (v) => assignedId = v,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            FilledButton(onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              final db = ref.read(databaseProvider);
+              if (existing != null) {
+                await db.updateRoom(existing.id, name: name, assignedUserId: assignedId);
+              } else {
+                await db.createRoom(name, assignedUserId: assignedId);
+              }
+              ref.invalidate(allRoomsProvider);
+              if (ctx.mounted) Navigator.pop(ctx);
+            }, child: const Text('保存')),
+          ],
+        );
+      },
     );
   }
 

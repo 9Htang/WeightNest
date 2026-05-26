@@ -6,8 +6,9 @@ import 'weigh_provider.dart';
 
 class WeighScreen extends ConsumerStatefulWidget {
   final int? roomId;
+  final int? birdId;
 
-  const WeighScreen({super.key, this.roomId});
+  const WeighScreen({super.key, this.roomId, this.birdId});
 
   @override
   ConsumerState<WeighScreen> createState() => _WeighScreenState();
@@ -17,10 +18,17 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    Future.microtask(() async {
       final workerId = ref.read(workerProvider).userId;
-      ref.read(weighProvider.notifier).setUserId(workerId);
-      ref.read(weighProvider.notifier).loadBirds(roomId: widget.roomId);
+      final notifier = ref.read(weighProvider.notifier);
+      notifier.setUserId(workerId);
+      await notifier.loadBirds(roomId: widget.roomId);
+      // 如果指定了鸟，跳到那只鸟
+      if (widget.birdId != null) {
+        final state = ref.read(weighProvider);
+        final idx = state.birds.indexWhere((b) => b.bird.id == widget.birdId);
+        if (idx >= 0) notifier.goToBird(idx);
+      }
     });
   }
 

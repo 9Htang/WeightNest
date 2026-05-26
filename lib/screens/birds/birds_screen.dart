@@ -125,16 +125,16 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
             context,
             MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: b)),
           ),
-          onWeigh: () => _startWeighing(b.bird.roomId),
+          onWeigh: () => _startWeighing(b.bird.roomId, b.bird.id),
         );
       },
     );
   }
 
-  void _startWeighing(int? roomId) {
+  void _startWeighing(int? roomId, int birdId) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WeighScreen(roomId: roomId)),
+      MaterialPageRoute(builder: (_) => WeighScreen(roomId: roomId, birdId: birdId)),
     );
   }
 
