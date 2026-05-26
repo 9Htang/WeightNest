@@ -147,7 +147,16 @@ class ExcelExportService {
   void _writeRow(Sheet sheet, int row, List<dynamic> values, {bool bold = false}) {
     for (int col = 0; col < values.length; col++) {
       final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      cell.value = values[col] ?? '';
+      final v = values[col];
+      if (v is int) {
+        cell.value = IntCellValue(v);
+      } else if (v is double) {
+        cell.value = DoubleCellValue(v);
+      } else if (v is bool) {
+        cell.value = BoolCellValue(v);
+      } else {
+        cell.value = TextCellValue(v?.toString() ?? '');
+      }
       if (bold) {
         cell.cellStyle = CellStyle(bold: true);
       }
