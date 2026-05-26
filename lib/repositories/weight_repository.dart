@@ -8,6 +8,20 @@ extension WeightRepository on AppDatabase {
             ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]))
           .get();
 
+  /// 按日期范围获取某鸟的体重记录（时间升序）
+  Future<List<Weight>> getByBirdInRange(
+    int birdId, {
+    required DateTime from,
+    required DateTime to,
+  }) =>
+      (select(weights)
+            ..where((t) =>
+                t.birdId.equals(birdId) &
+                t.recordedAt.isBiggerOrEqualValue(from) &
+                t.recordedAt.isSmallerOrEqualValue(to))
+            ..orderBy([(t) => OrderingTerm.asc(t.recordedAt)]))
+          .get();
+
   Future<List<Weight>> getRecentByBird(int birdId, {int limit = 10}) =>
       (select(weights)
             ..where((t) => t.birdId.equals(birdId))

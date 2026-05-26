@@ -20,6 +20,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _exportPath;
   bool _isScanning = false;
   List<DiscoveredServer> _discoveredServers = [];
+  int? _selectedYear;
+  int? _selectedMonth;
+  String? _exportLabel;
 
   @override
   void dispose() {
@@ -240,15 +243,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text('导出全部数据为 Excel 文件', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Text('按月份导出所有鹦鹉体重记录为 Excel', style: TextStyle(color: Colors.grey, fontSize: 13)),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => _exportData(),
-                      icon: const Icon(Icons.download),
-                      label: const Text('导出 Excel'),
-                    ),
+                  // 年月选择
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _pickMonth(),
+                          child: Text(_exportLabel ?? '选择月份'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton.tonalIcon(
+                        onPressed: (_selectedYear != null && _selectedMonth != null)
+                            ? () => _exportData()
+                            : null,
+                        icon: const Icon(Icons.download),
+                        label: const Text('导出 Excel'),
+                      ),
+                    ],
                   ),
                   if (_exportPath != null && _exportPath != '正在导出...' && !_exportPath!.startsWith('导出失败')) ...[
                     const SizedBox(height: 8),
@@ -331,12 +345,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _pickMonth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(_selectedYear ?? now.year, _selectedMonth ?? now.month),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year, now.month),
+      helpText: '选择导出月份',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedYear = picked.year;
+        _selectedMonth = picked.month;
+        _exportLabel = '${picked.year}年${picked.month}月';
+        _exportPath = null;
+      });
+    }
+  }
+
   Future<void> _exportData() async {
+    if (_selectedYear == null || _selectedMonth == null) return;
     setState(() => _exportPath = '正在导出...');
     try {
       final db = ref.read(databaseProvider);
       final service = ExcelExportService(db);
-      final file = await service.exportAll();
+      final file = await service.exportMonthly(_selectedYear!, _selectedMonth!);
       if (file != null) {
         setState(() => _exportPath = file.path);
       } else {
