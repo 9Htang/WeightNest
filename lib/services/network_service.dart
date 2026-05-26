@@ -54,24 +54,48 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
   Future<void> _detectLocalIp() async {
     try {
       final interfaces = await NetworkInterface.list();
-      // 优先找 WiFi 接口（Android: wlan0，其他: en0/en1/wlp*）
-      for (final wifiName in ['wlan0', 'en0', 'wlp', 'eth0']) {
+      // 优先找物理局域网接口（排除 VPN 虚拟适配器）
+      for (final wifiName in ['wlan', 'en0', 'eth', 'Wi-Fi', '以太网']) {
         for (final interface in interfaces) {
-          if (interface.name.toLowerCase().contains(wifiName)) {
-            for (final addr in interface.addresses) {
-              if (addr.type == InternetAddressType.IPv4) {
-                state = state.copyWith(localIp: addr.address);
-                return;
+          final name = interface.name.toLowerCase();
+          // 跳过 VPN 接口
+          if (name.contains('vpn') || name.contains('tun') ||
+              name.contains('utun') || name.contains('tap') ||
+              name.contains('ppp') || name.contains('pppoe')) continue;
+          if (!name.contains(wifiName.toLowerCase())) continue;
+          for (final addr in interface.addresses) {
+            if (addr.type == InternetAddressType.IPv4) {
+              final ip = addr.address;
+              // 优先 192.168.x.x（局域网段）
+              if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+                if (!ip.startsWith('169.254')) {
+                  state = state.copyWith(localIp: ip);
+                  return;
+                }
               }
             }
           }
         }
       }
-      // 回退：找第一个非 loopback IPv4
+      // 回退：找第一个非 loopback 的 192.168 地址
+      for (final interface in interfaces) {
+        final name = interface.name.toLowerCase();
+        if (name.contains('vpn') || name.contains('tun') || name.contains('utun')) continue;
+        for (final addr in interface.addresses) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback &&
+              addr.address.startsWith('192.168.')) {
+            state = state.copyWith(localIp: addr.address);
+            return;
+          }
+        }
+      }
+      // 最后兜底：任意非 loopback IPv4，但也排除 169.254（自动配置）
       for (final interface in interfaces) {
         for (final addr in interface.addresses) {
           if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback &&
-              !addr.address.startsWith('169.254')) {
+              !addr.address.startsWith('169.254') &&
+              !addr.address.startsWith('127.') &&
+              !addr.address.startsWith('0.')) {
             state = state.copyWith(localIp: addr.address);
             return;
           }

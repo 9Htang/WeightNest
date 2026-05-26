@@ -58,21 +58,25 @@ class ServerService {
   Future<String> _getLocalIp() async {
     try {
       final interfaces = await NetworkInterface.list();
-      for (final wifiName in ['wlan0', 'en0', 'wlp', 'eth0']) {
+      // 优先物理接口，排除 VPN
+      for (final name in ['wlan', 'en0', 'eth', 'Wi-Fi', '以太网']) {
         for (final interface in interfaces) {
-          if (interface.name.toLowerCase().contains(wifiName)) {
-            for (final addr in interface.addresses) {
-              if (addr.type == InternetAddressType.IPv4) {
-                return addr.address;
-              }
+          final n = interface.name.toLowerCase();
+          if (n.contains('vpn') || n.contains('tun') || n.contains('utun') || n.contains('tap')) continue;
+          if (!n.contains(name.toLowerCase())) continue;
+          for (final addr in interface.addresses) {
+            if (addr.type == InternetAddressType.IPv4 &&
+                addr.address.startsWith('192.168.')) {
+              return addr.address;
             }
           }
         }
       }
+      // 回退
       for (final interface in interfaces) {
         for (final addr in interface.addresses) {
           if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback &&
-              !addr.address.startsWith('169.254')) {
+              addr.address.startsWith('192.168.')) {
             return addr.address;
           }
         }
