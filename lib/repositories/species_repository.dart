@@ -1,14 +1,14 @@
-import 'package:drift/drift.dart';
+﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
 
 extension SpeciesRepository on AppDatabase {
-  Future<List<Specy>> getAll() =>
+  Future<List<Specy>> getAllSpecies() =>
       (select(species)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
 
-  Future<Specy?> getById(int id) =>
+  Future<Specy?> getSpeciesById(int id) =>
       (select(species)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<Specy> create(String name,
+  Future<Specy> createSpecies(String name,
       {int nestlingEndDays = 45,
       int juvenileEndDays = 120,
       int adultWeighIntervalDays = 7}) async {
@@ -19,10 +19,10 @@ extension SpeciesRepository on AppDatabase {
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-    return (await getById(rows.first.read<int>('id')))!;
+    return (await getSpeciesById(rows.first.read<int>('id')))!;
   }
 
-  Future<Specy> updateFields(int id,
+  Future<Specy> updateSpecies(int id,
       {String? name,
       int? nestlingEndDays,
       int? juvenileEndDays,
@@ -43,6 +43,6 @@ extension SpeciesRepository on AppDatabase {
     return list.first;
   }
 
-  Future<void> remove(int id) =>
+  Future<void> removeSpecies(int id) =>
       (delete(species)..where((t) => t.id.equals(id))).go();
 }

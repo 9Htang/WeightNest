@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
 
 extension BirdRepository on AppDatabase {
@@ -14,10 +14,10 @@ extension BirdRepository on AppDatabase {
         )).toList();
   }
 
-  Future<Bird?> getById(int id) =>
+  Future<Bird?> getBirdById(int id) =>
       (select(birds)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<Bird> create({
+  Future<Bird> createBird({
     required String name,
     required int speciesId,
     required DateTime birthDate,
@@ -41,10 +41,10 @@ extension BirdRepository on AppDatabase {
       sortOrder: Value((maxRow ?? 0) + 1),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-    return (await getById(rows.first.read<int>('id')))!;
+    return (await getBirdById(rows.first.read<int>('id')))!;
   }
 
-  Future<Bird> updateFields(int id, {
+  Future<Bird> updateBird(int id, {
     String? name, int? speciesId, int? roomId, DateTime? birthDate,
     String? gender, int? sortOrder, String? status, String? notes,
   }) async {
@@ -73,7 +73,7 @@ extension BirdRepository on AppDatabase {
         }
       });
 
-  Future<void> remove(int id) =>
+  Future<void> removeBird(int id) =>
       (delete(birds)..where((t) => t.id.equals(id))).go();
 
   Future<List<BirdWithDetails>> getByRoom(int roomId) async {

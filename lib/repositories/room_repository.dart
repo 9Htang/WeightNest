@@ -1,14 +1,14 @@
-import 'package:drift/drift.dart';
+﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
 
 extension RoomRepository on AppDatabase {
-  Future<List<Room>> getAll() =>
+  Future<List<Room>> getAllRooms() =>
       (select(rooms)..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])).get();
 
-  Future<Room?> getById(int id) =>
+  Future<Room?> getRoomById(int id) =>
       (select(rooms)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<Room> create(String name, {int? assignedUserId}) async {
+  Future<Room> createRoom(String name, {int? assignedUserId}) async {
     final maxRow = await (selectOnly(rooms)
           ..addColumns([rooms.sortOrder.max()]))
         .map((row) => row.read(rooms.sortOrder.max()))
@@ -19,10 +19,10 @@ extension RoomRepository on AppDatabase {
       assignedUserId: assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-    return (await getById(rows.first.read<int>('id')))!;
+    return (await getRoomById(rows.first.read<int>('id')))!;
   }
 
-  Future<Room> updateFields(int id,
+  Future<Room> updateRoom(int id,
       {String? name, int? sortOrder, int? assignedUserId}) async {
     final list = await (update(rooms)..where((t) => t.id.equals(id)))
         .writeReturning(RoomsCompanion(
@@ -33,7 +33,7 @@ extension RoomRepository on AppDatabase {
     return list.first;
   }
 
-  Future<void> remove(int id) =>
+  Future<void> removeRoom(int id) =>
       (delete(rooms)..where((t) => t.id.equals(id))).go();
 
   Future<List<Room>> getByUser(int userId) =>

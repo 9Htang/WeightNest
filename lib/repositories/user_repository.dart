@@ -1,16 +1,16 @@
-import 'package:drift/drift.dart';
+﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
 
 extension UserRepository on AppDatabase {
-  Future<List<User>> getAll() => select(users).get();
+  Future<List<User>> getAllUsers() => select(users).get();
 
-  Future<User?> getById(int id) =>
+  Future<User?> getUserById(int id) =>
       (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
 
   Future<User?> getByUsername(String username) =>
       (select(users)..where((t) => t.username.equals(username))).getSingleOrNull();
 
-  Future<User> create(String username, String displayName, String passwordHash,
+  Future<User> createUser(String username, String displayName, String passwordHash,
       {String role = 'keeper'}) async {
     await into(users).insert(UsersCompanion.insert(
       username: username,
@@ -19,10 +19,10 @@ extension UserRepository on AppDatabase {
       role: Value(role),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-    return (await getById(rows.first.read<int>('id')))!;
+    return (await getUserById(rows.first.read<int>('id')))!;
   }
 
-  Future<User> updateFields(int id, {String? displayName, String? role}) async {
+  Future<User> updateUser(int id, {String? displayName, String? role}) async {
     final list = await (update(users)..where((t) => t.id.equals(id)))
         .writeReturning(UsersCompanion(
       displayName: displayName != null ? Value(displayName) : const Value.absent(),
@@ -31,6 +31,6 @@ extension UserRepository on AppDatabase {
     return list.first;
   }
 
-  Future<void> remove(int id) =>
+  Future<void> removeUser(int id) =>
       (delete(users)..where((t) => t.id.equals(id))).go();
 }
