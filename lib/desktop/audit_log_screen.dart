@@ -130,10 +130,28 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     );
   }
 
+  static const _fieldLabels = {
+    'name': '名称', 'weightG': '体重(g)', 'isFasting': '空腹',
+    'gender': '性别', 'ringNumber': '脚环号', 'displayName': '显示姓名',
+    'username': '用户名', 'birdId': '鹦鹉ID', 'recordedAt': '记录时间',
+    'speciesId': '品种ID', 'roomId': '房间ID', 'birthDate': '出生日期',
+    'notes': '备注', 'status': '状态', 'role': '角色',
+    'password_hash': '密码', 'isActive': '启用', 'ageDays': '日龄',
+  };
+
+  /// 字段名汉化 + 布尔值转中文
   String _formatData(Map<String, dynamic> data) {
     final buf = StringBuffer();
     for (final entry in data.entries) {
-      buf.writeln('${entry.key}: ${entry.value}');
+      final label = _fieldLabels[entry.key] ?? entry.key;
+      final val = entry.value;
+      String display;
+      if (val is bool) {
+        display = val ? '是' : '否';
+      } else {
+        display = val.toString();
+      }
+      buf.writeln('$label: $display');
     }
     return buf.toString().trimRight();
   }
@@ -317,8 +335,15 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                                       style: TextStyle(fontSize: 12, color: _actionColor(entry.action), fontWeight: FontWeight.w600)),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(entry.entityLabel,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                Flexible(child: Text(entry.entityLabel,
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text('操作人：${entry.userName}',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF5C6BC0)),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 3),
@@ -334,7 +359,6 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(entry.userName, style: const TextStyle(fontSize: 12)),
                           Text(
                             entry.createdAt.toLocal().toString().substring(11, 19),
                             style: TextStyle(fontSize: 11, color: Colors.grey.shade500),

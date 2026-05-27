@@ -13,7 +13,7 @@
 - 扫码连接：ConnectScreen (mobile_scanner 5.2.3)
 - Excel 导出（纵轴日期、横轴鹦鹉、WrapText、非空腹标*）
 - 首页强制员工登录拦截
-- 版本: 1.7.5+22
+- 版本: 1.7.6+23
 
 ### 桌面端（新阶段 — 进行中）
 目标：Flutter Windows 管理控制台

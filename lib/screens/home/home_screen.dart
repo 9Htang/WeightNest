@@ -10,6 +10,7 @@ import '../species/species_screen.dart';
 import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
 import '../worker/worker_screen.dart';
+import '../login/login_screen.dart';
 import '../../../widgets/server_status_bar.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -24,45 +25,18 @@ class HomeScreen extends ConsumerWidget {
     final roomsAsync = ref.watch(allRoomsProvider);
     final myRoomsAsync = ref.watch(myRoomsProvider);
     final worker = ref.watch(workerProvider);
-    final isAdmin = worker.userId == 1; // admin is always user id 1
+    final isAdmin = worker.isAdmin;
 
-    // 未选择员工 → 屏蔽所有功能
+    // 未登录 → 跳转登录页面
     if (!worker.isSelected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        ).then((_) => ref.invalidate(workerProvider));
+      });
       return Scaffold(
-        appBar: AppBar(title: const Text('WeightNest'), actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
-        ]),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.person_off, size: 72, color: Colors.grey.shade400),
-                const SizedBox(height: 20),
-                Text('请先选择员工',
-                    style: theme.textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600)),
-                const SizedBox(height: 8),
-                Text('未选择员工时无法使用任何功能',
-                    style: TextStyle(color: Colors.grey.shade500)),
-                const SizedBox(height: 28),
-                FilledButton.icon(
-                  onPressed: () async {
-                    await Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const WorkerSelectScreen()));
-                    ref.invalidate(workerProvider);
-                  },
-                  icon: const Icon(Icons.person),
-                  label: const Text('选择员工'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        appBar: AppBar(title: const Text('WeightNest')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
