@@ -5,6 +5,7 @@ import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:uuid/uuid.dart';
+import 'package:qr/qr.dart';
 import 'package:postgres/postgres.dart';
 
 const _uuid = Uuid();
@@ -61,6 +62,7 @@ void main() async {
   await _initDb();
 
   final app = Router()
+    ..get('/qr', _handleQr)
     ..post('/auth/connect', _handleConnect)
     ..post('/sync', _handleSync)
     ..get('/changes', _handleChanges)
@@ -152,6 +154,46 @@ Future<void> _initDb() async {
       device_id TEXT PRIMARY KEY, connected_at TIMESTAMP DEFAULT NOW()
     )
   ''');
+}
+
+// ─── 二维码页面 ───
+
+Future<Response> _handleQr(Request req) async {
+  final ip = await _localIp();
+  final port = _serverPort();
+  final host = req.url.queryParameters['host'] ?? ip;
+  final data = jsonEncode({'host': host, 'port': port});
+
+  final qr = QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M);
+  final img = QrImage(qr);
+
+  // 手动生成 SVG
+  final buf = StringBuffer();
+  final size = img.moduleCount * 6 + 24;
+  buf.write('<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" '
+      'shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/>');
+  for (var y = 0; y < img.moduleCount; y++) {
+    for (var x = 0; x < img.moduleCount; x++) {
+      if (img.isDark(y, x)) {
+        buf.write('<rect x="${x * 6 + 12}" y="${y * 6 + 12}" width="6" height="6" fill="#1a1a2e"/>');
+      }
+    }
+  }
+  buf.write('</svg>');
+  final svg = buf.toString();
+
+  final html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>WeightNest</title>'
+      '<style>body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;'
+      'justify-content:center;min-height:100vh;margin:0;background:#f5f5f5}'
+      'h2{color:#333}.info{margin-top:12px;padding:8px 16px;background:#fff;'
+      'border-radius:8px;font-size:14px;color:#666}</style></head><body>'
+      '<h2>WeightNest</h2>'
+      '$svg'
+      '<div class="info">$host:$port</div>'
+      '<p style="color:#999;font-size:12px">用 WeightNest App 扫码连接</p>'
+      '</body></html>';
+
+  return Response.ok(html, headers: {'Content-Type': 'text/html; charset=utf-8'});
 }
 
 // ─── 认证 ───

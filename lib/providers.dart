@@ -7,6 +7,8 @@ import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
 import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
+import 'services/sync_queue_service.dart';
+import 'services/sync_engine.dart';
 import 'screens/worker/worker_screen.dart';
 
 /// 数据库单例
@@ -107,4 +109,17 @@ final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
   final db = ref.watch(databaseProvider);
   if (!worker.isSelected) return [];
   return db.getByUser(worker.userId!);
+});
+
+/// 同步队列服务
+final syncQueueProvider = Provider<SyncQueueService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SyncQueueService(db);
+});
+
+/// 同步引擎
+final syncEngineProvider = Provider<SyncEngine>((ref) {
+  final db = ref.watch(databaseProvider);
+  final queue = ref.watch(syncQueueProvider);
+  return SyncEngine(db, queue);
 });
