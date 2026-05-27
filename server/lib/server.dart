@@ -60,12 +60,14 @@ void main() async {
   );
 
   await _initDb();
+  await _runMigrations();
 
   final app = Router()
     ..get('/qr', _handleQr)
     ..post('/auth/connect', _handleConnect)
     ..post('/sync', _handleSync)
     ..get('/changes', _handleChanges)
+    ..get('/audit-log', _handleAuditLog)
     ..get('/health', (_) => Response.ok('{"status":"ok"}'));
 
   final handler = Pipeline()
@@ -154,6 +156,18 @@ Future<void> _initDb() async {
       device_id TEXT PRIMARY KEY, connected_at TIMESTAMP DEFAULT NOW()
     )
   ''');
+}
+
+// ─── 数据库迁移 ───
+
+Future<void> _runMigrations() async {
+  // 为 change_log 补充审计字段
+  try {
+    await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS user_id INT');
+    await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS action TEXT');
+  } catch (e) {
+    print('迁移警告: $e');
+  }
 }
 
 // ─── 二维码页面 ───
@@ -282,8 +296,9 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
       break;
   }
   await _db.execute(Sql.named(
-      'INSERT INTO change_log (entity_type,entity_uuid,data) VALUES (@a,@b,@c)'),
-    parameters: {'a': entityType, 'b': entityUuid, 'c': jsonEncode(payload)});
+      'INSERT INTO change_log (entity_type,entity_uuid,data,user_id,action) VALUES (@a,@b,@c,@d,@e)'),
+    parameters: {'a': entityType, 'b': entityUuid, 'c': jsonEncode(payload),
+      'd': op['userId'], 'e': action});
 }
 
 // ─── 增量拉取 ───
@@ -307,6 +322,90 @@ Future<Response> _handleChanges(Request req) async {
     });
   }
   return Response.ok(jsonEncode({'changes': changes}));
+}
+
+// ─── 审计日志 ───
+
+Future<Response> _handleAuditLog(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+
+  final q = req.url.queryParameters;
+  final userId = int.tryParse(q['userId'] ?? '');
+  final action = q['action'];
+  final entityType = q['entityType'];
+  final page = int.tryParse(q['page'] ?? '1') ?? 1;
+  final pageSize = (int.tryParse(q['pageSize'] ?? '50') ?? 50).clamp(1, 200);
+  final startDate = q['startDate'];
+  final endDate = q['endDate'];
+
+  // 构建 WHERE 条件
+  final conditions = <String>['1=1'];
+  final params = <String, dynamic>{};
+
+  if (userId != null) {
+    conditions.add('cl.user_id=@userId');
+    params['userId'] = userId;
+  }
+  if (action != null && action.isNotEmpty) {
+    conditions.add('cl.action=@action');
+    params['action'] = action;
+  }
+  if (entityType != null && entityType.isNotEmpty) {
+    conditions.add('cl.entity_type=@entityType');
+    params['entityType'] = entityType;
+  }
+  if (startDate != null && startDate.isNotEmpty) {
+    conditions.add('cl.created_at>=@startDate');
+    params['startDate'] = DateTime.parse(startDate);
+  }
+  if (endDate != null && endDate.isNotEmpty) {
+    conditions.add('cl.created_at<=@endDate');
+    params['endDate'] = DateTime.parse(endDate);
+  }
+
+  final whereClause = conditions.join(' AND ');
+  final offset = (page - 1) * pageSize;
+
+  // 查询总数
+  final countResult = await _db.execute(
+    Sql.named('SELECT COUNT(*) FROM change_log cl WHERE $whereClause'),
+    parameters: params,
+  );
+  final total = (countResult.first.first as int?) ?? 0;
+
+  // 查询日志（JOIN users 获取操作人姓名）
+  params['limit'] = pageSize;
+  params['offset'] = offset;
+  final result = await _db.execute(
+    Sql.named(
+      'SELECT cl.id, cl.entity_type, cl.entity_uuid, cl.data, cl.action, '
+      'cl.created_at, cl.user_id, COALESCE(u.display_name, \'未知\') as user_name '
+      'FROM change_log cl '
+      'LEFT JOIN users u ON cl.user_id = u.id '
+      'WHERE $whereClause '
+      'ORDER BY cl.created_at DESC '
+      'LIMIT @limit OFFSET @offset'),
+    parameters: params,
+  );
+
+  final items = result.map((row) => {
+    'id': row[0],
+    'entityType': row[1],
+    'entityUuid': row[2],
+    'data': row[3] is Map ? row[3] : jsonDecode(row[3] as String),
+    'action': row[4],
+    'createdAt': (row[5] as DateTime).toIso8601String(),
+    'userId': row[6],
+    'userName': row[7],
+  }).toList();
+
+  return Response.ok(jsonEncode({
+    'items': items,
+    'total': total,
+    'page': page,
+    'pageSize': pageSize,
+    'totalPages': (total / pageSize).ceil(),
+  }));
 }
 
 bool _checkAuth(Request req) {
