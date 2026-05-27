@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_manager.dart';
 
@@ -21,13 +21,13 @@ class StaffService {
       : _baseUrl = 'http://$serverHost:$serverPort',
         _auth = auth;
 
-  Map<String, String> get _jsonHeaders => {..._auth.headers, 'Content-Type': 'application/json'};
+  Map<String, String> get _jsonHeaders => {..._auth.authHeaders(), 'Content-Type': 'application/json'};
 
   Future<http.Response> _get(String path, {Map<String, String>? params}) async {
     var uri = Uri.parse('$_baseUrl$path');
     if (params != null && params.isNotEmpty) uri = uri.replace(queryParameters: params);
-    var res = await http.get(uri, headers: _auth.headers).timeout(const Duration(seconds: 10));
-    if (res.statusCode == 403) { await _auth.refresh(); res = await http.get(uri, headers: _auth.headers).timeout(const Duration(seconds: 10)); }
+    var res = await http.get(uri, headers: _auth.authHeaders()).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 403) { await _auth.refresh(); res = await http.get(uri, headers: _auth.authHeaders()).timeout(const Duration(seconds: 10)); }
     return res;
   }
 

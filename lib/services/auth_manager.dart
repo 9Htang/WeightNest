@@ -13,7 +13,7 @@ class AuthManager {
 
   String get token => _token;
 
-  Map<String, String> get headers => {'Authorization': '***'};
+  Map<String, String> authHeaders() => {'Authorization': '***'};
 
   /// 刷新 token（403 时调用）
   Future<bool> refresh() async {
