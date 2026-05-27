@@ -558,6 +558,16 @@ Future<Response> _handleCreateUser(Request req) async {
       'INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)');
   await _db.execute(q, parameters: {'a': uuid, 'b': username, 'c': displayName, 'd': password, 'e': role});
 
+  // 写入变更日志，手机端可通过 /changes 拉取
+  final logQ = Sql.named(
+      'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
+  await _db.execute(logQ, parameters: {
+    'a': 'user', 'b': uuid,
+    'c': jsonEncode({'username': username, 'displayName': displayName, 'passwordHash': password, 'role': role}),
+    'd': 'create_user',
+  });
+  _dataVersion++;
+
   return Response.ok(jsonEncode({'uuid': uuid}));
 }
 
@@ -597,6 +607,18 @@ Future<Response> _handleUpdateUser(Request req) async {
   updates.add('updated_at=NOW()');
   final q = Sql.named('UPDATE users SET ${updates.join(', ')} WHERE id=@id');
   await _db.execute(q, parameters: params);
+
+  // 写入变更日志
+  final userResult = await _db.execute(Sql.named('SELECT uuid FROM users WHERE id=@id'), parameters: {'id': id});
+  if (userResult.isNotEmpty) {
+    final userUuid = userResult.first[0] as String;
+    final logQ = Sql.named(
+        'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
+    await _db.execute(logQ, parameters: {
+      'a': 'user', 'b': userUuid, 'c': jsonEncode(body), 'd': 'update_user',
+    });
+    _dataVersion++;
+  }
 
   return Response.ok(jsonEncode({'ok': true}));
 }

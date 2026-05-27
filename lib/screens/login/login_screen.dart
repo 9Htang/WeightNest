@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../worker/worker_screen.dart';
+import '../connect/connect_screen.dart';
 import '../../database/database.dart';
+import '../../providers.dart';
 
 /// 手机端员工登录页面 — 管理员禁止登录，仅 keeper/viewer 可用
 class LoginScreen extends ConsumerStatefulWidget {
@@ -68,17 +70,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       error: (e, _) => Scaffold(body: Center(child: Text('加载失败: $e'))),
       data: (users) {
         if (users.isEmpty) {
+          // 检查是否已连接服务器
+          final connected = ref.watch(syncConnectedProvider);
           return Scaffold(
             body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.person_off, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('暂无可登录的饲养员账号', style: TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  const Text('请使用电脑端创建账号', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text('暂无可登录的饲养员账号', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    if (connected)
+                      const Text('请使用电脑端创建账号', style: TextStyle(fontSize: 12, color: Colors.grey))
+                    else
+                      const Text('请先连接服务器同步数据', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const ConnectScreen()));
+                        // 连接后刷新用户列表
+                        ref.invalidate(keepableViewerUsersProvider);
+                      },
+                      icon: const Icon(Icons.link),
+                      label: Text(connected ? '重新连接服务器' : '连接服务器'),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
