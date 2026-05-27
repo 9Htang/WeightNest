@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 :: WeightNest 构建启动器 — 双击运行，按选项构建
 cd /d "%~dp0"
 
