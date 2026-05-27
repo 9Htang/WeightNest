@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_manager.dart';
 import '../services/audit_log_service.dart';
 import '../services/bird_archive_service.dart';
 import '../services/staff_service.dart';
@@ -36,18 +37,18 @@ class _DesktopLayoutState extends State<DesktopLayout> {
   Future<void> _autoConnect() async {
     setState(() { _connecting = true; _connectError = null; });
 
-    final token = await AuditLogService.authenticate(
-      serverHost: _defaultHost,
-      serverPort: _defaultPort,
+    final token = await AuthManager.authenticate(
+      host: _defaultHost,
+      port: _defaultPort,
       pin: _defaultPin,
-      deviceId: 'desktop',
     );
 
     if (token != null) {
+      final auth = AuthManager(host: _defaultHost, port: _defaultPort, pin: _defaultPin, token: token);
       setState(() {
-        _logService = AuditLogService(serverHost: _defaultHost, serverPort: _defaultPort, token: token);
-        _birdService = BirdArchiveService(serverHost: _defaultHost, serverPort: _defaultPort, token: token);
-        _staffService = StaffService(serverHost: _defaultHost, serverPort: _defaultPort, token: token);
+        _logService = AuditLogService(serverHost: _defaultHost, serverPort: _defaultPort, auth: auth);
+        _birdService = BirdArchiveService(serverHost: _defaultHost, serverPort: _defaultPort, auth: auth);
+        _staffService = StaffService(serverHost: _defaultHost, serverPort: _defaultPort, auth: auth);
         _connecting = false;
       });
     } else {
