@@ -9,20 +9,51 @@ import 'package:postgres/postgres.dart';
 
 const _uuid = Uuid();
 final _validTokens = <String>{};
-String _serverPin = '1234';
+
+// ─── 配置（环境变量 > 命令行参数 > 默认值） ───
+
+int _serverPort() =>
+    int.tryParse(Platform.environment['SERVER_PORT'] ?? '') ??
+    int.tryParse(_arg(0)) ??
+    8080;
+
+String _serverPin() =>
+    Platform.environment['SERVER_PIN'] ?? _arg(1) ?? '1234';
+
+String _pgHost() =>
+    Platform.environment['PG_HOST'] ?? _arg(2) ?? 'localhost';
+
+int _pgPort() =>
+    int.tryParse(Platform.environment['PG_PORT'] ?? '') ?? 5432;
+
+String _pgDatabase() =>
+    Platform.environment['PG_DATABASE'] ?? 'weightnest';
+
+String _pgUsername() =>
+    Platform.environment['PG_USERNAME'] ?? 'postgres';
+
+String _pgPassword() =>
+    Platform.environment['PG_PASSWORD'] ?? 'postgres';
+
+String _arg(int i) => i < _rawArgs.length ? _rawArgs[i] : '';
+List<String> get _rawArgs {
+  try { return List<String>.from(Platform.executableArguments); } catch (_) {}
+  return [];
+}
+
 late final Connection _db;
 
-void main(List<String> args) async {
-  final port = int.tryParse(args.isNotEmpty ? args[0] : '8080') ?? 8080;
-  if (args.length > 1) _serverPin = args[1];
-  final pgHost = args.length > 2 ? args[2] : 'localhost';
+void main() async {
+  final port = _serverPort();
+  final pin = _serverPin();
 
   _db = await Connection.open(
     Endpoint(
-      host: pgHost,
-      database: 'weightnest',
-      username: 'postgres',
-      password: 'postgres',
+      host: _pgHost(),
+      port: _pgPort(),
+      database: _pgDatabase(),
+      username: _pgUsername(),
+      password: _pgPassword(),
     ),
     settings: ConnectionSettings(sslMode: SslMode.disable),
   );
@@ -43,15 +74,16 @@ void main(List<String> args) async {
   await io.serve(handler, '0.0.0.0', port);
   final ip = await _localIp();
   print('🦜 WeightNest 服务器已启动 → http://$ip:$port');
-  print('🔑 PIN: $_serverPin');
+  print('🔑 PIN: $pin');
+  print('🗄  PG: ${_pgHost()}:${_pgPort()}/${_pgDatabase()}');
 }
 
 Future<String> _localIp() async {
   for (final iface in await NetworkInterface.list()) {
     for (final addr in iface.addresses) {
       if (addr.type == InternetAddressType.IPv4 &&
-          (addr.address.startsWith('192.168.') || addr.address.startsWith('10.'))) {
-        return addr.address;
+          (addr.address.startsWith('192.168.') || addr.address.startsWith('10.') || addr.address.startsWith('172.'))) {
+        if (!addr.address.startsWith('172.17.')) return addr.address; // 排除 Docker 网桥
       }
     }
   }
@@ -128,10 +160,9 @@ Future<Response> _handleConnect(Request req) async {
   final body = jsonDecode(await req.readAsString());
   final pin = body['pin'] as String?;
   final deviceId = body['deviceId'] as String?;
-  if (pin != _serverPin) return Response.forbidden('{"error":"PIN 错误"}');
+  if (pin != _serverPin()) return Response.forbidden('{"error":"PIN 错误"}');
   final token = _uuid.v4();
   _validTokens.add(token);
-  print('Auth: device=$deviceId token=$token');
   await _db.execute(
     Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, NOW()) '
         'ON CONFLICT (device_id) DO UPDATE SET connected_at = NOW()'),
@@ -213,7 +244,7 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
 // ─── 增量拉取 ───
 
 Future<Response> _handleChanges(Request req) async {
-  if (!_checkAuth(req)) return Response.forbidden('{}');
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
   final since = int.tryParse(req.url.queryParameters['since'] ?? '0') ?? 0;
   final sinceDate = DateTime.fromMillisecondsSinceEpoch(since);
 
@@ -234,9 +265,6 @@ Future<Response> _handleChanges(Request req) async {
 }
 
 bool _checkAuth(Request req) {
-  final auth = req.headers['Authorization'] ?? '';
-  final token = auth.replaceFirst('Bearer ', '');
-  final ok = _validTokens.contains(token);
-  print('Auth check: auth=[$auth] token=[$token] ok=$ok validCount=${_validTokens.length}');
-  return ok;
+  final token = (req.headers['Authorization'] ?? '').replaceFirst('Bearer ', '');
+  return _validTokens.contains(token);
 }
