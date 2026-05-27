@@ -1,4 +1,4 @@
-FROM dart:3.12-slim
+FROM dart:stable
 
 WORKDIR /app
 COPY pubspec.* ./
