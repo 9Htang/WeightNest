@@ -61,10 +61,13 @@ if ($Clean) {
 Push-Location $projectRoot
 try {
     Write-Host "[CHECK] flutter analyze..." -ForegroundColor Yellow
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     $analyze = flutter analyze lib/ 2>&1 | Out-String
-    $errors = ($analyze | Select-String " error - " | Measure-Object).Count
-    if ($errors -gt 0) {
-        Write-Host "[!] $errors compile errors found, aborting" -ForegroundColor Red
+    $ErrorActionPreference = $prevEAP
+    $errCount = ($analyze | Select-String " error - " | Measure-Object).Count
+    if ($errCount -gt 0) {
+        Write-Host "[!] $errCount compile errors found, aborting" -ForegroundColor Red
         Write-Host $analyze
         exit 1
     }
