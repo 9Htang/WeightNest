@@ -68,6 +68,9 @@ void main() async {
     ..post('/sync', _handleSync)
     ..get('/changes', _handleChanges)
     ..get('/audit-log', _handleAuditLog)
+    ..get('/birds', _handleBirds)
+    ..get('/birds/<id>', _handleBirdDetail)
+    ..get('/birds/<id>/weights', _handleBirdWeights)
     ..get('/health', (_) => Response.ok('{"status":"ok"}'));
 
   final handler = Pipeline()
@@ -406,6 +409,106 @@ Future<Response> _handleAuditLog(Request req) async {
     'pageSize': pageSize,
     'totalPages': (total / pageSize).ceil(),
   }));
+}
+
+// ─── 鹦鹉查询 ───
+
+Future<Response> _handleBirds(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+
+  final search = req.url.queryParameters['search'];
+  final speciesId = int.tryParse(req.url.queryParameters['speciesId'] ?? '');
+  final roomId = int.tryParse(req.url.queryParameters['roomId'] ?? '');
+
+  var sql = '''
+    SELECT b.id, b.uuid, b.name, b.ring_number, b.species_id, b.room_id,
+           b.birth_date, b.gender, b.status, b.notes, b.created_at, b.updated_at,
+           s.name as species_name,
+           r.name as room_name
+    FROM birds b
+    JOIN species s ON b.species_id = s.id
+    LEFT JOIN rooms r ON b.room_id = r.id
+    WHERE b.deleted_at IS NULL
+  ''';
+  final params = <String, dynamic>{};
+
+  if (search != null && search.isNotEmpty) {
+    sql += ' AND (b.name ILIKE @search OR b.ring_number ILIKE @search)';
+    params['search'] = '%$search%';
+  }
+  if (speciesId != null) {
+    sql += ' AND b.species_id=@speciesId';
+    params['speciesId'] = speciesId;
+  }
+  if (roomId != null) {
+    sql += ' AND b.room_id=@roomId';
+    params['roomId'] = roomId;
+  }
+  sql += ' ORDER BY b.sort_order ASC, b.name ASC';
+
+  final result = await _db.execute(Sql.named(sql), parameters: params);
+  final birds = result.map((row) => {
+    'id': row[0], 'uuid': row[1], 'name': row[2], 'ringNumber': row[3],
+    'speciesId': row[4], 'roomId': row[5],
+    'birthDate': (row[6] as DateTime).toIso8601String(),
+    'gender': row[7], 'status': row[8], 'notes': row[9],
+    'createdAt': (row[10] as DateTime?)?.toIso8601String(),
+    'updatedAt': (row[11] as DateTime?)?.toIso8601String(),
+    'speciesName': row[12], 'roomName': row[13],
+  }).toList();
+
+  return Response.ok(jsonEncode({'birds': birds}));
+}
+
+Future<Response> _handleBirdDetail(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+
+  final result = await _db.execute(Sql.named('''
+    SELECT b.id, b.uuid, b.name, b.ring_number, b.species_id, b.room_id,
+           b.birth_date, b.gender, b.status, b.notes, b.created_at, b.updated_at,
+           s.name as species_name, s.nestling_end_days, s.juvenile_end_days,
+           r.name as room_name
+    FROM birds b
+    JOIN species s ON b.species_id = s.id
+    LEFT JOIN rooms r ON b.room_id = r.id
+    WHERE b.id=@id AND b.deleted_at IS NULL
+  '''), parameters: {'id': id});
+
+  if (result.isEmpty) return Response.notFound('{"error":"not found"}');
+  final row = result.first;
+  return Response.ok(jsonEncode({
+    'id': row[0], 'uuid': row[1], 'name': row[2], 'ringNumber': row[3],
+    'speciesId': row[4], 'roomId': row[5],
+    'birthDate': (row[6] as DateTime).toIso8601String(),
+    'gender': row[7], 'status': row[8], 'notes': row[9],
+    'speciesName': row[12], 'nestlingEndDays': row[13], 'juvenileEndDays': row[14],
+    'roomName': row[15],
+  }));
+}
+
+Future<Response> _handleBirdWeights(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+
+  final result = await _db.execute(Sql.named('''
+    SELECT id, uuid, bird_id, weight_g, recorded_at, recorded_by, is_fasting, notes, created_at
+    FROM weight_records
+    WHERE bird_id=@id
+    ORDER BY recorded_at DESC
+    LIMIT 500
+  '''), parameters: {'id': id});
+
+  final weights = result.map((row) => {
+    'id': row[0], 'uuid': row[1], 'birdId': row[2],
+    'weightG': row[3],
+    'recordedAt': (row[4] as DateTime).toIso8601String(),
+    'recordedBy': row[5], 'isFasting': row[6], 'notes': row[7],
+  }).toList();
+
+  return Response.ok(jsonEncode({'weights': weights}));
 }
 
 bool _checkAuth(Request req) {

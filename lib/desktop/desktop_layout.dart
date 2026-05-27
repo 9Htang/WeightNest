@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/audit_log_service.dart';
+import '../services/bird_archive_service.dart';
 import 'audit_log_screen.dart';
+import 'bird_archive_screen.dart';
 
 /// 桌面端主布局 — 侧边栏 + 内容区
 class DesktopLayout extends StatefulWidget {
@@ -14,6 +16,7 @@ class DesktopLayout extends StatefulWidget {
 class _DesktopLayoutState extends State<DesktopLayout> {
   int _selectedIndex = 0;
   AuditLogService? _logService;
+  BirdArchiveService? _birdService;
   bool _connecting = true;
   String? _connectError;
 
@@ -48,6 +51,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
     if (token != null) {
       setState(() {
         _logService = AuditLogService(serverHost: host, serverPort: port, token: token);
+        _birdService = BirdArchiveService(serverHost: host, serverPort: port, token: token);
         _connecting = false;
       });
     } else {
@@ -119,7 +123,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
               index: _selectedIndex,
               children: [
                 AuditLogScreen(service: _logService!),
-                _placeholderPage('鹦鹉全息档案', Icons.pets),
+                BirdArchiveScreen(service: _birdService!),
                 _placeholderPage('人员管理', Icons.people),
               ],
             ),

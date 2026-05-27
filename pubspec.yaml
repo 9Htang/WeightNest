@@ -6,6 +6,7 @@ dependencies:
   drift_flutter: ^0.2.1
   # Excel 导出
   excel: ^4.0.6
+  fl_chart: ^0.71.0
   flutter:
     sdk: flutter
   flutter_localizations:
