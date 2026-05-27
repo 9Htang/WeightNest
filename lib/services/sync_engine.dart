@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../database/database.dart';
@@ -85,7 +85,7 @@ class SyncEngine {
         Uri.parse('$_baseUrl/sync'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
+          'X-Token': _token,
         },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
@@ -94,10 +94,21 @@ class SyncEngine {
         final body = jsonDecode(res.body);
         final successOps = List<String>.from(body['successOps'] ?? []);
         await _queue.markSynced(successOps);
+      } else if (res.statusCode == 403) {
+        await _reAuth();
+        if (_token != null) {
+          final retry = await http.post(
+            Uri.parse('$_baseUrl/sync'),
+            headers: {'Content-Type': 'application/json', 'X-Token': _token},
+            body: jsonEncode(payload),
+          ).timeout(const Duration(seconds: 10));
+          if (retry.statusCode == 200) {
+            final body = jsonDecode(retry.body);
+            await _queue.markSynced(List<String>.from(body['successOps'] ?? []));
+          }
+        }
       }
-    } catch (_) {
-      // 网络不通，下次重试
-    }
+    } catch (_) {}
   }
 
   // ─── 下载（增量） ───
@@ -107,13 +118,26 @@ class SyncEngine {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/changes?since=${_lastPull.millisecondsSinceEpoch}'),
-        headers: {'Authorization': 'Bearer $_token'},
+        headers: {'X-Token': _token},
       ).timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         await _applyChanges(body['changes'] as List? ?? []);
         _lastPull = DateTime.now();
+      } else if (res.statusCode == 403) {
+        await _reAuth();
+        if (_token != null) {
+          final retry = await http.get(
+            Uri.parse('$_baseUrl/changes?since=${_lastPull.millisecondsSinceEpoch}'),
+            headers: {'X-Token': _token},
+          ).timeout(const Duration(seconds: 10));
+          if (retry.statusCode == 200) {
+            final body = jsonDecode(retry.body);
+            await _applyChanges(body['changes'] as List? ?? []);
+            _lastPull = DateTime.now();
+          }
+        }
       }
     } catch (_) {}
   }

@@ -72,7 +72,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         final token = body['token'] as String;
 
         final engine = ref.read(syncEngineProvider);
-        await engine.connect(ip, port, token);
+        await engine.connect(ip, port, token, pin: pin);
         engine.start();
 
         ref.read(syncConnectedProvider.notifier).state = true;
