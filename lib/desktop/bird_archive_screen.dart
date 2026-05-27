@@ -5,9 +5,9 @@ import '../../services/bird_archive_service.dart';
 /// 鹦鹉全息档案页面
 class BirdArchiveScreen extends StatefulWidget {
   final BirdArchiveService service;
-  final ValueNotifier<int> dataVersion;
+  final ValueNotifier<int> refreshKey;
 
-  const BirdArchiveScreen({super.key, required this.service, required this.dataVersion});
+  const BirdArchiveScreen({super.key, required this.service, required this.refreshKey});
 
   @override
   State<BirdArchiveScreen> createState() => _BirdArchiveScreenState();
@@ -26,17 +26,17 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   void initState() {
     super.initState();
     _loadBirds();
-    widget.dataVersion.addListener(_onDataChanged);
+    widget.refreshKey.addListener(_onRefresh);
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-    widget.dataVersion.removeListener(_onDataChanged);
+    widget.refreshKey.removeListener(_onRefresh);
     super.dispose();
   }
 
-  void _onDataChanged() => _loadBirds();
+  void _onRefresh() => _loadBirds();
 
   Future<void> _loadBirds({String? search}) async {
     setState(() { _loading = true; _error = null; });

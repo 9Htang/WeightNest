@@ -1,5 +1,4 @@
-﻿import 'dart:async';
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
@@ -11,18 +10,6 @@ import 'package:postgres/postgres.dart';
 
 const _uuid = Uuid();
 final _validTokens = <String>{};
-
-// ─── SSE 事件广播 ───
-final _sseClients = <StreamController<String>>[];
-
-void _broadcast(String event, String data) {
-  final message = 'event: $event\ndata: $data\n\n';
-  final dead = <StreamController<String>>[];
-  for (final c in _sseClients) {
-    try { c.add(message); } catch (_) { dead.add(c); }
-  }
-  _sseClients.removeWhere((c) => dead.contains(c));
-}
 
 // ─── 配置（环境变量 > 命令行参数 > 默认值） ───
 
@@ -88,8 +75,7 @@ void main() async {
     ..post('/users', _handleCreateUser)
     ..patch('/users/<id>', _handleUpdateUser)
     ..get('/health', (_) => Response.ok('{"status":"ok"}'))
-    ..get('/debug-auth', (req) => Response.ok(jsonEncode({'auth': req.headers['authorization'], 'tokenLen': (req.headers['authorization'] ?? '').length})))
-    ..get('/events', _handleSse);
+    ..get('/debug-auth', (req) => Response.ok(jsonEncode({'auth': req.headers['authorization'], 'tokenLen': (req.headers['authorization'] ?? '').length})));
 
   final handler = Pipeline()
       .addMiddleware(corsHeaders())
@@ -270,7 +256,7 @@ Future<Response> _handleSync(Request req) async {
       successOps.add(opId);
     } catch (e) { print('同步失败 $opId: $e'); }
   }
-  if (successOps.isNotEmpty) _broadcast('data-changed', 'sync');
+  if (successOps.isNotEmpty) {}
   return Response.ok(jsonEncode({'successOps': successOps}));
 }
 
@@ -612,35 +598,6 @@ Future<Response> _handleUpdateUser(Request req) async {
   await _db.execute(q, parameters: params);
 
   return Response.ok(jsonEncode({'ok': true}));
-}
-
-// ─── SSE ───
-
-Future<Response> _handleSse(Request req) async {
-  final controller = StreamController<String>();
-  _sseClients.add(controller);
-
-  // 每 30 秒发心跳防止超时
-  Timer.periodic(const Duration(seconds: 30), (t) {
-    try { controller.add(': heartbeat\n\n'); } catch (_) { t.cancel(); }
-  });
-
-  req.hijack((channel) {
-    controller.stream.listen(
-      (data) {
-        channel.sink.add(utf8.encode(data));
-      },
-      onDone: () => channel.sink.close(),
-      onError: (_) => channel.sink.close(),
-      cancelOnError: true,
-    );
-    channel.sink.done.then((_) {
-      _sseClients.remove(controller);
-      controller.close();
-    });
-  });
-
-  return Response.ok('ok'); // 实际由 hijack 接管
 }
 
 bool _checkAuth(Request req) {

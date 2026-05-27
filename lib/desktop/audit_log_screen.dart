@@ -4,9 +4,9 @@ import '../../services/audit_log_service.dart';
 /// 操作日志审计页面
 class AuditLogScreen extends StatefulWidget {
   final AuditLogService service;
-  final ValueNotifier<int> dataVersion;
+  final ValueNotifier<int> refreshKey;
 
-  const AuditLogScreen({super.key, required this.service, required this.dataVersion});
+  const AuditLogScreen({super.key, required this.service, required this.refreshKey});
 
   @override
   State<AuditLogScreen> createState() => _AuditLogScreenState();
@@ -27,16 +27,16 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   void initState() {
     super.initState();
     _loadData();
-    widget.dataVersion.addListener(_onDataChanged);
+    widget.refreshKey.addListener(_onRefresh);
   }
 
   @override
   void dispose() {
-    widget.dataVersion.removeListener(_onDataChanged);
+    widget.refreshKey.removeListener(_onRefresh);
     super.dispose();
   }
 
-  void _onDataChanged() => _loadData();
+  void _onRefresh() => _loadData();
 
   Future<void> _loadData() async {
     setState(() { _loading = true; _error = null; });
