@@ -161,7 +161,10 @@ Future<void> _initDb() async {
 Future<Response> _handleQr(Request req) async {
   final ip = await _localIp();
   final port = _serverPort();
-  final host = req.url.queryParameters['host'] ?? ip;
+  // Docker 内无法自动获取宿主机 IP，优先用参数 > 环境变量 > 自动检测
+  final host = req.url.queryParameters['host'] ??
+      Platform.environment['SERVER_HOST'] ??
+      ip;
   final data = jsonEncode({'host': host, 'port': port});
 
   final qr = QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M);
