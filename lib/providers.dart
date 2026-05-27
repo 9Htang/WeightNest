@@ -123,3 +123,6 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
   final queue = ref.watch(syncQueueProvider);
   return SyncEngine(db, queue);
 });
+
+/// 同步连接状态
+final syncConnectedProvider = StateProvider<bool>((ref) => false);

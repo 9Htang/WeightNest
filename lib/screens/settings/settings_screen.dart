@@ -28,15 +28,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // ── 连接服务器 ──
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.link, color: Colors.blue),
-              title: const Text('连接服务器', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('扫码或手动输入连接中央服务器'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectScreen())),
-            ),
-          ),
+          Consumer(builder: (context, ref, _) {
+            final connected = ref.watch(syncConnectedProvider);
+            return Card(
+              child: connected
+                  ? ListTile(
+                      leading: const Icon(Icons.cloud_done, color: Colors.green),
+                      title: const Text('已连接', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green)),
+                      subtitle: const Text('正在自动同步数据'),
+                      onTap: null,
+                      trailing: TextButton.icon(
+                        onPressed: () {
+                          ref.read(syncEngineProvider).disconnect();
+                          ref.read(syncConnectedProvider.notifier).state = false;
+                        },
+                        icon: const Icon(Icons.link_off, size: 18),
+                        label: const Text('断开'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      ),
+                    )
+                  : ListTile(
+                      leading: const Icon(Icons.link, color: Colors.blue),
+                      title: const Text('连接服务器', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('扫码或手动输入连接中央服务器'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectScreen())),
+                    ),
+            );
+          }),
           const SizedBox(height: 16),
 
           // ── 数据导出 ──

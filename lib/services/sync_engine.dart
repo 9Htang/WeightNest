@@ -50,6 +50,13 @@ class SyncEngine {
 
   void stop() => _timer?.cancel();
 
+  /// 断开连接
+  void disconnect() {
+    stop();
+    _token = null;
+    _serverHost = null;
+  }
+
   Future<void> _tick() async {
     if (_token == null || _serverHost == null) return;
     await pushOperations();

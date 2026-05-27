@@ -75,9 +75,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         await engine.connect(ip, port, token);
         engine.start();
 
+        ref.read(syncConnectedProvider.notifier).state = true;
+
         if (mounted) {
           setState(() { _status = '✅ 已连接！正在同步...'; _connecting = false; });
-          await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(seconds: 1));
           if (mounted) Navigator.of(context).pop(true);
         }
       } else {
@@ -93,9 +95,13 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_connecting,
+      child: Scaffold(
       appBar: AppBar(title: const Text('连接服务器')),
-      body: SingleChildScrollView(
+      body: Stack(
+        children: [
+      SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -181,6 +187,26 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ],
           ],
         ),
+      ),
+      // 加载遮罩
+      if (_connecting)
+        Container(
+          color: Colors.black26,
+          child: const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('连接中...', style: TextStyle(fontSize: 16)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        ],
+      ),
       ),
     );
   }
