@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
 import '../weigh/weigh_screen.dart';
+import '../worker/worker_screen.dart';
 
 /// 任务页面 — 今日任务 + 逾期任务
 class TasksScreen extends ConsumerStatefulWidget {
@@ -111,7 +112,7 @@ class _TodayTasks extends ConsumerWidget {
                 _SectionHeader(title: '待完成 (${pending.length})'),
                 ...pending.map((t) => _TaskCard(
                   task: t,
-                  onComplete: () => _completeTask(t.task.id, ref),
+                  onComplete: () => _completeTask(t.task.id, t.task.uuid, ref),
                   onWeigh: () => _startWeighing(context, t.bird.roomId),
                 )),
               ],
@@ -126,9 +127,18 @@ class _TodayTasks extends ConsumerWidget {
     );
   }
 
-  Future<void> _completeTask(int taskId, WidgetRef ref) async {
-    // 简化：user ID 用 1
+  Future<void> _completeTask(int taskId, String taskUuid, WidgetRef ref) async {
     await ref.read(databaseProvider).completeTask(taskId, 1);
+    final userId = ref.read(workerProvider).userId;
+    if (userId != null) {
+      await ref.read(syncQueueProvider).enqueue(
+        userId: userId,
+        action: 'complete_task',
+        entityType: 'task',
+        entityUuid: taskUuid,
+        payload: {'taskId': taskId, 'status': '已完成', 'completedBy': 1},
+      );
+    }
     ref.invalidate(todayTasksProvider);
   }
 
@@ -174,6 +184,16 @@ class _OverdueTasks extends ConsumerWidget {
               urgent: true,
               onComplete: () async {
                 await ref.read(databaseProvider).completeTask(t.task.id, 1);
+                final userId = ref.read(workerProvider).userId;
+                if (userId != null) {
+                  await ref.read(syncQueueProvider).enqueue(
+                    userId: userId,
+                    action: 'complete_task',
+                    entityType: 'task',
+                    entityUuid: t.task.uuid,
+                    payload: {'taskId': t.task.id, 'status': '已完成', 'completedBy': 1},
+                  );
+                }
                 ref.invalidate(overdueTasksProvider);
               },
             )),

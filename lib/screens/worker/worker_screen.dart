@@ -140,7 +140,17 @@ class WorkerSelectScreen extends ConsumerWidget {
             if (name.isEmpty) return;
             final db = ref.read(databaseProvider);
             final username = 'user_${DateTime.now().millisecondsSinceEpoch}';
-            await db.createUser(username, name, '');
+            final user = await db.createUser(username, name, '');
+            final userId = ref.read(workerProvider).userId;
+            if (userId != null) {
+              await ref.read(syncQueueProvider).enqueue(
+                userId: userId,
+                action: 'create_user',
+                entityType: 'user',
+                entityUuid: user.uuid,
+                payload: {'username': username, 'displayName': name},
+              );
+            }
             ref.invalidate(allUsersProvider);
             if (ctx.mounted) Navigator.pop(ctx);
           }, child: const Text('创建')),

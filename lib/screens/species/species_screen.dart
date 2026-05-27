@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
+import '../worker/worker_screen.dart';
 
 /// 品种管理页面
 class SpeciesScreen extends ConsumerStatefulWidget {
@@ -93,15 +94,45 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             if (name.isEmpty) return;
             final db = ref.read(databaseProvider);
             if (existing != null) {
-              await db.updateSpecies(existing.id, name: name,
+              final sp = await db.updateSpecies(existing.id, name: name,
                   nestlingEndDays: int.tryParse(nestlingCtrl.text),
                   juvenileEndDays: int.tryParse(juvenileCtrl.text),
                   adultWeighIntervalDays: int.tryParse(adultCtrl.text));
+              final userId = ref.read(workerProvider).userId;
+              if (userId != null) {
+                await ref.read(syncQueueProvider).enqueue(
+                  userId: userId,
+                  action: 'update_species',
+                  entityType: 'species',
+                  entityUuid: sp.uuid,
+                  payload: {
+                    'name': name,
+                    'nestlingEndDays': sp.nestlingEndDays,
+                    'juvenileEndDays': sp.juvenileEndDays,
+                    'adultWeighIntervalDays': sp.adultWeighIntervalDays,
+                  },
+                );
+              }
             } else {
-              await db.createSpecies(name,
+              final sp = await db.createSpecies(name,
                   nestlingEndDays: int.tryParse(nestlingCtrl.text) ?? 45,
                   juvenileEndDays: int.tryParse(juvenileCtrl.text) ?? 120,
                   adultWeighIntervalDays: int.tryParse(adultCtrl.text) ?? 7);
+              final userId = ref.read(workerProvider).userId;
+              if (userId != null) {
+                await ref.read(syncQueueProvider).enqueue(
+                  userId: userId,
+                  action: 'create_species',
+                  entityType: 'species',
+                  entityUuid: sp.uuid,
+                  payload: {
+                    'name': name,
+                    'nestlingEndDays': sp.nestlingEndDays,
+                    'juvenileEndDays': sp.juvenileEndDays,
+                    'adultWeighIntervalDays': sp.adultWeighIntervalDays,
+                  },
+                );
+              }
             }
             ref.invalidate(allSpeciesProvider);
             if (ctx.mounted) Navigator.pop(ctx);
@@ -123,6 +154,16 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await ref.read(databaseProvider).removeSpecies(s.id);
+              final userId = ref.read(workerProvider).userId;
+              if (userId != null) {
+                await ref.read(syncQueueProvider).enqueue(
+                  userId: userId,
+                  action: 'delete_species',
+                  entityType: 'species',
+                  entityUuid: s.uuid,
+                  payload: {'id': s.id, 'name': s.name},
+                );
+              }
               ref.invalidate(allSpeciesProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             },

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
+import '../worker/worker_screen.dart';
 
 class BirdDetailScreen extends ConsumerWidget {
   final BirdWithDetails bird;
@@ -182,6 +183,16 @@ class BirdDetailScreen extends ConsumerWidget {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await ref.read(databaseProvider).removeBird(bird.bird.id);
+              final userId = ref.read(workerProvider).userId;
+              if (userId != null) {
+                await ref.read(syncQueueProvider).enqueue(
+                  userId: userId,
+                  action: 'delete_bird',
+                  entityType: 'bird',
+                  entityUuid: bird.bird.uuid,
+                  payload: {'id': bird.bird.id, 'name': bird.bird.name},
+                );
+              }
               if (ctx.mounted) {
                 Navigator.pop(ctx);
                 Navigator.pop(context);
@@ -375,7 +386,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               return;
             }
             final db = ProviderScope.containerOf(context).read(databaseProvider);
-            await db.updateBird(
+            final bird = await db.updateBird(
               widget.bird.bird.id,
               name: name,
               speciesId: _selectedSpeciesId,
@@ -384,6 +395,23 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
+            final userId = ProviderScope.containerOf(context).read(workerProvider).userId;
+            if (userId != null) {
+              await ProviderScope.containerOf(context).read(syncQueueProvider).enqueue(
+                userId: userId,
+                action: 'update_bird',
+                entityType: 'bird',
+                entityUuid: bird.uuid,
+                payload: {
+                  'name': name,
+                  'speciesId': _selectedSpeciesId,
+                  'roomId': _selectedRoomId,
+                  'birthDate': _birthDate.toIso8601String(),
+                  'ringNumber': _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
+                  'gender': _gender,
+                },
+              );
+            }
             if (mounted) Navigator.pop(context);
           },
           child: const Text('保存'),

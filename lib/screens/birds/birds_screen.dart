@@ -6,6 +6,7 @@ import '../../database/database.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_screen.dart';
 import '../../../widgets/server_status_bar.dart';
+import '../worker/worker_screen.dart';
 
 /// 鹦鹉列表页 — 按房间分组、支持拖动排序
 class BirdsScreen extends ConsumerStatefulWidget {
@@ -398,7 +399,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               return;
             }
             final db = ProviderScope.containerOf(context).read(databaseProvider);
-            await db.createBird(
+            final bird = await db.createBird(
               name: name,
               speciesId: _selectedSpeciesId!,
               birthDate: _birthDate,
@@ -406,6 +407,23 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
+            final userId = ProviderScope.containerOf(context).read(workerProvider).userId;
+            if (userId != null) {
+              await ProviderScope.containerOf(context).read(syncQueueProvider).enqueue(
+                userId: userId,
+                action: 'create_bird',
+                entityType: 'bird',
+                entityUuid: bird.uuid,
+                payload: {
+                  'name': name,
+                  'speciesId': _selectedSpeciesId,
+                  'roomId': _selectedRoomId,
+                  'birthDate': _birthDate.toIso8601String(),
+                  'ringNumber': _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
+                  'gender': _gender,
+                },
+              );
+            }
             if (mounted) Navigator.pop(context);
           },
           child: const Text('创建'),

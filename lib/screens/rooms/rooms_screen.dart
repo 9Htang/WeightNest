@@ -38,8 +38,18 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                   rooms.insert(newIndex, item);
                   setState(() {});
                   final db = ref.read(databaseProvider);
+                  final userId = ref.read(workerProvider).userId;
                   for (int i = 0; i < rooms.length; i++) {
-                    await db.updateRoom(rooms[i].id, sortOrder: i);
+                    final room = await db.updateRoom(rooms[i].id, sortOrder: i);
+                    if (userId != null) {
+                      await ref.read(syncQueueProvider).enqueue(
+                        userId: userId,
+                        action: 'update_room',
+                        entityType: 'room',
+                        entityUuid: room.uuid,
+                        payload: {'sortOrder': i},
+                      );
+                    }
                   }
                   ref.invalidate(allRoomsProvider);
                 },
@@ -119,9 +129,29 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
               if (name.isEmpty) return;
               final db = ref.read(databaseProvider);
               if (existing != null) {
-                await db.updateRoom(existing.id, name: name, assignedUserId: assignedId);
+                final room = await db.updateRoom(existing.id, name: name, assignedUserId: assignedId);
+                final userId = ref.read(workerProvider).userId;
+                if (userId != null) {
+                  await ref.read(syncQueueProvider).enqueue(
+                    userId: userId,
+                    action: 'update_room',
+                    entityType: 'room',
+                    entityUuid: room.uuid,
+                    payload: {'name': name, 'assignedUserId': assignedId},
+                  );
+                }
               } else {
-                await db.createRoom(name, assignedUserId: assignedId);
+                final room = await db.createRoom(name, assignedUserId: assignedId);
+                final userId = ref.read(workerProvider).userId;
+                if (userId != null) {
+                  await ref.read(syncQueueProvider).enqueue(
+                    userId: userId,
+                    action: 'create_room',
+                    entityType: 'room',
+                    entityUuid: room.uuid,
+                    payload: {'name': name, 'assignedUserId': assignedId},
+                  );
+                }
               }
               ref.invalidate(allRoomsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
@@ -144,6 +174,16 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await ref.read(databaseProvider).removeRoom(r.id);
+              final userId = ref.read(workerProvider).userId;
+              if (userId != null) {
+                await ref.read(syncQueueProvider).enqueue(
+                  userId: userId,
+                  action: 'delete_room',
+                  entityType: 'room',
+                  entityUuid: r.uuid,
+                  payload: {'id': r.id, 'name': r.name},
+                );
+              }
               ref.invalidate(allRoomsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             },
