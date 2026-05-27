@@ -34,6 +34,7 @@ class ExcelExportService {
       data[i] = {};
       final weights = await _db.getByBirdInRange(birds[i].bird.id, from: monthStart, to: monthEnd);
       for (final w in weights) {
+        // 体重数据格式：时间\n体重[+是否空腹]
         final fasting = w.isFasting ? '' : '*';
         final timeStr =
             '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')}\n${w.weightG.toStringAsFixed(1)}$fasting';
