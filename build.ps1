@@ -1,5 +1,6 @@
 # WeightNest Build Script
 # Usage: .\build.ps1 [-Mobile] [-Desktop] [-Server] [-All] [-Clean]
+
 param(
     [switch]$Mobile,
     [switch]$Desktop,
@@ -12,20 +13,16 @@ $ErrorActionPreference = "Stop"
 $projectRoot = "$PSScriptRoot"
 $releaseDir = "C:\Users\Cwb\.openclaw\workspace\releases"
 
-# Get version
 $pubspec = Get-Content "$projectRoot\pubspec.yaml" | Select-String "^version:"
 $version = ($pubspec -split ":\s*")[2].Split("+")[0]
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  WeightNest Build Tool v$version" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "==== WeightNest Build Tool v$version ====" -ForegroundColor Cyan
 
 if ($All) { $Mobile = $true; $Desktop = $true }
 
 if (-not ($Mobile -or $Desktop -or $Server)) {
     Write-Host ""
     Write-Host "Usage: .\build.ps1 [-Mobile] [-Desktop] [-Server] [-All] [-Clean]"
-    Write-Host ""
     Write-Host "  -Mobile   Build Android APK"
     Write-Host "  -Desktop  Build Windows desktop"
     Write-Host "  -Server   Rebuild Docker server"
@@ -34,9 +31,8 @@ if (-not ($Mobile -or $Desktop -or $Server)) {
     exit 0
 }
 
-# ─── Clean ───
+# ---- Clean ----
 if ($Clean) {
-    Write-Host ""
     Write-Host "[CLEAN] flutter clean..." -ForegroundColor Yellow
     Push-Location $projectRoot
     flutter clean 2>&1 | Out-Null
@@ -44,7 +40,7 @@ if ($Clean) {
     Write-Host "[CLEAN] done" -ForegroundColor Green
 }
 
-# ─── Check ───
+# ---- Check ----
 Push-Location $projectRoot
 try {
     Write-Host "[CHECK] flutter analyze..." -ForegroundColor Yellow
@@ -56,146 +52,102 @@ try {
         exit 1
     }
     Write-Host "[CHECK] passed" -ForegroundColor Green
-} finally {
+}
+finally {
     Pop-Location
 }
 
-# ═══════════════════════════
-#  Android APK
-# ═══════════════════════════
+# ---- Android APK ----
 if ($Mobile) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Magenta
-    Write-Host "  Phone - Android APK" -ForegroundColor Magenta
-    Write-Host "========================================" -ForegroundColor Magenta
-
+    Write-Host "[APK] Building Android..." -ForegroundColor Magenta
     Push-Location $projectRoot
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        Write-Host "[APK] building..." -ForegroundColor Yellow
         flutter build apk --release --target-platform android-arm64 2>&1 | Out-Null
-
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[!] build failed:" -ForegroundColor Red
             flutter build apk --release --target-platform android-arm64 2>&1 | Select-String -Pattern "error|Error|FAIL"
             throw "APK build failed"
         }
-
         $sw.Stop()
         $apkSize = [math]::Round((Get-Item "$projectRoot\build\app\outputs\flutter-apk\app-release.apk").Length / 1MB, 1)
-        Write-Host "[APK] done (${apkSize}MB, $([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
+        Write-Host "[APK] OK (${apkSize}MB, $([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
         $dest = "$releaseDir\WeightNest_v${version}.apk"
         Copy-Item "$projectRoot\build\app\outputs\flutter-apk\app-release.apk" $dest -Force
         Write-Host "[APK] -> $dest" -ForegroundColor Green
-
-    } catch {
+    }
+    catch {
         Write-Host "[!] APK failed: $_" -ForegroundColor Red
         Pop-Location; exit 1
     }
     Pop-Location
 }
 
-# ═══════════════════════════
-#  Windows Desktop
-# ═══════════════════════════
+# ---- Windows Desktop ----
 if ($Desktop) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Magenta
-    Write-Host "  PC - Windows Desktop" -ForegroundColor Magenta
-    Write-Host "========================================" -ForegroundColor Magenta
-
+    Write-Host "[WIN] Building Windows..." -ForegroundColor Magenta
     Push-Location $projectRoot
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        Write-Host "[WIN] building..." -ForegroundColor Yellow
         flutter build windows --release 2>&1 | Out-Null
-
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[!] build failed:" -ForegroundColor Red
             flutter build windows --release 2>&1 | Select-String -Pattern "error|Error|FAIL"
             throw "Windows build failed"
         }
-
         $sw.Stop()
-        Write-Host "[WIN] done ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
+        Write-Host "[WIN] OK ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
-        # Package as zip
         $buildDir = "$projectRoot\build\windows\x64\runner\Release"
         $releaseZip = "$releaseDir\WeightNest_Desktop_v${version}.zip"
-
         if (Test-Path $releaseZip) { Remove-Item $releaseZip -Force }
         Compress-Archive -Path "$buildDir\*" -DestinationPath $releaseZip -Force
 
         $zipSize = [math]::Round((Get-Item $releaseZip).Length / 1MB, 1)
         Write-Host "[WIN] -> $releaseZip (${zipSize}MB)" -ForegroundColor Green
         Write-Host "[WIN] Run weight_nest.exe after unzip" -ForegroundColor Yellow
-
-    } catch {
+    }
+    catch {
         Write-Host "[!] Windows failed: $_" -ForegroundColor Red
         Pop-Location; exit 1
     }
     Pop-Location
 }
 
-# ═══════════════════════════
-#  Docker Server
-# ═══════════════════════════
+# ---- Docker Server ----
 if ($Server) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Magenta
-    Write-Host "  Docker - Server" -ForegroundColor Magenta
-    Write-Host "========================================" -ForegroundColor Magenta
-
+    Write-Host "[DOCKER] Rebuilding server..." -ForegroundColor Magenta
     Push-Location "$projectRoot\server"
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
-        Write-Host "[DOCKER] stopping old..." -ForegroundColor Yellow
         docker stop weightnest 2>$null
-
-        Write-Host "[DOCKER] building image..." -ForegroundColor Yellow
         docker build -t weightnest-server . 2>&1 | Select-String -Pattern "Step|Success|error|Error"
         if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
 
-        Write-Host "[DOCKER] removing old..." -ForegroundColor Yellow
         docker rm weightnest 2>$null
-
-        Write-Host "[DOCKER] starting..." -ForegroundColor Yellow
         docker run -d --name weightnest -p 8080:8080 weightnest-server 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Docker run failed" }
 
         $sw.Stop()
-        Write-Host "[DOCKER] running ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
+        Write-Host "[DOCKER] OK ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
         Start-Sleep 2
         try {
             $health = (Invoke-WebRequest -Uri "http://localhost:8080/health" -TimeoutSec 3).Content
-            if ($health -match "ok") {
-                Write-Host "[DOCKER] health: OK" -ForegroundColor Green
-            } else {
-                Write-Host "[!] health: $health" -ForegroundColor Red
-            }
-        } catch {
-            Write-Host "[!] health check failed" -ForegroundColor Red
+            if ($health -match "ok") { Write-Host "[DOCKER] health: OK" -ForegroundColor Green }
+            else { Write-Host "[!] health: $health" -ForegroundColor Red }
         }
-
-    } catch {
+        catch { Write-Host "[!] health check failed" -ForegroundColor Red }
+    }
+    catch {
         Write-Host "[!] Docker failed: $_" -ForegroundColor Red
         Pop-Location; exit 1
     }
     Pop-Location
 }
 
-# ─── Done ───
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  Build Complete!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-
+# ---- Done ----
+Write-Host "==== Build Complete! ====" -ForegroundColor Green
 Get-ChildItem $releaseDir | Where-Object { $_.Name -match "v$version" } | ForEach-Object {
     $size = [math]::Round($_.Length / 1MB, 1)
-    $time = $_.LastWriteTime.ToString("HH:mm")
-    Write-Host "  $($_.Name)  (${size}MB, $time)"
+    Write-Host "  $($_.Name)  (${size}MB)"
 }
