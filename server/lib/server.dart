@@ -10,6 +10,7 @@ import 'package:postgres/postgres.dart';
 
 const _uuid = Uuid();
 final _validTokens = <String>{};
+int _dataVersion = 0;
 
 // ─── 配置（环境变量 > 命令行参数 > 默认值） ───
 
@@ -68,14 +69,14 @@ void main() async {
     ..post('/sync', _handleSync)
     ..get('/changes', _handleChanges)
     ..get('/audit-log', _handleAuditLog)
+    ..get('/data-version', (_) => Response.ok('$_dataVersion'))
     ..get('/birds', _handleBirds)
     ..get('/birds/<id>', _handleBirdDetail)
     ..get('/birds/<id>/weights', _handleBirdWeights)
     ..get('/users', _handleUsers)
     ..post('/users', _handleCreateUser)
     ..patch('/users/<id>', _handleUpdateUser)
-    ..get('/health', (_) => Response.ok('{"status":"ok"}'))
-    ..get('/debug-auth', (req) => Response.ok(jsonEncode({'auth': req.headers['authorization'], 'tokenLen': (req.headers['authorization'] ?? '').length})));
+    ..get('/health', (_) => Response.ok('{"status":"ok"}'));
 
   final handler = Pipeline()
       .addMiddleware(corsHeaders())
@@ -256,7 +257,7 @@ Future<Response> _handleSync(Request req) async {
       successOps.add(opId);
     } catch (e) { print('同步失败 $opId: $e'); }
   }
-  if (successOps.isNotEmpty) {}
+  if (successOps.isNotEmpty) _dataVersion++;
   return Response.ok(jsonEncode({'successOps': successOps}));
 }
 

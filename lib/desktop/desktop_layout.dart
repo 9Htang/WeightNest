@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../services/auth_manager.dart';
 import '../services/audit_log_service.dart';
 import '../services/bird_archive_service.dart';
@@ -25,6 +28,9 @@ class _DesktopLayoutState extends State<DesktopLayout> {
   bool _connecting = true;
   String? _connectError;
   final _refreshKey = ValueNotifier(0);
+  Timer? _pollTimer;
+  int _lastVersion = 0;
+  String? _token;
 
   @override
   void initState() {
@@ -36,6 +42,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
     setState(() { _connecting = true; _connectError = null; });
     final token = await AuthManager.authenticate(host: _defaultHost, port: _defaultPort, pin: _defaultPin);
     if (token != null) {
+      _token = token;
       final auth = AuthManager(host: _defaultHost, port: _defaultPort, pin: _defaultPin, token: token);
       setState(() {
         _logService = AuditLogService(serverHost: _defaultHost, serverPort: _defaultPort, auth: auth);
@@ -43,15 +50,36 @@ class _DesktopLayoutState extends State<DesktopLayout> {
         _staffService = StaffService(serverHost: _defaultHost, serverPort: _defaultPort, auth: auth);
         _connecting = false;
       });
+      _startPolling();
     } else {
       setState(() { _connectError = '无法连接到服务器 $_defaultHost:$_defaultPort'; _connecting = false; });
     }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _checkVersion());
+  }
+
+  Future<void> _checkVersion() async {
+    if (_token == null) return;
+    try {
+      final res = await http.get(
+        Uri.parse('http://$_defaultHost:$_defaultPort/data-version'),
+        headers: {'X-Token': _token!},
+      ).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final v = int.tryParse(res.body) ?? 0;
+        if (v > _lastVersion) { _lastVersion = v; _doRefresh(); }
+      }
+    } catch (_) {}
   }
 
   void _doRefresh() => _refreshKey.value++;
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _refreshKey.dispose();
     super.dispose();
   }
