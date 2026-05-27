@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../services/bird_archive_service.dart';
@@ -20,16 +21,19 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   bool _loadingWeights = false;
   String? _error;
   final _searchCtrl = TextEditingController();
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadBirds();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _loadBirds());
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -38,13 +42,12 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
     try {
       final birds = await widget.service.fetchBirds(search: search);
       setState(() { _birds = birds; _loading = false; });
-      // 自动选中第一只
-      if (_selected == null && birds.isNotEmpty) {
-        _selectBird(birds.first);
-      } else if (_selected != null) {
-        // 刷新选中的鸟的数据
+      // 保留当前选中
+      if (_selected != null) {
         final updated = birds.where((b) => b.id == _selected!.id).firstOrNull;
         if (updated != null) _selected = updated;
+      } else if (birds.isNotEmpty) {
+        _selectBird(birds.first);
       }
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });

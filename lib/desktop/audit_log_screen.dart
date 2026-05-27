@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/audit_log_service.dart';
 
@@ -17,8 +18,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   String? _error;
   int _currentPage = 1;
   static const _pageSize = 30;
+  Timer? _refreshTimer;
 
-  // 筛选条件
   String? _filterAction;
   String? _filterEntityType;
   DateTimeRange? _filterDateRange;
@@ -27,6 +28,13 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _loadData());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
