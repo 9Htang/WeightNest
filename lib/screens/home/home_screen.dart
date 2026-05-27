@@ -9,7 +9,6 @@ import '../alerts/alerts_screen.dart';
 import '../species/species_screen.dart';
 import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
-import '../connect/connect_screen.dart';
 import '../worker/worker_screen.dart';
 import '../../../widgets/server_status_bar.dart';
 
@@ -134,10 +133,6 @@ class HomeScreen extends ConsumerWidget {
                 _ActionBtn(
                   icon: Icons.pets, label: '品种管理',
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeciesScreen())),
-                ),
-                _ActionBtn(
-                  icon: Icons.link, label: '连接服务器',
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ConnectScreen())),
                 ),
                 _ActionBtn(
                   icon: Icons.meeting_room, label: '房间管理',

@@ -4,6 +4,7 @@ import '../../services/network_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../services/discovery_service.dart';
+import '../connect/connect_screen.dart';
 import '../../providers.dart';
 import 'package:share_plus/share_plus.dart';
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -43,6 +44,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           // ── 当前状态 ──
           _StatusCard(net: net, theme: theme),
+          const SizedBox(height: 16),
+
+          // ── 连接服务器 ──
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.link, color: Colors.blue),
+              title: const Text('连接服务器', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('扫码或手动输入连接中央服务器'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectScreen())),
+            ),
+          ),
           const SizedBox(height: 16),
 
           // ── 服务器模式 ──
