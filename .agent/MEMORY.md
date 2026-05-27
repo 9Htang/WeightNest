@@ -1,25 +1,33 @@
 # WeightNest 项目记忆
 
 ## 项目做什么
-鹦鹉体重记录 App。核心能力：离线记录体重 → 后台自动同步到中央服务器 → 多设备数据统一。
+鹦鹉体重记录 App。双端架构：手机端负责称重记录，Windows 桌面端负责管理与数据分析。
 
 ## 当前进度（2026-05-27）
-- 数据层重构完成：uuid, sync_queue, device_id, 软删除, updated_at
-- SyncQueueService：称重后自动入队
-- SyncEngine：5秒定时推送/拉取，操作日志幂等
-- Docker 服务端：Dart shelf + PostgreSQL，4 API 全部验证通过
-- 扫码连接：ConnectScreen（mobile_scanner 5.2.3）
-- 设置页简化：只保留连接服务器 + Excel 导出
+
+### 已完成
+- 移动端 Phase 1-8 全部完成
+- 数据层重构：uuid, sync_queue, device_id, 软删除, updated_at
+- SyncQueueService + SyncEngine 5秒定时推送/拉取
+- Docker 服务端：Dart shelf + PostgreSQL，4 API 全部验证
+- 扫码连接：ConnectScreen (mobile_scanner 5.2.3)
+- Excel 导出（纵轴日期、横轴鹦鹉、WrapText、非空腹标*）
+- 首页强制员工登录拦截
 - 版本: 1.7.5+22
 
-## 已完成功能
-- 快速称重（大键盘、自动下一只、空腹默认勾选）
-- 鹦鹉/房间/品种/用户 CRUD
-- 局域网联机（旧架构 → 已废弃，新架构扫码连接）
-- Excel 导出（纵轴日期、横轴鹦鹉、WrapText、非空腹标*）
-- 异常检测（体重下降/增长停滞/超期未称重）
-- 任务自动生成
-- Codemagic 构建配置
+### 桌面端（新阶段 — 进行中）
+目标：Flutter Windows 管理控制台
+
+**四大模块：**
+1. **操作日志审计** — 全量日志表格，按人/类型/时间筛选，变更明细追溯
+2. **鹦鹉全息档案** — 全局搜索、体重趋势折线图、病历时间轴
+3. **人员管理** — 创建账号（仅桌面端）、分配 Admin/Keeper/Viewer 角色、启停
+4. **数据报表导出** — 自定义导出范围、系统保存对话框
+
+**系统约束：**
+- 所有写入走 Shelf API（不直连 PG）
+- op_id 幂等、Last Write Wins、软删除
+- 账号创建仅限桌面端
 
 ## 技术选型
 - Flutter 3.27 / Dart 3.6
@@ -32,9 +40,8 @@
 
 ## 已知问题
 - AP 隔离 → 手机和电脑直连不通，需要路由器设置或 adb reverse
-- 旧 SettingsScreen 代码（server/client mode）已移除，旧 UI 链路需清理
-- 桌面端 WeightNest 窗口未集成新同步架构
-- SyncEngine 未显示同步状态到 UI
+- 桌面端窗口未集成同步架构
+- 手机端需要移除账号创建 UI
 
 ## 修复记录
 - excel 4.0.6 delete() 在单 sheet 时无效 → 改用 rename()
