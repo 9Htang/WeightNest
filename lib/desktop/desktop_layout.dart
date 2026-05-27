@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_manager.dart';
@@ -93,7 +92,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
     final screens = [
       AuditLogScreen(service: _logService!, refreshKey: _refreshKey),
       BirdArchiveScreen(service: _birdService!, refreshKey: _refreshKey),
-      StaffScreen(service: _staffService!),
+      StaffScreen(service: _staffService!, refreshKey: _refreshKey),
     ];
 
     return Scaffold(

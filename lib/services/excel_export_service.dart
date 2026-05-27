@@ -87,9 +87,9 @@ class ExcelExportService {
     return file;
   }
 
-  /// 获取导出目录
+  /// 获取导出目录（Android 10+ scoped storage 不允直接写 Download，改用内部存储 + 分享）
   Future<Directory> _getExportDir() async {
-    if (Platform.isAndroid) return Directory('/storage/emulated/0/Download');
+    if (Platform.isAndroid) return getTemporaryDirectory();
     return getApplicationDocumentsDirectory();
   }
 

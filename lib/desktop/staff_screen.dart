@@ -4,8 +4,9 @@ import '../../services/staff_service.dart';
 /// 人员管理页面
 class StaffScreen extends StatefulWidget {
   final StaffService service;
+  final ValueNotifier<int> refreshKey;
 
-  const StaffScreen({super.key, required this.service});
+  const StaffScreen({super.key, required this.service, required this.refreshKey});
 
   @override
   State<StaffScreen> createState() => _StaffScreenState();
@@ -20,7 +21,16 @@ class _StaffScreenState extends State<StaffScreen> {
   void initState() {
     super.initState();
     _loadUsers();
+    widget.refreshKey.addListener(_onRefresh);
   }
+
+  @override
+  void dispose() {
+    widget.refreshKey.removeListener(_onRefresh);
+    super.dispose();
+  }
+
+  void _onRefresh() => _loadUsers();
 
   Future<void> _loadUsers() async {
     setState(() { _loading = true; _error = null; });

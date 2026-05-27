@@ -17,17 +17,19 @@ class SyncEngine {
   String? _serverHost;
   int _serverPort = 8080;
   String? _token;
+  String? _pin;
   DateTime _lastPull = DateTime(2000);
 
   SyncEngine(this._db, this._queue);
 
   bool get isConnected => _token != null;
 
-  /// 连接到服务器
-  Future<bool> connect(String host, int port, String token) async {
+  /// 连接到服务器（pin 用于 403 自动重连）
+  Future<bool> connect(String host, int port, String token, {String? pin}) async {
     _serverHost = host;
     _serverPort = port;
     _token = token;
+    _pin = pin;
     // 立即拉取一次
     await pullChanges();
     return true;
@@ -54,7 +56,25 @@ class SyncEngine {
   void disconnect() {
     stop();
     _token = null;
+    _pin = null;
     _serverHost = null;
+  }
+
+  /// 403 时自动重新认证
+  Future<void> _reAuth() async {
+    final pin = _pin;
+    final base = _baseUrl;
+    if (pin == null || base == null) return;
+    try {
+      final res = await http.post(
+        Uri.parse('$base/auth/connect'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'pin': pin, 'deviceId': 'flutter'}),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        _token = jsonDecode(res.body)['token'];
+      }
+    } catch (_) {}
   }
 
   Future<void> _tick() async {
@@ -81,11 +101,13 @@ class SyncEngine {
     }).toList();
 
     try {
+      final token = _token;
+      if (token == null) return;
       final res = await http.post(
         Uri.parse('$_baseUrl/sync'),
         headers: {
           'Content-Type': 'application/json',
-          'X-Token': _token,
+          'X-Token': token,
         },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
@@ -96,10 +118,11 @@ class SyncEngine {
         await _queue.markSynced(successOps);
       } else if (res.statusCode == 403) {
         await _reAuth();
-        if (_token != null) {
+        final token2 = _token;
+        if (token2 != null) {
           final retry = await http.post(
             Uri.parse('$_baseUrl/sync'),
-            headers: {'Content-Type': 'application/json', 'X-Token': _token},
+            headers: {'Content-Type': 'application/json', 'X-Token': token2},
             body: jsonEncode(payload),
           ).timeout(const Duration(seconds: 10));
           if (retry.statusCode == 200) {
@@ -116,9 +139,11 @@ class SyncEngine {
   Future<void> pullChanges() async {
     if (_serverHost == null) return;
     try {
+      final token = _token;
+      if (token == null) return;
       final res = await http.get(
         Uri.parse('$_baseUrl/changes?since=${_lastPull.millisecondsSinceEpoch}'),
-        headers: {'X-Token': _token},
+        headers: {'X-Token': token},
       ).timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200) {
@@ -127,10 +152,11 @@ class SyncEngine {
         _lastPull = DateTime.now();
       } else if (res.statusCode == 403) {
         await _reAuth();
-        if (_token != null) {
+        final token2 = _token;
+        if (token2 != null) {
           final retry = await http.get(
             Uri.parse('$_baseUrl/changes?since=${_lastPull.millisecondsSinceEpoch}'),
-            headers: {'X-Token': _token},
+            headers: {'X-Token': token2},
           ).timeout(const Duration(seconds: 10));
           if (retry.statusCode == 200) {
             final body = jsonDecode(retry.body);
