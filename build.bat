@@ -1,20 +1,19 @@
 @echo off
 chcp 65001 >nul
-:: WeightNest 构建启动器 — 双击运行，按选项构建
 cd /d "%~dp0"
 
 echo.
-echo ═══════════════════════════════════════
-echo   WeightNest 构建工具
-echo ═══════════════════════════════════════
+echo ========================================
+echo   WeightNest Build Tool
+echo ========================================
 echo.
-echo   1. 只构建手机端 (APK)
-echo   2. 只构建电脑端 (Windows)
-echo   3. 手机端 + 电脑端
-echo   4. 全部 (手机 + 电脑 + 服务端)
-echo   5. 仅重建服务端 (Docker)
+echo   1. Build Android APK only
+echo   2. Build Windows Desktop only
+echo   3. Build APK + Desktop
+echo   4. Build All (APK + Desktop + Docker)
+echo   5. Build Docker Server only
 echo.
-set /p choice="请选择 (1-5): "
+set /p choice="Select (1-5): "
 
 if "%choice%"=="1" powershell -ExecutionPolicy Bypass -File "%~dp0build.ps1" -Mobile
 if "%choice%"=="2" powershell -ExecutionPolicy Bypass -File "%~dp0build.ps1" -Desktop

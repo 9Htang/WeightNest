@@ -10,11 +10,28 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$projectRoot = "$PSScriptRoot"
+
+# Resolve project root from script location, fallback to PWD
+if ($PSScriptRoot) {
+    $projectRoot = $PSScriptRoot
+} else {
+    $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
 $releaseDir = "C:\Users\Cwb\.openclaw\workspace\releases"
 
-$pubspec = Get-Content "$projectRoot\pubspec.yaml" | Select-String "^version:"
-$version = ($pubspec -split ":\s*")[2].Split("+")[0]
+# Get version from pubspec.yaml
+$pubspecPath = Join-Path $projectRoot "pubspec.yaml"
+if (-not (Test-Path $pubspecPath)) {
+    Write-Host "[!] pubspec.yaml not found at $pubspecPath" -ForegroundColor Red
+    exit 1
+}
+$pubspecContent = Get-Content $pubspecPath -Raw
+if ($pubspecContent -match 'version:\s*([^\s]+)') {
+    $version = $matches[1].Split("+")[0]
+} else {
+    Write-Host "[!] Cannot parse version from pubspec.yaml" -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "==== WeightNest Build Tool v$version ====" -ForegroundColor Cyan
 
