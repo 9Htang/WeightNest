@@ -43,60 +43,84 @@ class WeightRecord {
   final bool isFasting;
   final String? notes;
 
-  WeightRecord({
-    required this.id, required this.weightG, required this.recordedAt,
-    required this.isFasting, this.notes,
-  });
+  WeightRecord({required this.id, required this.weightG, required this.recordedAt, required this.isFasting, this.notes});
 
   factory WeightRecord.fromJson(Map<String, dynamic> json) => WeightRecord(
-    id: json['id'],
-    weightG: (json['weightG'] as num).toDouble(),
+    id: json['id'], weightG: (json['weightG'] as num).toDouble(),
     recordedAt: DateTime.parse(json['recordedAt']),
-    isFasting: json['isFasting'] ?? false,
-    notes: json['notes'],
+    isFasting: json['isFasting'] ?? false, notes: json['notes'],
   );
 }
 
 /// 鹦鹉档案 API 服务
 class BirdArchiveService {
-  final String _baseUrl;
-  final String _token;
+  String _baseUrl;
+  String _token;
+  final String _host;
+  final int _port;
+  final String _pin;
 
-  BirdArchiveService({required String serverHost, required int serverPort, required String token})
-      : _baseUrl = 'http://$serverHost:$serverPort',
-        _token = token;
+  BirdArchiveService({required String serverHost, required int serverPort, required String token, String pin = '1234'})
+      : _host = serverHost,
+        _port = serverPort,
+        _baseUrl = 'http://$serverHost:$serverPort',
+        _token = token,
+        _pin = pin;
 
   Map<String, String> get _headers => {'Authorization': '***'};
+
+  /// 403 时自动重新认证
+  Future<void> _ensureAuth() async {
+    final newToken = await _authenticate();
+    if (newToken != null) _token = newToken;
+  }
+
+  Future<String?> _authenticate() async {
+    try {
+      final res = await http.post(
+        Uri.parse('http://$_host:$_port/auth/connect'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'pin': _pin, 'deviceId': 'desktop'}),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        return (jsonDecode(res.body))['token'] as String;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<http.Response> _get(String path, {Map<String, String>? queryParams}) async {
+    var uri = Uri.parse('$_baseUrl$path');
+    if (queryParams != null && queryParams.isNotEmpty) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+    var res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 403) {
+      await _ensureAuth();
+      res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+    }
+    return res;
+  }
 
   /// 查询鹦鹉列表
   Future<List<BirdInfo>> fetchBirds({String? search}) async {
     final params = <String, String>{};
     if (search != null && search.isNotEmpty) params['search'] = search;
 
-    final uri = Uri.parse('$_baseUrl/birds').replace(queryParameters: params.isNotEmpty ? params : null);
-    final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
-
+    final res = await _get('/birds', queryParams: params.isNotEmpty ? params : null);
     if (res.statusCode == 200) {
       final body = jsonDecode(res.body);
-      return (body['birds'] as List)
-          .map((e) => BirdInfo.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return (body['birds'] as List).map((e) => BirdInfo.fromJson(e as Map<String, dynamic>)).toList();
     }
     throw Exception('API 错误: ${res.statusCode}');
   }
 
   /// 查询体重历史
   Future<List<WeightRecord>> fetchWeights(int birdId) async {
-    final res = await http.get(
-      Uri.parse('$_baseUrl/birds/$birdId/weights'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
-
+    final res = await _get('/birds/$birdId/weights');
     if (res.statusCode == 200) {
       final body = jsonDecode(res.body);
-      return (body['weights'] as List)
-          .map((e) => WeightRecord.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return (body['weights'] as List).map((e) => WeightRecord.fromJson(e as Map<String, dynamic>)).toList();
     }
     throw Exception('API 错误: ${res.statusCode}');
   }
