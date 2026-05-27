@@ -481,10 +481,10 @@ packages:
     dependency: "direct main"
     description:
       name: mobile_scanner
-      sha256: "0b466a0a8a211b366c2e87f3345715faef9b6011c7147556ad22f37de6ba3173"
+      sha256: d234581c090526676fd8fab4ada92f35c6746e3fb4f05a399665d75a399fb760
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "6.0.11"
+    version: "5.2.3"
   package_config:
     dependency: transitive
     description:
@@ -867,7 +867,7 @@ packages:
     source: hosted
     version: "3.1.4"
   uuid:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: uuid
       sha256: "1fef9e8e11e2991bb773070d4656b7bd5d850967a2456cfc83cf47925ba79489"

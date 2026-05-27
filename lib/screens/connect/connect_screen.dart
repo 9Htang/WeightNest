@@ -41,7 +41,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         setState(() { _scanning = false; _status = '已识别: $host:$port'; });
       }
     } catch (_) {
-      // 尝试 URL 格式: http://host:port
       try {
         final uri = Uri.parse(rawValue);
         if (uri.host.isNotEmpty) {
@@ -72,7 +71,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         final body = jsonDecode(res.body);
         final token = body['token'] as String;
 
-        // 启动同步引擎
         final engine = ref.read(syncEngineProvider);
         await engine.connect(ip, port, token);
         engine.start();
@@ -109,13 +107,15 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          MobileScanner(onDetect: (capture) {
-                            for (final barcode in capture.barcodes) {
-                              if (barcode.rawValue != null) {
-                                _onDetect(barcode.rawValue!);
+                          MobileScanner(
+                            onDetect: (capture) {
+                              for (final barcode in capture.barcodes) {
+                                if (barcode.rawValue != null) {
+                                  _onDetect(barcode.rawValue!);
+                                }
                               }
-                            }
-                          }),
+                            },
+                          ),
                           Center(
                             child: Container(
                               width: 200, height: 200,
@@ -141,7 +141,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ),
             const SizedBox(height: 16),
 
-            Text('或手动输入', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+            const Text('或手动输入', style: TextStyle(fontSize: 13, color: Colors.grey)),
             const SizedBox(height: 8),
 
             Row(children: [
