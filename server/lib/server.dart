@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
@@ -466,7 +466,7 @@ Future<Response> _handleBirds(Request req) async {
 Future<Response> _handleBirdDetail(Request req) async {
   if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
   final id = int.tryParse(req.params['id'] ?? '');
-  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
 
   final result = await _db.execute(Sql.named('''
     SELECT b.id, b.uuid, b.name, b.ring_number, b.species_id, b.room_id,
@@ -494,7 +494,7 @@ Future<Response> _handleBirdDetail(Request req) async {
 Future<Response> _handleBirdWeights(Request req) async {
   if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
   final id = int.tryParse(req.params['id'] ?? '');
-  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
 
   final result = await _db.execute(Sql.named('''
     SELECT id, uuid, bird_id, weight_g, recorded_at, recorded_by, is_fasting, notes, created_at
@@ -546,15 +546,14 @@ Future<Response> _handleCreateUser(Request req) async {
   final password = body['password'] as String? ?? '';
   final role = body['role'] as String? ?? 'keeper';
 
-  if (username == null || username.isEmpty) return Response.badRequest(body: '{"error":"缺少用户名"}');
-  if (displayName == null || displayName.isEmpty) return Response.badRequest(body: '{"error":"缺少显示名称"}');
-  if (!['admin', 'keeper', 'viewer'].contains(role)) return Response.badRequest(body: '{"error":"无效角色"}');
+  if (username == null || username.isEmpty) return Response(400, body: '{"error":"缺少用户名"}');
+  if (displayName == null || displayName.isEmpty) return Response(400, body: '{"error":"缺少显示名称"}');
+  if (!['admin', 'keeper', 'viewer'].contains(role)) return Response(400, body: '{"error":"无效角色"}');
 
   final uuid = _uuid.v4();
-  await _db.execute(Sql.named(
-    'INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)'),
-    parameters: {'a': uuid, 'b': username, 'c': displayName, 'd': password, 'e': role},
-  ));
+  final q = Sql.named(
+      'INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)');
+  await _db.execute(q, parameters: {'a': uuid, 'b': username, 'c': displayName, 'd': password, 'e': role});
 
   return Response.ok(jsonEncode({'uuid': uuid}));
 }
@@ -563,7 +562,7 @@ Future<Response> _handleUpdateUser(Request req) async {
   if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
 
   final id = int.tryParse(req.params['id'] ?? '');
-  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
 
   final body = jsonDecode(await req.readAsString());
   final updates = <String>[];
@@ -575,7 +574,7 @@ Future<Response> _handleUpdateUser(Request req) async {
   }
   if (body.containsKey('role')) {
     final role = body['role'] as String;
-    if (!['admin', 'keeper', 'viewer'].contains(role)) return Response.badRequest(body: '{"error":"无效角色"}');
+    if (!['admin', 'keeper', 'viewer'].contains(role)) return Response(400, body: '{"error":"无效角色"}');
     updates.add('role=@role');
     params['role'] = role;
   }
@@ -591,12 +590,10 @@ Future<Response> _handleUpdateUser(Request req) async {
     }
   }
 
-  if (updates.isEmpty) return Response.badRequest(body: '{"error":"无变更"}');
+  if (updates.isEmpty) return Response(400, body: '{"error":"无变更"}');
   updates.add('updated_at=NOW()');
-  await _db.execute(Sql.named(
-    'UPDATE users SET ${updates.join(', ')} WHERE id=@id'),
-    parameters: params,
-  );
+  final q = Sql.named('UPDATE users SET ${updates.join(', ')} WHERE id=@id');
+  await _db.execute(q, parameters: params);
 
   return Response.ok(jsonEncode({'ok': true}));
 }
