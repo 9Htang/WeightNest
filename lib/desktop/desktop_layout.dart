@@ -60,6 +60,13 @@ class _DesktopLayoutState extends State<DesktopLayout> {
   }
 
   @override
+  void dispose() {
+    _sseClient?.close();
+    _dataVersion.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_connecting) {
       return const Scaffold(
@@ -131,8 +138,8 @@ class _DesktopLayoutState extends State<DesktopLayout> {
             child: IndexedStack(
               index: _selectedIndex,
               children: [
-                AuditLogScreen(service: _logService!),
-                BirdArchiveScreen(service: _birdService!),
+                AuditLogScreen(service: _logService!, dataVersion: _dataVersion),
+                BirdArchiveScreen(service: _birdService!, dataVersion: _dataVersion),
                 StaffScreen(service: _staffService!),
               ],
             ),

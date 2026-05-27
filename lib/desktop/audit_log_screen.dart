@@ -1,12 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/audit_log_service.dart';
 
 /// 操作日志审计页面
 class AuditLogScreen extends StatefulWidget {
   final AuditLogService service;
+  final ValueNotifier<int> dataVersion;
 
-  const AuditLogScreen({super.key, required this.service});
+  const AuditLogScreen({super.key, required this.service, required this.dataVersion});
 
   @override
   State<AuditLogScreen> createState() => _AuditLogScreenState();
@@ -18,7 +18,6 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   String? _error;
   int _currentPage = 1;
   static const _pageSize = 30;
-  Timer? _refreshTimer;
 
   String? _filterAction;
   String? _filterEntityType;
@@ -28,14 +27,16 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   void initState() {
     super.initState();
     _loadData();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _loadData());
+    widget.dataVersion.addListener(_onDataChanged);
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    widget.dataVersion.removeListener(_onDataChanged);
     super.dispose();
   }
+
+  void _onDataChanged() => _loadData();
 
   Future<void> _loadData() async {
     setState(() { _loading = true; _error = null; });

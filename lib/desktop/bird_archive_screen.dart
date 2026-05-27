@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../services/bird_archive_service.dart';
@@ -6,8 +5,9 @@ import '../../services/bird_archive_service.dart';
 /// 鹦鹉全息档案页面
 class BirdArchiveScreen extends StatefulWidget {
   final BirdArchiveService service;
+  final ValueNotifier<int> dataVersion;
 
-  const BirdArchiveScreen({super.key, required this.service});
+  const BirdArchiveScreen({super.key, required this.service, required this.dataVersion});
 
   @override
   State<BirdArchiveScreen> createState() => _BirdArchiveScreenState();
@@ -21,21 +21,22 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   bool _loadingWeights = false;
   String? _error;
   final _searchCtrl = TextEditingController();
-  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadBirds();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _loadBirds());
+    widget.dataVersion.addListener(_onDataChanged);
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _refreshTimer?.cancel();
+    widget.dataVersion.removeListener(_onDataChanged);
     super.dispose();
   }
+
+  void _onDataChanged() => _loadBirds();
 
   Future<void> _loadBirds({String? search}) async {
     setState(() { _loading = true; _error = null; });
