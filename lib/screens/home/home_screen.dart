@@ -26,6 +26,46 @@ class HomeScreen extends ConsumerWidget {
     final worker = ref.watch(workerProvider);
     final isAdmin = worker.userId == 1; // admin is always user id 1
 
+    // 未选择员工 → 屏蔽所有功能
+    if (!worker.isSelected) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('WeightNest'), actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+        ]),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.person_off, size: 72, color: Colors.grey.shade400),
+                const SizedBox(height: 20),
+                Text('请先选择员工',
+                    style: theme.textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600)),
+                const SizedBox(height: 8),
+                Text('未选择员工时无法使用任何功能',
+                    style: TextStyle(color: Colors.grey.shade500)),
+                const SizedBox(height: 28),
+                FilledButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const WorkerSelectScreen()));
+                    ref.invalidate(workerProvider);
+                  },
+                  icon: const Icon(Icons.person),
+                  label: const Text('选择员工'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('WeightNest'),
@@ -40,11 +80,9 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 14,
-                  backgroundColor: worker.isSelected
-                      ? theme.colorScheme.primary
-                      : Colors.grey,
+                  backgroundColor: theme.colorScheme.primary,
                   child: Text(
-                    worker.isSelected ? worker.displayName[0].toUpperCase() : '?',
+                    worker.displayName[0].toUpperCase(),
                     style: const TextStyle(fontSize: 12, color: Colors.white),
                   ),
                 ),
