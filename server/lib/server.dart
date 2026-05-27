@@ -71,6 +71,9 @@ void main() async {
     ..get('/birds', _handleBirds)
     ..get('/birds/<id>', _handleBirdDetail)
     ..get('/birds/<id>/weights', _handleBirdWeights)
+    ..get('/users', _handleUsers)
+    ..post('/users', _handleCreateUser)
+    ..patch('/users/<id>', _handleUpdateUser)
     ..get('/health', (_) => Response.ok('{"status":"ok"}'));
 
   final handler = Pipeline()
@@ -509,6 +512,93 @@ Future<Response> _handleBirdWeights(Request req) async {
   }).toList();
 
   return Response.ok(jsonEncode({'weights': weights}));
+}
+
+// ─── 用户管理 ───
+
+Future<Response> _handleUsers(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+
+  final result = await _db.execute('''
+    SELECT id, uuid, username, display_name, role, created_at, updated_at, deleted_at
+    FROM users
+    ORDER BY id ASC
+  ''');
+
+  final users = result.map((row) => {
+    'id': row[0], 'uuid': row[1], 'username': row[2], 'displayName': row[3],
+    'role': row[4],
+    'createdAt': (row[5] as DateTime).toIso8601String(),
+    'updatedAt': (row[6] as DateTime?)?.toIso8601String(),
+    'deletedAt': (row[7] as DateTime?)?.toIso8601String(),
+    'isActive': row[7] == null,
+  }).toList();
+
+  return Response.ok(jsonEncode({'users': users}));
+}
+
+Future<Response> _handleCreateUser(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+
+  final body = jsonDecode(await req.readAsString());
+  final username = body['username'] as String?;
+  final displayName = body['displayName'] as String?;
+  final password = body['password'] as String? ?? '';
+  final role = body['role'] as String? ?? 'keeper';
+
+  if (username == null || username.isEmpty) return Response.badRequest(body: '{"error":"缺少用户名"}');
+  if (displayName == null || displayName.isEmpty) return Response.badRequest(body: '{"error":"缺少显示名称"}');
+  if (!['admin', 'keeper', 'viewer'].contains(role)) return Response.badRequest(body: '{"error":"无效角色"}');
+
+  final uuid = _uuid.v4();
+  await _db.execute(Sql.named(
+    'INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)'),
+    parameters: {'a': uuid, 'b': username, 'c': displayName, 'd': password, 'e': role},
+  ));
+
+  return Response.ok(jsonEncode({'uuid': uuid}));
+}
+
+Future<Response> _handleUpdateUser(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response.badRequest(body: '{"error":"invalid id"}');
+
+  final body = jsonDecode(await req.readAsString());
+  final updates = <String>[];
+  final params = <String, dynamic>{'id': id};
+
+  if (body.containsKey('displayName')) {
+    updates.add('display_name=@dn');
+    params['dn'] = body['displayName'];
+  }
+  if (body.containsKey('role')) {
+    final role = body['role'] as String;
+    if (!['admin', 'keeper', 'viewer'].contains(role)) return Response.badRequest(body: '{"error":"无效角色"}');
+    updates.add('role=@role');
+    params['role'] = role;
+  }
+  if (body.containsKey('password') && (body['password'] as String).isNotEmpty) {
+    updates.add('password_hash=@pw');
+    params['pw'] = body['password'];
+  }
+  if (body.containsKey('isActive')) {
+    if (body['isActive'] == true) {
+      updates.add('deleted_at=NULL');
+    } else {
+      updates.add('deleted_at=NOW()');
+    }
+  }
+
+  if (updates.isEmpty) return Response.badRequest(body: '{"error":"无变更"}');
+  updates.add('updated_at=NOW()');
+  await _db.execute(Sql.named(
+    'UPDATE users SET ${updates.join(', ')} WHERE id=@id'),
+    parameters: params,
+  );
+
+  return Response.ok(jsonEncode({'ok': true}));
 }
 
 bool _checkAuth(Request req) {

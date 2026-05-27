@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/audit_log_service.dart';
 import '../services/bird_archive_service.dart';
+import '../services/staff_service.dart';
 import 'audit_log_screen.dart';
 import 'bird_archive_screen.dart';
+import 'staff_screen.dart';
 
 /// 桌面端主布局 — 侧边栏 + 内容区
 class DesktopLayout extends StatefulWidget {
@@ -17,6 +19,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
   int _selectedIndex = 0;
   AuditLogService? _logService;
   BirdArchiveService? _birdService;
+  StaffService? _staffService;
   bool _connecting = true;
   String? _connectError;
 
@@ -52,6 +55,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
       setState(() {
         _logService = AuditLogService(serverHost: host, serverPort: port, token: token);
         _birdService = BirdArchiveService(serverHost: host, serverPort: port, token: token);
+        _staffService = StaffService(serverHost: host, serverPort: port, token: token);
         _connecting = false;
       });
     } else {
@@ -124,25 +128,10 @@ class _DesktopLayoutState extends State<DesktopLayout> {
               children: [
                 AuditLogScreen(service: _logService!),
                 BirdArchiveScreen(service: _birdService!),
-                _placeholderPage('人员管理', Icons.people),
+                StaffScreen(service: _staffService!),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _placeholderPage(String title, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          Text(title, style: TextStyle(fontSize: 16, color: Colors.grey.shade500)),
-          const SizedBox(height: 4),
-          Text('即将开发...', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
         ],
       ),
     );
