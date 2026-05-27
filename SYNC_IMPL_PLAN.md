@@ -5,16 +5,13 @@
 ## 部署架构
 
 ```
-                 [Go/Node.js Server]
-                 PostgreSQL + Sync API
-                 WebSocket Broadcaster
-                       ↑↓
-              HTTP/WebSocket
-                       ↑↓
-     ┌──────────┼──────────┬──────────┐
-     ↓          ↓          ↓          ↓
-  Client A   Client B   Client C   Client D
-  (手机)     (手机)     (手机)     (电脑)
+        [Dart shelf + PostgreSQL 中央服务器]
+           ↑↓ HTTP/WebSocket
+           ↑↓ 扫码获取地址 + PIN 验证
+     ┌──────┼──────┬──────┐
+     ↓      ↓      ↓      ↓
+  Client  Client  Client  Client
+  (手机)  (手机)  (手机)  (电脑)
   
   各客户端：SQLite 本地库 + sync_queue + Sync Engine
 ```
@@ -85,5 +82,64 @@
 - **新增**: sync_queue 表 + SyncEngine 服务
 - **替换**: 当前 SyncService（全量 HTTP 拉取）→ 操作日志队列同步
 - **替换**: 嵌入式 shelf 服务器 → 独立中央服务器
-- **废弃**: UDP 广播发现（中央服务器固定 IP）
+- **废弃**: UDP 广播发现（扫码 + PIN 替代）
 - **废弃**: 客户端/服务器模式切换（统一客户端连中央服务器）
+
+## 已确认决策
+
+| # | 问题 | 决定 |
+|---|------|------|
+| 1 | 服务端技术栈 | Dart shelf + PostgreSQL（代码复用） |
+| 2 | 服务器运行环境 | 先局域网，可能跑在手机上 |
+| 3 | 现有数据迁移 | 丢弃重来，新数据库从零开始 |
+| 4 | 登录验证 | 简单 PIN 码认证 |
+| 5 | 实施节奏 | 先跑核心测试（阶段 1+2+3） |
+| 6 | 连接方式 | 扫码连接（扫码获取服务端地址 + PIN 验证） |
+
+## 扫码连接设计
+
+取代 UDP 广播发现。流程：
+
+```
+服务端（手机/电脑）              客户端（手机）
+       │                              │
+       │  启动服务器                   │
+       │  生成二维码                   │
+       │  ┌─────────────────┐         │
+       │  │ {               │         │
+       │  │  "host":        │         │
+       │  │   "192.168.x.x" │←────────│── 相机扫描
+       │  │  "port": 8080,  │         │
+       │  │  "serverId":    │         │
+       │  │   "uuid"        │         │
+       │  │ }               │         │
+       │  └─────────────────┘         │
+       │                              │
+       │←──── POST /connect ──────────│  自动填 IP+端口
+       │     {deviceId, pin}          │
+       │                              │
+       │───── 200 {token} ───────────→│  PIN 验证通过
+       │                              │
+       │←════ WebSocket 长连接 ══════→│  后续通信
+```
+
+### 需要新增
+
+| # | 依赖/文件 | 用途 |
+|---|----------|------|
+| 1 | `qr_flutter` | 服务端生成二维码 |
+| 2 | `mobile_scanner` | 客户端扫码 |
+| 3 | `lib/services/server_auth.dart` | 服务端 PIN 管理 + token 签发 |
+| 4 | `lib/screens/connect/` | 客户端扫码连接页面 |
+| 5 | 服务端设置页 | 显示二维码 + 修改 PIN |
+
+### 二维码内容
+
+```json
+{
+  "host": "192.168.10.9",
+  "port": 8080,
+  "serverId": "server-uuid-xxx",
+  "serverName": "鸟房主服务器"
+}
+```
