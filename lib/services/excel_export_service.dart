@@ -34,9 +34,11 @@ class ExcelExportService {
       data[i] = {};
       final weights = await _db.getByBirdInRange(birds[i].bird.id, from: monthStart, to: monthEnd);
       for (final w in weights) {
-        final timeStr = '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')}\n${w.weightG.toStringAsFixed(1)}';
+        final fasting = w.isFasting ? '' : '*';
+        final timeStr =
+            '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')}\n${w.weightG.toStringAsFixed(1)}$fasting';
         final existing = data[i]![w.recordedAt.day];
-        data[i]![w.recordedAt.day] = existing != null ? '$existing\n\n$timeStr' : timeStr;
+        data[i]![w.recordedAt.day] = existing != null ? '$existing\n$timeStr' : timeStr;
       }
     }
 
@@ -51,6 +53,7 @@ class ExcelExportService {
     for (final b in birds) {
       dateHeaderRow.add(''); // 日期行对应鸟列留空，日期在第一列
     }
+
     _writeRow(sheet, 0, ringRow, bold: true);
     _writeRow(sheet, 1, speciesRow, bold: true);
 
@@ -68,8 +71,10 @@ class ExcelExportService {
     }
 
     // 设置列宽自适应：日期列 + 每只鸟一列
-    for (int c = 0; c <= birds.length; c++) {
-      sheet.setColumnAutoFit(c);
+    sheet.setColumnWidth(0, 10); // 日期列
+
+    for (int c = 1; c <= birds.length; c++) {
+      sheet.setColumnWidth(c, 8);
     }
 
     // 保存文件

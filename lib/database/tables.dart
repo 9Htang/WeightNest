@@ -91,7 +91,7 @@ class Weights extends Table {
   IntColumn get recordedBy => integer().nullable().references(Users, #id)();
 
   /// 是否空腹体重
-  BoolColumn get isFasting => boolean().withDefault(const Constant(false))();
+  BoolColumn get isFasting => boolean().withDefault(const Constant(true))();
 
   /// 备注
   TextColumn get notes => text().withLength(max: 200).nullable()();

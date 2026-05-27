@@ -21,7 +21,7 @@ class WeighState {
     required this.birds,
     this.currentIndex = 0,
     this.weightText = '',
-    this.isFasting = false,
+    this.isFasting = true,
     this.isSaving = false,
     this.message,
     this.latestWeights = const {},
@@ -95,7 +95,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
     state = state.copyWith(
       currentIndex: index,
       weightText: lastW != null ? lastW.weightG.toStringAsFixed(1) : '',
-      isFasting: false,
+      isFasting: true,
       message: null,
     );
   }
@@ -129,7 +129,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
   }
 
   void clearWeight() {
-    state = state.copyWith(weightText: '', isFasting: false, message: null);
+    state = state.copyWith(weightText: '', isFasting: true, message: null);
   }
 
   void setFasting(bool v) =>
@@ -193,7 +193,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
       state = state.copyWith(
         message: '✅ 全部完成！',
         weightText: '',
-        isFasting: false,
+        isFasting: true,
       );
     }
   }
