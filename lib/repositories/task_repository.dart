@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension TaskRepository on AppDatabase {
   Future<List<TaskWithBird>> getTodayTasks(int? userId) {
@@ -68,6 +69,7 @@ extension TaskRepository on AppDatabase {
         status: const Value('已完成'),
         completedAt: Value(DateTime.now()),
         completedBy: Value(completedBy),
+        updatedAt: Value(DateTime.now()),
       ),
     );
   }
@@ -117,6 +119,7 @@ extension TaskRepository on AppDatabase {
         if (existing != null) continue;
 
         await into(tasks).insert(TasksCompanion.insert(
+          uuid: genUuid(),
           birdId: bird.id,
           roomId: Value(bird.roomId),
           dueDate: today,
@@ -131,7 +134,7 @@ extension TaskRepository on AppDatabase {
           ..where((t) =>
               t.dueDate.isSmallerThanValue(dayStart) &
               t.status.equals('待完成')))
-        .write(const TasksCompanion(status: Value('逾期')));
+        .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
 
     return generated;
   }

@@ -6,7 +6,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Birds, Weights, Tasks, SyncLog],
+  tables: [Species, Users, Rooms, Birds, Weights, Tasks, AlertRecords, SyncQueue],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -17,11 +17,23 @@ class AppDatabase extends _$AppDatabase {
   ));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
+          await m.createAll();
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          // v1 → v2: 数据丢弃重来，删除旧表重建
+          await m.deleteTable('sync_log');
+          await m.createTable(syncQueue);
+          // 为全部表加 uuid/updatedAt/deletedAt 列
+          // 直接删库重建（数据丢弃）
+          final tables = ['species', 'users', 'rooms', 'birds', 'weights', 'tasks', 'alert_records'];
+          for (final t in tables) {
+            await m.deleteTable(t);
+          }
           await m.createAll();
         },
       );

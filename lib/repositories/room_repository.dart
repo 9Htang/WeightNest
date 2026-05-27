@@ -1,5 +1,6 @@
 ﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension RoomRepository on AppDatabase {
   Future<List<Room>> getAllRooms() =>
@@ -17,6 +18,7 @@ extension RoomRepository on AppDatabase {
         .map((row) => row.read(rooms.sortOrder.max()))
         .getSingle();
     await into(rooms).insert(RoomsCompanion.insert(
+      uuid: genUuid(),
       name: name,
       sortOrder: Value((maxRow ?? 0) + 1),
       assignedUserId: assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
@@ -32,6 +34,7 @@ extension RoomRepository on AppDatabase {
       name: name != null ? Value(name) : const Value.absent(),
       sortOrder: sortOrder != null ? Value(sortOrder) : const Value.absent(),
       assignedUserId: assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
+      updatedAt: Value(DateTime.now()),
     ));
     return list.first;
   }

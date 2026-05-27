@@ -1,5 +1,6 @@
-﻿import 'package:drift/drift.dart';
+import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension SpeciesRepository on AppDatabase {
   Future<List<Specy>> getAllSpecies() =>
@@ -16,6 +17,7 @@ extension SpeciesRepository on AppDatabase {
       int juvenileEndDays = 120,
       int adultWeighIntervalDays = 7}) async {
     await into(species).insert(SpeciesCompanion.insert(
+      uuid: genUuid(),
       name: name,
       nestlingEndDays: Value(nestlingEndDays),
       juvenileEndDays: Value(juvenileEndDays),
@@ -42,6 +44,7 @@ extension SpeciesRepository on AppDatabase {
       adultWeighIntervalDays: adultWeighIntervalDays != null
           ? Value(adultWeighIntervalDays)
           : const Value.absent(),
+      updatedAt: Value(DateTime.now()),
     ));
     return list.first;
   }

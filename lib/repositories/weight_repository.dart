@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension WeightRepository on AppDatabase {
   Future<List<Weight>> getByBird(int birdId) =>
@@ -58,12 +59,14 @@ extension WeightRepository on AppDatabase {
           recordedBy: recordedBy != null ? Value(recordedBy) : const Value.absent(),
           isFasting: Value(isFasting),
           notes: notes != null ? Value(notes) : const Value.absent(),
+          updatedAt: Value(DateTime.now()),
         ),
       );
       return (await (select(weights)..where((w) => w.id.equals(existing.id)))
           .getSingle())!;
     } else {
       await into(weights).insert(WeightsCompanion.insert(
+        uuid: genUuid(),
         birdId: birdId,
         weightG: weightG,
         recordedAt: recordedAt,

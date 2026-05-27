@@ -1,5 +1,6 @@
 ﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension UserRepository on AppDatabase {
   Future<List<User>> getAllUsers() => select(users).get();
@@ -13,6 +14,7 @@ extension UserRepository on AppDatabase {
   Future<User> createUser(String username, String displayName, String passwordHash,
       {String role = 'keeper'}) async {
     await into(users).insert(UsersCompanion.insert(
+      uuid: genUuid(),
       username: username,
       displayName: displayName,
       passwordHash: passwordHash,
@@ -27,6 +29,7 @@ extension UserRepository on AppDatabase {
         .writeReturning(UsersCompanion(
       displayName: displayName != null ? Value(displayName) : const Value.absent(),
       role: role != null ? Value(role) : const Value.absent(),
+      updatedAt: Value(DateTime.now()),
     ));
     return list.first;
   }

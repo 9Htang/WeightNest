@@ -1,5 +1,6 @@
 ﻿import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../utils/uuid.dart';
 
 extension BirdRepository on AppDatabase {
   Future<List<BirdWithDetails>> getAllWithDetails() async {
@@ -40,6 +41,7 @@ extension BirdRepository on AppDatabase {
         .map((row) => row.read(birds.sortOrder.max()))
         .getSingle();
     await into(birds).insert(BirdsCompanion.insert(
+      uuid: genUuid(),
       name: name,
       speciesId: speciesId,
       birthDate: birthDate,
@@ -78,7 +80,7 @@ extension BirdRepository on AppDatabase {
         for (final entry in birdIdToOrder.entries) {
           b.update(
             birds,
-            BirdsCompanion(sortOrder: Value(entry.value)),
+            BirdsCompanion(sortOrder: Value(entry.value), updatedAt: Value(DateTime.now())),
             where: (t) => t.id.equals(entry.key),
           );
         }

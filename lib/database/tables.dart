@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 /// 品种表
 class Species extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()(); // 全局唯一 ID
   TextColumn get name => text().withLength(min: 1, max: 50)();
 
   /// 雏鸟阶段结束天数
@@ -15,21 +16,27 @@ class Species extends Table {
   IntColumn get adultWeighIntervalDays => integer().withDefault(const Constant(7))();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // 软删除
 }
 
 /// 用户表
 class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
   TextColumn get username => text().withLength(min: 1, max: 30)();
   TextColumn get displayName => text().withLength(min: 1, max: 30)();
   TextColumn get passwordHash => text()();
   TextColumn get role => text().withLength(max: 20).withDefault(const Constant('keeper'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
 /// 房间表
 class Rooms extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
 
   /// 排序序号
@@ -39,11 +46,14 @@ class Rooms extends Table {
   IntColumn get assignedUserId => integer().nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
 /// 鹦鹉表
 class Birds extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
 
   /// 脚环号
@@ -72,11 +82,13 @@ class Birds extends Table {
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
 /// 体重记录表
 class Weights extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
 
   /// 鹦鹉 ID
   IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
@@ -97,11 +109,13 @@ class Weights extends Table {
   TextColumn get notes => text().withLength(max: 200).nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 /// 称重任务表
 class Tasks extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
 
   /// 鹦鹉 ID
   IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
@@ -125,11 +139,13 @@ class Tasks extends Table {
   IntColumn get completedBy => integer().nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 /// 异常提醒表
 class AlertRecords extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
 
   /// 鹦鹉 ID
   IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
@@ -147,22 +163,41 @@ class AlertRecords extends Table {
   BoolColumn get isResolved => boolean().withDefault(const Constant(false))();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get resolvedAt => dateTime().nullable()();
 }
 
-/// 同步日志（局域网同步用）
-class SyncLog extends Table {
+/// 同步操作日志（核心：离线优先）
+class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  /// 实体类型
-  TextColumn get entityType => text().withLength(max: 30)();
+  /// 全局唯一操作 ID（幂等去重用）
+  TextColumn get opId => text().unique()();
 
-  /// 实体 ID
-  IntColumn get entityId => integer()();
+  /// 设备 ID（哪台设备产生的操作）
+  TextColumn get deviceId => text()();
 
-  /// 操作类型：create/update/delete
-  TextColumn get operation => text().withLength(max: 10)();
+  /// 操作人 ID（FK → Users.id）
+  IntColumn get userId => integer().references(Users, #id)();
 
-  /// 同步时间
-  DateTimeColumn get syncedAt => dateTime().withDefault(currentDateAndTime)();
+  /// 操作类型：add_weight / update_bird / create_room / ...
+  TextColumn get action => text()();
+
+  /// 实体类型：weight / bird / room / species / user / task
+  TextColumn get entityType => text()();
+
+  /// 被操作记录的 UUID
+  TextColumn get entityUuid => text()();
+
+  /// 操作内容（JSON）
+  TextColumn get payload => text()();
+
+  /// 操作时间
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// 是否已同步到服务端
+  BoolColumn get synced => boolean().withDefault(const Constant(false))();
+
+  /// 重试次数
+  IntColumn get retryCount => integer().withDefault(const Constant(0))();
 }
