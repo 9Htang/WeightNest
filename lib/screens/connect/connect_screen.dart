@@ -76,11 +76,13 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         engine.start();
 
         if (mounted) {
-          setState(() { _status = '✅ 已连接'; _connecting = false; });
-          Navigator.of(context).pop(true);
+          setState(() { _status = '✅ 已连接！正在同步...'; _connecting = false; });
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) Navigator.of(context).pop(true);
         }
       } else {
-        setState(() { _status = '❌ PIN 错误或连接失败'; _connecting = false; });
+        final body = jsonDecode(res.body);
+        setState(() { _status = '❌ ${body['error'] ?? '连接失败'}'; _connecting = false; });
       }
     } catch (e) {
       setState(() { _status = '❌ 无法连接: $e'; _connecting = false; });
