@@ -7,7 +7,6 @@ import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
 import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
-import 'services/offline_sync_queue.dart';
 import 'screens/worker/worker_screen.dart';
 
 /// 数据库单例
@@ -98,9 +97,6 @@ final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref
   final db = ref.watch(databaseProvider);
   return db.getByRoom(roomId);
 });
-
-/// 全局离线同步队列
-final offlineSyncQueue = OfflineSyncQueue();
 
 /// 体重保存通知——用于触发图表刷新
 final weightSavedProvider = StateProvider<int>((ref) => 0);

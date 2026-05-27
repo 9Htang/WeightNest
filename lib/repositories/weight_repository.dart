@@ -81,6 +81,20 @@ extension WeightRepository on AppDatabase {
     }
   }
 
+  /// 检查某分钟是否存在体重记录（用于同步去重）
+  Future<bool> checkWeightExists(int birdId, DateTime recordedAt) async {
+    final minuteStart = DateTime(
+        recordedAt.year, recordedAt.month, recordedAt.day,
+        recordedAt.hour, recordedAt.minute);
+    final w = await (select(weights)
+          ..where((t) =>
+              t.birdId.equals(birdId) &
+              t.recordedAt.isBiggerOrEqualValue(minuteStart) &
+              t.recordedAt.isSmallerThanValue(minuteStart.add(const Duration(minutes: 1)))))
+        .getSingleOrNull();
+    return w != null;
+  }
+
   Future<Weight?> getLatestByBird(int birdId) =>
       (select(weights)
             ..where((t) => t.birdId.equals(birdId))

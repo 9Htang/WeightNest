@@ -5,6 +5,8 @@ import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../repositories/task_repository.dart';
+import '../../services/sync_queue_service.dart';
+import '../../utils/uuid.dart';
 
 /// 称重流程状态
 class WeighState {
@@ -59,10 +61,11 @@ class WeighState {
 /// 称重流程控制器
 class WeighNotifier extends StateNotifier<WeighState> {
   final AppDatabase _db;
+  final SyncQueueService _syncQueue;
   int? _userId;
   final VoidCallback? _onWeightSaved;
 
-  WeighNotifier(this._db, {VoidCallback? onWeightSaved})
+  WeighNotifier(this._db, this._syncQueue, {VoidCallback? onWeightSaved})
       : _onWeightSaved = onWeightSaved,
         super(WeighState(birds: []));
 
@@ -171,11 +174,20 @@ class WeighNotifier extends StateNotifier<WeighState> {
     _onWeightSaved?.call();
 
     // 离线同步：入队待推送
-    offlineSyncQueue.addWeightUpdate(bird.bird.id, {
-      'weightG': w,
-      'recordedAt': DateTime.now().toIso8601String(),
-      'isFasting': state.isFasting,
-    });
+    if (_userId != null) {
+      await _syncQueue.enqueue(
+        userId: _userId!,
+        action: 'add_weight',
+        entityType: 'weight',
+        entityUuid: genUuid(),
+        payload: {
+          'birdId': bird.bird.id,
+          'weightG': w,
+          'recordedAt': DateTime.now().toIso8601String(),
+          'isFasting': state.isFasting,
+        },
+      );
+    }
 
     final todayTasks = await _db.getTodayTasks(null);
     final done = todayTasks.where((t) => t.task.status == '已完成').length;
@@ -203,7 +215,8 @@ class WeighNotifier extends StateNotifier<WeighState> {
 final weighProvider =
     StateNotifierProvider<WeighNotifier, WeighState>((ref) {
   final db = ref.watch(databaseProvider);
-  return WeighNotifier(db, onWeightSaved: () {
+  final syncQueue = SyncQueueService(db);
+  return WeighNotifier(db, syncQueue, onWeightSaved: () {
     ref.read(weightSavedProvider.notifier).state++;
   });
 });
