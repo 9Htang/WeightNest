@@ -42,4 +42,4 @@ flutter:
   uses-material-design: true
 name: weight_nest
 publish_to: none
-version: 1.7.6+23
+version: 1.7.7+24
