@@ -244,9 +244,9 @@ class _DesktopLayoutState extends State<DesktopLayout>
     final label = _tabLabels[index];
     final hideBird = index == 2;
     final widget = _buildScreen(index, hideBirdList: hideBird);
-    _leftTabs.removeAt(leftIdx);
 
     setState(() {
+      _leftTabs.removeAt(leftIdx);
       _rightTabs.add(_TabData(index, widget, customLabel: hideBird ? null : label));
       _rightPaneActive.value = true;
     });
@@ -566,7 +566,10 @@ class _DesktopLayoutState extends State<DesktopLayout>
             ? (_splitRatio * 1000).round()
             : ((1 - _splitRatio) * 1000).round(),
         child: GestureDetector(
-          onTap: () => _rightPaneActive.value = !isLeft,
+          onTap: () {
+            _rightPaneActive.value = !isLeft;
+            setState(() {});
+          },
           behavior: HitTestBehavior.translucent,
           child: Container(
             decoration: BoxDecoration(
@@ -842,8 +845,10 @@ class _TabHeader extends StatelessWidget {
   }
 }
 
-// ── Draggable tab — supports both mouse (immediate) and touch (long-press) drag-to-split ──
-class _DraggableTab extends StatelessWidget {
+// ── Draggable tab — supports both mouse and touch drag-to-split ──
+// Uses absolute end position, not relative offset, so the threshold is
+// consistent regardless of where the tab sits in the header.
+class _DraggableTab extends StatefulWidget {
   final int tabIndex;
   final String label;
   final bool isSelected;
@@ -865,39 +870,55 @@ class _DraggableTab extends StatelessWidget {
   });
 
   @override
+  State<_DraggableTab> createState() => _DraggableTabState();
+}
+
+class _DraggableTabState extends State<_DraggableTab> {
+  double _startGlobalDx = 0;
+
+  void _onDragStarted() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null) {
+      _startGlobalDx = box.localToGlobal(Offset.zero).dx;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LongPressDraggable<int>(
-      data: tabIndex,
+      data: widget.tabIndex,
       delay: const Duration(milliseconds: 150),
+      onDragStarted: _onDragStarted,
       feedback: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(4),
-        color: scheme.surfaceContainerHighest,
+        color: widget.scheme.surfaceContainerHighest,
         child: Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.compare_arrows, size: 14, color: scheme.primary),
+            Icon(Icons.compare_arrows, size: 14, color: widget.scheme.primary),
             const SizedBox(width: 6),
-            Text(label,
+            Text(widget.label,
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: scheme.primary)),
+                    color: widget.scheme.primary)),
           ]),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.3, child: tabContent),
+      childWhenDragging: Opacity(opacity: 0.3, child: widget.tabContent),
       onDragEnd: (details) {
+        final endX = _startGlobalDx + details.offset.dx;
         final screenWidth = MediaQuery.of(context).size.width;
-        if (details.offset.dx > screenWidth * 0.55) {
-          onDragToSplit(tabIndex);
+        if (endX > screenWidth * 0.55) {
+          widget.onDragToSplit(widget.tabIndex);
         }
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => tabController.animateTo(tabIndexInList),
-        child: tabContent,
+        onTap: () => widget.tabController.animateTo(widget.tabIndexInList),
+        child: widget.tabContent,
       ),
     );
   }
