@@ -131,7 +131,7 @@ class SyncEngine {
         serverUsernames.add(username);
         final existing = await _db.getByUsername(username);
         if (existing == null) {
-          await _db.createUser(username, u['displayName'] as String, u['passwordHash'] ?? '',
+          await _db.createUser(username, u['displayName'] as String? ?? username, u['passwordHash'] ?? '',
             role: u['role'] as String? ?? 'keeper');
         } else {
           // 用服务端数据更新本地用户
@@ -161,57 +161,66 @@ class SyncEngine {
       if (res.statusCode != 200) return;
       final list = jsonDecode(res.body)['birds'] as List;
       final matchedIds = <int>{};
+      var ok = true;
       for (final b in list) {
-        final name = b['name'] as String;
-        final birthDate = DateTime.parse(b['birthDate']);
-        final serverUuid = b['uuid'] as String;
-        final existing = await _db.getBirdByNameAndBirth(name, birthDate);
-        final speciesName = b['speciesName'] as String?;
-        final roomName = b['roomName'] as String?;
+        try {
+          final name = b['name'] as String?;
+          final birthDateStr = b['birthDate'] as String?;
+          if (name == null || birthDateStr == null) continue;
+          final birthDate = DateTime.parse(birthDateStr);
+          final serverUuid = b['uuid'] as String?;
+          if (serverUuid == null) continue;
+          final existing = await _db.getBirdByNameAndBirth(name, birthDate);
+          final speciesName = b['speciesName'] as String?;
 
-        int? localSpeciesId;
-        if (speciesName != null) {
-          final sp = await _db.getSpeciesByName(speciesName);
-          localSpeciesId = sp?.id;
-        }
-
-        int? localRoomId;
-        if (roomName != null) {
-          final room = await _db.getRoomByName(roomName);
-          localRoomId = room?.id;
-        }
-
-        if (existing == null) {
-          final created = await _db.createBird(
-            name: name,
-            speciesId: localSpeciesId ?? b['speciesId'] ?? 1,
-            birthDate: birthDate,
-            roomId: localRoomId ?? b['roomId'] as int?,
-            ringNumber: b['ringNumber'] as String?,
-            gender: b['gender'] as String? ?? '未知',
-            uuid: serverUuid,
-          );
-          matchedIds.add(created.id);
-        } else {
-          matchedIds.add(existing.id);
-          // 用服务端数据更新本地鹦鹉
-          if (existing.uuid != serverUuid) {
-            await _db.updateBirdUuid(existing.id, serverUuid);
+          int? localSpeciesId;
+          if (speciesName != null) {
+            final sp = await _db.getSpeciesByNameSafe(speciesName);
+            if (sp != null) localSpeciesId = sp.id;
           }
-          await _db.updateBird(existing.id,
-            speciesId: localSpeciesId ?? existing.speciesId,
-            roomId: localRoomId,
-            ringNumber: b['ringNumber'] as String?,
-            gender: b['gender'] as String?,
-          );
+
+          int? localRoomId;
+          final roomName = b['roomName'] as String?;
+          if (roomName != null) {
+            final room = await _db.getRoomByName(roomName);
+            if (room != null) localRoomId = room.id;
+          }
+
+          if (existing == null) {
+            final created = await _db.createBird(
+              name: name,
+              speciesId: localSpeciesId ?? 1,
+              birthDate: birthDate,
+              roomId: localRoomId,
+              ringNumber: b['ringNumber'] as String?,
+              gender: b['gender'] as String? ?? '未知',
+              uuid: serverUuid,
+            );
+            matchedIds.add(created.id);
+          } else {
+            matchedIds.add(existing.id);
+            if (existing.uuid != serverUuid) {
+              await _db.updateBirdUuid(existing.id, serverUuid);
+            }
+            await _db.updateBird(existing.id,
+              speciesId: localSpeciesId ?? existing.speciesId,
+              roomId: localRoomId,
+              ringNumber: b['ringNumber'] as String?,
+              gender: b['gender'] as String?,
+            );
+          }
+        } catch (_) {
+          ok = false;
         }
       }
-      // 清理本地有而服务端没有的鹦鹉（包括关联的体重记录）
-      final local = await _db.getAllWithDetails();
-      for (final b in local) {
-        if (!matchedIds.contains(b.bird.id)) {
-          await _db.removeWeightsByBirdId(b.bird.id);
-          await _db.removeBird(b.bird.id);
+      // 仅在全部处理成功时才清理本地孤儿数据
+      if (ok) {
+        final local = await _db.getAllWithDetails();
+        for (final b in local) {
+          if (!matchedIds.contains(b.bird.id)) {
+            await _db.removeWeightsByBirdId(b.bird.id);
+            await _db.removeBird(b.bird.id);
+          }
         }
       }
     } catch (_) {}
@@ -505,22 +514,38 @@ class SyncEngine {
       nestlingWeighIntervalDays: d['nestlingWeighIntervalDays'] ?? 1,
       juvenileWeighIntervalDays: d['juvenileWeighIntervalDays'] ?? 3,
       adultWeighIntervalDays: d['adultWeighIntervalDays'] ?? 7,
+      uuid: uuid,
     );
   }
 
   Future<void> _applyRoom(Map<String, dynamic> d) async {
-    final existing = await _db.getRoomByName(d['name']);
+    final name = d['name'] as String?;
+    if (name == null || name.isEmpty) return;
+    // 优先按 UUID 匹配（处理改名场景）
+    final uuid = d['uuid'] as String?;
+    if (uuid != null) {
+      final byUuid = await _db.getRoomByUuid(uuid);
+      if (byUuid != null) {
+        await _db.updateRoom(byUuid.id, name: name,
+          assignedUserId: d['assignedUserId'] as int?,
+          sortOrder: d['sortOrder'] as int?);
+        return;
+      }
+    }
+    final existing = await _db.getRoomByName(name);
     if (existing != null) {
-      await _db.updateRoom(existing.id, name: d['name'],
+      await _db.updateRoom(existing.id, name: name,
         assignedUserId: d['assignedUserId'] as int?,
         sortOrder: d['sortOrder'] as int?);
       return;
     }
-    await _db.createRoom(d['name'], assignedUserId: d['assignedUserId'] as int?);
+    await _db.createRoom(name, assignedUserId: d['assignedUserId'] as int?);
   }
 
   Future<void> _applyUser(Map<String, dynamic> d) async {
-    final existing = await _db.getByUsername(d['username']);
+    final username = d['username'] as String?;
+    if (username == null || username.isEmpty) return;
+    final existing = await _db.getByUsername(username);
     if (existing != null) {
       await _db.updateUser(existing.id,
         displayName: d['displayName'] as String?,
@@ -529,23 +554,31 @@ class SyncEngine {
       );
       return;
     }
-    await _db.createUser(d['username'], d['displayName'], d['passwordHash'] ?? '',
-      role: d['role'] ?? 'keeper');
+    await _db.createUser(username, d['displayName'] as String? ?? username,
+      d['passwordHash'] ?? '', role: d['role'] as String? ?? 'keeper');
   }
 
   Future<void> _applyBird(Map<String, dynamic> d, String? serverUuid) async {
-    final existing = await _db.getBirdByNameAndBirth(
-      d['name'],
-      DateTime.parse(d['birthDate']),
-    );
+    final name = d['name'] as String?;
+    final birthDateStr = d['birthDate'] as String?;
+    if (name == null || birthDateStr == null) return;
+    final existing = await _db.getBirdByNameAndBirth(name, DateTime.parse(birthDateStr));
+    // 通过品种名/房间名解析本地 ID（不可直接用服务端 ID）
+    int? localSpeciesId;
+    if (d['speciesName'] != null) {
+      localSpeciesId = (await _db.getSpeciesByNameSafe(d['speciesName'] as String))?.id;
+    }
+    int? localRoomId;
+    if (d['roomName'] != null) {
+      localRoomId = (await _db.getRoomByName(d['roomName'] as String))?.id;
+    }
     if (existing != null) {
       if (serverUuid != null && existing.uuid != serverUuid) {
         await _db.updateBirdUuid(existing.id, serverUuid);
       }
-      // 增量同步也要更新字段（桌面端修改后通过 /changes 推送到手机）
       await _db.updateBird(existing.id,
-        speciesId: d['speciesId'] as int?,
-        roomId: d['roomId'] as int?,
+        speciesId: localSpeciesId ?? existing.speciesId,
+        roomId: localRoomId,
         ringNumber: d['ringNumber'] as String?,
         gender: d['gender'] as String?,
         status: d['status'] as String?,
@@ -554,10 +587,10 @@ class SyncEngine {
       return;
     }
     await _db.createBird(
-      name: d['name'],
-      speciesId: d['speciesId'] ?? 1,
-      birthDate: DateTime.parse(d['birthDate']),
-      roomId: d['roomId'] as int?,
+      name: name,
+      speciesId: localSpeciesId ?? 1,
+      birthDate: DateTime.parse(birthDateStr),
+      roomId: localRoomId,
       ringNumber: d['ringNumber'] as String?,
       gender: d['gender'] as String? ?? '未知',
       uuid: serverUuid,
@@ -570,8 +603,7 @@ class SyncEngine {
     if (birdUuid != null) {
       birdId = (await _db.getBirdByUuid(birdUuid))?.id;
     }
-    birdId ??= d['birdId'] as int?;
-    if (birdId == null) return;
+    if (birdId == null) return; // UUID 解析失败则忽略，不用服务端 ID
     final recordedAt = DateTime.parse(d['recordedAt']);
     final exists = await _db.checkWeightExists(birdId, recordedAt);
     if (exists) return;

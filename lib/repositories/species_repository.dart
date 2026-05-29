@@ -67,9 +67,10 @@ extension SpeciesRepository on AppDatabase {
       int juvenileEndDays = 120,
       int nestlingWeighIntervalDays = 1,
       int juvenileWeighIntervalDays = 3,
-      int adultWeighIntervalDays = 7}) async {
+      int adultWeighIntervalDays = 7,
+      String? uuid}) async {
     await into(species).insert(SpeciesCompanion.insert(
-      uuid: genUuid(),
+      uuid: uuid ?? genUuid(),
       name: name,
       nestlingEndDays: Value(nestlingEndDays),
       juvenileEndDays: Value(juvenileEndDays),

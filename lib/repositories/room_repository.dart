@@ -12,6 +12,9 @@ extension RoomRepository on AppDatabase {
   Future<Room?> getRoomByName(String name) =>
       (select(rooms)..where((t) => t.name.equals(name))).getSingleOrNull();
 
+  Future<Room?> getRoomByUuid(String uuid) =>
+      (select(rooms)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+
   Future<Room> createRoom(String name, {int? assignedUserId}) async {
     final maxRow = await (selectOnly(rooms)
           ..addColumns([rooms.sortOrder.max()]))
