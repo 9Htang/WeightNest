@@ -4,7 +4,6 @@ import '../../providers.dart';
 import '../../repositories/task_repository.dart';
 import '../weigh/weigh_screen.dart';
 import '../worker/worker_screen.dart';
-
 /// 任务页面 — 今日任务 + 逾期任务
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
@@ -20,13 +19,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    Future.microtask(() => _generateTasks());
-  }
-
-  Future<void> _generateTasks() async {
-    final db = ref.read(databaseProvider);
-    await db.generateTodayTasks();
-    setState(() {});
   }
 
   @override
@@ -53,7 +45,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '重新生成',
-            onPressed: _generateTasks,
+            onPressed: () => ref.invalidate(todayTasksProvider),
           ),
         ],
       ),
@@ -94,8 +86,7 @@ class _TodayTasks extends ConsumerWidget {
                 const Text('今天没有称重任务'),
                 const SizedBox(height: 16),
                 FilledButton.tonal(
-                  onPressed: () => localRef.read(databaseProvider).generateTodayTasks()
-                      .then((_) => ref.invalidate(todayTasksProvider)),
+                  onPressed: () => ref.invalidate(todayTasksProvider),
                   child: const Text('生成任务'),
                 ),
               ],
@@ -263,9 +254,15 @@ class _TaskCard extends StatelessWidget {
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(
-                    '${task.species?.name ?? ''} · ${task.task.dueDate.month}/${task.task.dueDate.day}',
+                    '${task.species?.name ?? ''} · ${task.task.dueDate.month}/${task.task.dueDate.day} · 房间 ${task.bird.roomId ?? "?"}',
                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                   ),
+                  if (task.task.assignedUserId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text('已指派 #${task.task.assignedUserId}',
+                          style: TextStyle(fontSize: 10, color: Colors.blue.shade400)),
+                    ),
                 ],
               ),
             ),

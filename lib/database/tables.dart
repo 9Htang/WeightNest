@@ -12,7 +12,13 @@ class Species extends Table {
   /// 幼鸟阶段结束天数
   IntColumn get juvenileEndDays => integer().withDefault(const Constant(120))();
 
-  /// 称重周期（天），成鸟用
+  /// 雏鸟称重间隔（天）
+  IntColumn get nestlingWeighIntervalDays => integer().withDefault(const Constant(1))();
+
+  /// 幼鸟称重间隔（天）
+  IntColumn get juvenileWeighIntervalDays => integer().withDefault(const Constant(3))();
+
+  /// 成鸟称重间隔（天）
   IntColumn get adultWeighIntervalDays => integer().withDefault(const Constant(7))();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -73,6 +79,9 @@ class Birds extends Table {
 
   /// 自定义排序
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// 单只称重间隔覆盖（天），NULL=使用品种默认值
+  IntColumn get weighIntervalDays => integer().nullable()();
 
   /// 状态：正常/异常/已离舍
   TextColumn get status => text().withLength(max: 20).withDefault(const Constant('正常'))();

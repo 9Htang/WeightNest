@@ -18,6 +18,9 @@ extension BirdRepository on AppDatabase {
   Future<Bird?> getBirdById(int id) =>
       (select(birds)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  Future<Bird?> getBirdByUuid(String uuid) =>
+      (select(birds)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+
   /// 按名字 + 出生日期查重（用于同步去重）
   Future<Bird?> getBirdByNameAndBirth(String name, DateTime birthDate) {
     final start = DateTime(birthDate.year, birthDate.month, birthDate.day);
@@ -35,13 +38,14 @@ extension BirdRepository on AppDatabase {
     String? ringNumber,
     String gender = '未知',
     String? notes,
+    String? uuid,
   }) async {
     final maxRow = await (selectOnly(birds)
           ..addColumns([birds.sortOrder.max()]))
         .map((row) => row.read(birds.sortOrder.max()))
         .getSingle();
     await into(birds).insert(BirdsCompanion.insert(
-      uuid: genUuid(),
+      uuid: uuid ?? genUuid(),
       name: name,
       speciesId: speciesId,
       birthDate: birthDate,
@@ -58,7 +62,7 @@ extension BirdRepository on AppDatabase {
   Future<Bird> updateBird(int id, {
     String? name, int? speciesId, int? roomId, DateTime? birthDate,
     String? gender, int? sortOrder, String? status, String? notes,
-    String? ringNumber,
+    String? ringNumber, int? weighIntervalDays,
   }) async {
     final list = await (update(birds)..where((t) => t.id.equals(id)))
         .writeReturning(BirdsCompanion(
@@ -71,9 +75,20 @@ extension BirdRepository on AppDatabase {
       status: status != null ? Value(status) : const Value.absent(),
       notes: notes != null ? Value(notes) : const Value.absent(),
       ringNumber: ringNumber != null ? Value(ringNumber) : const Value.absent(),
+      weighIntervalDays: weighIntervalDays != null ? Value(weighIntervalDays) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;
+  }
+
+  Future<void> updateBirdUuid(int id, String uuid) async {
+    await (update(birds)..where((t) => t.id.equals(id)))
+        .write(BirdsCompanion(uuid: Value(uuid)));
+  }
+
+  Future<void> updateWeighInterval(int birdId, int? days) async {
+    await (update(birds)..where((t) => t.id.equals(birdId)))
+        .write(BirdsCompanion(weighIntervalDays: Value(days), updatedAt: Value(DateTime.now())));
   }
 
   Future<void> updateSortOrders(Map<int, int> birdIdToOrder) => batch((b) {

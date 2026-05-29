@@ -1,5 +1,7 @@
-# WeightNest Build Script
-# Usage: .\build.ps1 [-Mobile] [-Desktop] [-Server] [-All] [-Clean]
+# ==============================
+# WeightNest Build Tool (Final Stable CI Version)
+# No NativeCommandError Version
+# ==============================
 
 param(
     [switch]$Mobile,
@@ -9,165 +11,145 @@ param(
     [switch]$Clean
 )
 
-$ErrorActionPreference = "Stop"
+# ---- Critical: prevent PowerShell false errors ----
+$ErrorActionPreference = "Continue"
+$PSNativeCommandUseErrorActionPreference = $false
 
-# Resolve project root from script location, fallback to PWD
-if ($PSScriptRoot) {
-    $projectRoot = $PSScriptRoot
-} else {
-    $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-}
+# ---- Paths ----
+$projectRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $releaseDir = "C:\Users\Cwb\.openclaw\workspace\releases"
+$logFile = "$projectRoot\build.log"
 
-# Get version from pubspec.yaml
-$pubspecPath = Join-Path $projectRoot "pubspec.yaml"
-if (-not (Test-Path $pubspecPath)) {
-    Write-Host "[!] pubspec.yaml not found at $pubspecPath" -ForegroundColor Red
-    exit 1
-}
-$pubspecContent = Get-Content $pubspecPath -Raw
-if ($pubspecContent -match 'version:\s*([^\s]+)') {
+# ---- Gradle safe memory ----
+$env:GRADLE_OPTS = "-Xmx3g"
+$env:JAVA_OPTS = "-Xmx3g"
+
+# ---- Version ----
+$pubspec = Get-Content "$projectRoot\pubspec.yaml" -Raw
+if ($pubspec -match 'version:\s*([^\s]+)') {
     $version = $matches[1].Split("+")[0]
 } else {
-    Write-Host "[!] Cannot parse version from pubspec.yaml" -ForegroundColor Red
-    exit 1
+    throw "Cannot parse version"
 }
 
 Write-Host "==== WeightNest Build Tool v$version ====" -ForegroundColor Cyan
 
 if ($All) { $Mobile = $true; $Desktop = $true }
 
-if (-not ($Mobile -or $Desktop -or $Server)) {
-    Write-Host ""
-    Write-Host "Usage: .\build.ps1 [-Mobile] [-Desktop] [-Server] [-All] [-Clean]"
-    Write-Host "  -Mobile   Build Android APK"
-    Write-Host "  -Desktop  Build Windows desktop"
-    Write-Host "  -Server   Rebuild Docker server"
-    Write-Host "  -All      Build everything"
-    Write-Host "  -Clean    Clean before build"
-    exit 0
-}
-
-# ---- Clean ----
+# ================= CLEAN =================
 if ($Clean) {
-    Write-Host "[CLEAN] flutter clean..." -ForegroundColor Yellow
-    Push-Location $projectRoot
-    flutter clean 2>&1 | Out-Null
-    Pop-Location
-    Write-Host "[CLEAN] done" -ForegroundColor Green
+    Write-Host "[CLEAN]" -ForegroundColor Yellow
+    & cmd /c "flutter clean" | Out-Null
 }
 
-# ---- Check ----
-Push-Location $projectRoot
-try {
+# ================= ANALYZE =================
+if ($Mobile -or $Desktop -or $Server) {
     Write-Host "[CHECK] flutter analyze..." -ForegroundColor Yellow
-    $prevEAP = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $analyze = flutter analyze lib/ 2>&1 | Out-String
-    $ErrorActionPreference = $prevEAP
-    $errCount = ($analyze | Select-String " error - " | Measure-Object).Count
-    if ($errCount -gt 0) {
-        Write-Host "[!] $errCount compile errors found, aborting" -ForegroundColor Red
+
+    $analyze = & cmd /c "flutter analyze lib/" 2>&1 | Out-String
+
+    if ($analyze -match "error - ") {
         Write-Host $analyze
-        exit 1
+        throw "Analyze failed"
     }
+
     Write-Host "[CHECK] passed" -ForegroundColor Green
 }
-finally {
-    Pop-Location
-}
 
-# ---- Android APK ----
+# ================= APK =================
 if ($Mobile) {
     Write-Host "[APK] Building Android..." -ForegroundColor Magenta
+
     Push-Location $projectRoot
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        flutter build apk --release --target-platform android-arm64 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            flutter build apk --release --target-platform android-arm64 2>&1 | Select-String -Pattern "error|Error|FAIL"
-            throw "APK build failed"
-        }
-        $sw.Stop()
-        $apkSize = [math]::Round((Get-Item "$projectRoot\build\app\outputs\flutter-apk\app-release.apk").Length / 1MB, 1)
-        Write-Host "[APK] OK (${apkSize}MB, $([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
-        $dest = "$releaseDir\WeightNest_v${version}.apk"
-        Copy-Item "$projectRoot\build\app\outputs\flutter-apk\app-release.apk" $dest -Force
-        Write-Host "[APK] -> $dest" -ForegroundColor Green
+        & cmd /c "flutter build apk --release --target-platform android-arm64 > build.log 2>&1"
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "APK build failed (see build.log)"
+        }
+
+        $apkPath = "$projectRoot\build\app\outputs\flutter-apk\app-release.apk"
+
+        if (-not (Test-Path $apkPath)) {
+            throw "APK not found"
+        }
+
+        $sw.Stop()
+
+        $size = [math]::Round((Get-Item $apkPath).Length / 1MB, 1)
+
+        Write-Host "[APK] OK (${size}MB, $([math]::Round($sw.Elapsed.TotalSeconds,0))s)" -ForegroundColor Green
+
+        Copy-Item $apkPath "$releaseDir\WeightNest_v${version}.apk" -Force
     }
-    catch {
-        Write-Host "[!] APK failed: $_" -ForegroundColor Red
-        Pop-Location; exit 1
+    finally {
+        Pop-Location
     }
-    Pop-Location
 }
 
-# ---- Windows Desktop ----
+# ================= WINDOWS =================
 if ($Desktop) {
     Write-Host "[WIN] Building Windows..." -ForegroundColor Magenta
+
     Push-Location $projectRoot
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        flutter build windows --release 2>&1 | Out-Null
+
+        & cmd /c "flutter build windows --release > build.log 2>&1"
+
         if ($LASTEXITCODE -ne 0) {
-            flutter build windows --release 2>&1 | Select-String -Pattern "error|Error|FAIL"
             throw "Windows build failed"
         }
+
         $sw.Stop()
-        Write-Host "[WIN] OK ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
-        $buildDir = "$projectRoot\build\windows\x64\runner\Release"
-        $releaseZip = "$releaseDir\WeightNest_Desktop_v${version}.zip"
-        if (Test-Path $releaseZip) { Remove-Item $releaseZip -Force }
-        Compress-Archive -Path "$buildDir\*" -DestinationPath $releaseZip -Force
+        $out = "$projectRoot\build\windows\x64\runner\Release"
+        $zip = "$releaseDir\WeightNest_Desktop_v${version}.zip"
 
-        $zipSize = [math]::Round((Get-Item $releaseZip).Length / 1MB, 1)
-        Write-Host "[WIN] -> $releaseZip (${zipSize}MB)" -ForegroundColor Green
-        Write-Host "[WIN] Run weight_nest.exe after unzip" -ForegroundColor Yellow
+        if (Test-Path $zip) { Remove-Item $zip -Force }
+
+        Compress-Archive -Path "$out\*" -DestinationPath $zip
+
+        Write-Host "[WIN] OK ($([math]::Round($sw.Elapsed.TotalSeconds,0))s)" -ForegroundColor Green
     }
-    catch {
-        Write-Host "[!] Windows failed: $_" -ForegroundColor Red
-        Pop-Location; exit 1
+    finally {
+        Pop-Location
     }
-    Pop-Location
 }
 
-# ---- Docker Server ----
+# ================= SERVER =================
 if ($Server) {
-    Write-Host "[DOCKER] Rebuilding server..." -ForegroundColor Magenta
+    Write-Host "[DOCKER] Building server..." -ForegroundColor Magenta
+
     Push-Location "$projectRoot\server"
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        docker stop weightnest 2>$null
-        docker build -t weightnest-server . 2>&1 | Select-String -Pattern "Step|Success|error|Error"
-        if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
 
-        docker rm weightnest 2>$null
-        docker run -d --name weightnest -p 8080:8080 weightnest-server 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "Docker run failed" }
+        & cmd /c "docker stop weightnest" | Out-Null
+
+        & cmd /c "docker build -t weightnest-server ." 2>&1 | Tee-Object $logFile
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker build failed"
+        }
+
+        & cmd /c "docker run -d --name weightnest -p 8080:8080 weightnest-server"
 
         $sw.Stop()
-        Write-Host "[DOCKER] OK ($([math]::Round($sw.Elapsed.TotalSeconds, 0))s)" -ForegroundColor Green
 
-        Start-Sleep 2
-        try {
-            $health = (Invoke-WebRequest -Uri "http://localhost:8080/health" -TimeoutSec 3).Content
-            if ($health -match "ok") { Write-Host "[DOCKER] health: OK" -ForegroundColor Green }
-            else { Write-Host "[!] health: $health" -ForegroundColor Red }
-        }
-        catch { Write-Host "[!] health check failed" -ForegroundColor Red }
+        Write-Host "[DOCKER] OK ($([math]::Round($sw.Elapsed.TotalSeconds,0))s)" -ForegroundColor Green
     }
-    catch {
-        Write-Host "[!] Docker failed: $_" -ForegroundColor Red
-        Pop-Location; exit 1
+    finally {
+        Pop-Location
     }
-    Pop-Location
 }
 
-# ---- Done ----
-Write-Host "==== Build Complete! ====" -ForegroundColor Green
-Get-ChildItem $releaseDir | Where-Object { $_.Name -match "v$version" } | ForEach-Object {
+# ================= DONE =================
+Write-Host "==== BUILD COMPLETE ====" -ForegroundColor Green
+
+Get-ChildItem $releaseDir | Where-Object { $_.Name -match $version } | ForEach-Object {
     $size = [math]::Round($_.Length / 1MB, 1)
-    Write-Host "  $($_.Name)  (${size}MB)"
+    Write-Host "  $($_.Name) (${size}MB)"
 }

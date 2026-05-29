@@ -4,6 +4,7 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
 import '../birds/birds_screen.dart';
+
 import '../worker/worker_screen.dart';
 
 /// 房间管理页面
@@ -25,6 +26,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         onPressed: () => _showEditDialog(context, null),
         child: const Icon(Icons.add),
       ),
+
       body: roomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
@@ -55,13 +57,20 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                 },
                 itemBuilder: (context, i) {
                   final r = rooms[i];
+                  final usersAsync = ref.watch(allUsersProvider);
+                  final assignedName = usersAsync.when(
+                    data: (users) => r.assignedUserId != null
+                        ? users.where((u) => u.id == r.assignedUserId).map((u) => u.displayName).firstOrNull ?? '未知'
+                        : null,
+                    loading: () => null, error: (_, __) => null,
+                  );
                   return Card(
                     key: ValueKey(r.id),
                     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                     child: ListTile(
                       leading: const Icon(Icons.meeting_room),
                       title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('点击查看鹦鹉'),
+                      subtitle: Text(assignedName != null ? '负责人: $assignedName' : '点击查看鹦鹉'),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),

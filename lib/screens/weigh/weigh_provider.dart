@@ -6,7 +6,6 @@ import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../services/sync_queue_service.dart';
-import '../../utils/uuid.dart';
 
 /// 称重流程状态
 class WeighState {
@@ -157,21 +156,29 @@ class WeighNotifier extends StateNotifier<WeighState> {
 
     state = state.copyWith(isSaving: true);
 
-    await _db.addWeight(
+    final now = DateTime.now();
+    final savedWeight = await _db.addWeight(
       birdId: bird.bird.id,
       weightG: w,
-      recordedAt: DateTime.now(),
+      recordedAt: now,
       recordedBy: _userId,
       isFasting: state.isFasting,
     );
 
     // 更新最新体重缓存
-    final newWeight = await _db.getLatestByBird(bird.bird.id);
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
-    updatedWeights[bird.bird.id] = newWeight;
+    updatedWeights[bird.bird.id] = savedWeight;
 
     // 通知外部刷新
     _onWeightSaved?.call();
+
+    // 自动完成今日任务
+    final allTodayTasks = await _db.getTodayTasks(null);
+    final pendingTask = allTodayTasks.where((t) =>
+        t.bird.id == bird.bird.id && t.task.status == '待完成').firstOrNull;
+    if (pendingTask != null) {
+      await _db.completeTask(pendingTask.task.id, _userId ?? 1);
+    }
 
     // 离线同步：入队待推送
     if (_userId != null) {
@@ -179,18 +186,19 @@ class WeighNotifier extends StateNotifier<WeighState> {
         userId: _userId!,
         action: 'add_weight',
         entityType: 'weight',
-        entityUuid: genUuid(),
+        entityUuid: savedWeight.uuid,
         payload: {
+          'birdUuid': bird.bird.uuid,
           'birdId': bird.bird.id,
           'weightG': w,
-          'recordedAt': DateTime.now().toIso8601String(),
+          'recordedAt': savedWeight.recordedAt.toIso8601String(),
           'isFasting': state.isFasting,
         },
       );
     }
 
-    final todayTasks = await _db.getTodayTasks(null);
-    final done = todayTasks.where((t) => t.task.status == '已完成').length;
+    final done = allTodayTasks.where((t) => t.task.status == '已完成').length
+        + (pendingTask != null ? 1 : 0);
 
     state = state.copyWith(
       isSaving: false,

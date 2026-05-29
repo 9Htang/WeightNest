@@ -51,23 +51,31 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
       ),
       body: Column(
         children: [
-          // ── 顶部鸟信息卡片 ──
-          if (bird != null) _BirdInfoHeader(bird: bird, state: state, theme: theme),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── 顶部鸟信息卡片 ──
+                  if (bird != null) _BirdInfoHeader(bird: bird, state: state, theme: theme),
 
-          // ── 体重显示区 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: _WeightDisplay(state: state, theme: theme),
+                  // ── 体重显示区 ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: _WeightDisplay(state: state, theme: theme),
+                  ),
+
+                  // ── 快速调整按钮 ──
+                  _QuickAdjustBar(state: state, theme: theme, notifier: ref.read(weighProvider.notifier)),
+
+                  const SizedBox(height: 12),
+
+                  // ── 数字键盘 ──
+                  _NumPad(notifier: ref.read(weighProvider.notifier), theme: theme),
+                ],
+              ),
+            ),
           ),
-
-          // ── 快速调整按钮 ──
-          _QuickAdjustBar(state: state, theme: theme, notifier: ref.read(weighProvider.notifier)),
-
-          const Spacer(),
-
-          // ── 数字键盘 ──
-          _NumPad(notifier: ref.read(weighProvider.notifier), theme: theme),
-
           // ── 底部操作栏 ──
           _BottomActions(notifier: ref.read(weighProvider.notifier), state: state, theme: theme),
         ],
@@ -87,8 +95,18 @@ class _BirdInfoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lastWeight = state.latestWeights[bird.bird.id];
-    return Card(
+    final weighed = state.latestWeights.containsKey(bird.bird.id);
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: weighed
+              ? const Color(0xFF6B8F71).withAlpha(60)
+              : theme.colorScheme.outlineVariant.withAlpha(50),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -96,10 +114,15 @@ class _BirdInfoHeader extends StatelessWidget {
             Container(
               width: 44, height: 44,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
+                color: weighed
+                    ? const Color(0xFF6B8F71).withAlpha(30)
+                    : const Color(0xFFC4956A).withAlpha(40),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.pets, color: theme.colorScheme.primary),
+              child: Icon(
+                Icons.pets,
+                color: weighed ? const Color(0xFF6B8F71) : const Color(0xFFC4956A),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -153,7 +176,7 @@ class _WeightDisplay extends StatelessWidget {
         Text(
           displayText,
           style: const TextStyle(
-            fontSize: 56,
+            fontSize: 64,
             fontWeight: FontWeight.w700,
             fontFeatures: [FontFeature.tabularFigures()],
             height: 1.2,
@@ -287,16 +310,16 @@ class _NumPad extends StatelessWidget {
               children: row.map((key) {
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(4),
                     child: SizedBox(
-                      height: 56,
+                      height: 60,
                       child: Material(
                         color: key == '⌫'
-                            ? theme.colorScheme.errorContainer.withAlpha(80)
-                            : theme.colorScheme.surfaceContainerHighest.withAlpha(100),
-                        borderRadius: BorderRadius.circular(12),
+                            ? const Color(0xFFC44F4F).withAlpha(25)
+                            : theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+                        borderRadius: BorderRadius.circular(14),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           onTap: () {
                             if (key == '⌫') {
                               notifier.deleteDigit();
@@ -341,38 +364,48 @@ class _BottomActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          border: Border(
+            top: BorderSide(color: scheme.outlineVariant.withAlpha(40)),
+          ),
+        ),
         child: Row(
           children: [
             // 上一只
-            IconButton.outlined(
+            IconButton(
               onPressed: state.hasPrev && !state.isSaving ? notifier.prevBird : null,
               icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+              visualDensity: VisualDensity.compact,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
 
             // 清空
-            TextButton(
-              onPressed: state.weightText.isNotEmpty ? notifier.clearWeight : null,
-              child: const Text('清空'),
-            ),
+            if (state.weightText.isNotEmpty)
+              TextButton(
+                onPressed: notifier.clearWeight,
+                child: const Text('清空'),
+              )
+            else
+              const SizedBox(width: 48),
 
             const Spacer(),
 
-            // 保存按钮（大）
-            SizedBox(
-              height: 48,
-              width: 120,
-              child: FilledButton(
-                onPressed: state.isSaving ? null : notifier.saveWeight,
-                child: state.isSaving
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('保存', style: TextStyle(fontSize: 18)),
+            // 保存按钮
+            FilledButton(
+              onPressed: state.isSaving ? null : notifier.saveWeight,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
+              child: state.isSaving
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('保存', style: TextStyle(fontSize: 18)),
             ),
 
             const Spacer(),
@@ -384,11 +417,12 @@ class _BottomActions extends StatelessWidget {
                 child: const Text('跳过'),
               ),
 
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             // 下一只
-            IconButton.outlined(
+            IconButton(
               onPressed: state.hasNext && !state.isSaving ? notifier.nextBird : null,
               icon: const Icon(Icons.arrow_forward_ios, size: 20),
+              visualDensity: VisualDensity.compact,
             ),
           ],
         ),

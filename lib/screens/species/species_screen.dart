@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
+
 import '../worker/worker_screen.dart';
 
 /// 品种管理页面
@@ -25,6 +26,7 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
         onPressed: () => _showEditDialog(context, null),
         child: const Icon(Icons.add),
       ),
+
       body: spAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
@@ -39,7 +41,7 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
                     child: ListTile(
                       title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
-                        '雏鸟${s.nestlingEndDays}天 · 幼鸟${s.juvenileEndDays}天 · 成鸟每${s.adultWeighIntervalDays}天称重',
+                        '雏鸟每${s.nestlingWeighIntervalDays}天 · 幼鸟每${s.juvenileWeighIntervalDays}天 · 成鸟每${s.adultWeighIntervalDays}天',
                         style: theme.textTheme.bodySmall,
                       ),
                       trailing: PopupMenuButton(
@@ -62,9 +64,11 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
 
   void _showEditDialog(BuildContext context, Specy? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final nestlingCtrl = TextEditingController(text: '${existing?.nestlingEndDays ?? 45}');
-    final juvenileCtrl = TextEditingController(text: '${existing?.juvenileEndDays ?? 120}');
-    final adultCtrl = TextEditingController(text: '${existing?.adultWeighIntervalDays ?? 7}');
+    final nestlingEndCtrl = TextEditingController(text: '${existing?.nestlingEndDays ?? 45}');
+    final juvenileEndCtrl = TextEditingController(text: '${existing?.juvenileEndDays ?? 120}');
+    final nestlingWICtrl = TextEditingController(text: '${existing?.nestlingWeighIntervalDays ?? 1}');
+    final juvenileWICtrl = TextEditingController(text: '${existing?.juvenileWeighIntervalDays ?? 3}');
+    final adultWICtrl = TextEditingController(text: '${existing?.adultWeighIntervalDays ?? 7}');
 
     showDialog(
       context: context,
@@ -75,15 +79,24 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '名称')),
-              const SizedBox(height: 8),
-              TextField(controller: nestlingCtrl, decoration: const InputDecoration(labelText: '雏鸟结束天数'),
-                keyboardType: TextInputType.number),
-              const SizedBox(height: 8),
-              TextField(controller: juvenileCtrl, decoration: const InputDecoration(labelText: '幼鸟结束天数'),
-                keyboardType: TextInputType.number),
-              const SizedBox(height: 8),
-              TextField(controller: adultCtrl, decoration: const InputDecoration(labelText: '成鸟称重周期(天)'),
-                keyboardType: TextInputType.number),
+              const SizedBox(height: 12),
+              const Text('生长阶段划分', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(child: TextField(controller: nestlingEndCtrl, decoration: const InputDecoration(labelText: '雏鸟结束(天)', isDense: true), keyboardType: TextInputType.number)),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: juvenileEndCtrl, decoration: const InputDecoration(labelText: '幼鸟结束(天)', isDense: true), keyboardType: TextInputType.number)),
+              ]),
+              const SizedBox(height: 12),
+              const Text('称重间隔', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(child: TextField(controller: nestlingWICtrl, decoration: const InputDecoration(labelText: '雏鸟(天)', isDense: true), keyboardType: TextInputType.number)),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: juvenileWICtrl, decoration: const InputDecoration(labelText: '幼鸟(天)', isDense: true), keyboardType: TextInputType.number)),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: adultWICtrl, decoration: const InputDecoration(labelText: '成鸟(天)', isDense: true), keyboardType: TextInputType.number)),
+              ]),
             ],
           ),
         ),
@@ -95,9 +108,11 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             final db = ref.read(databaseProvider);
             if (existing != null) {
               final sp = await db.updateSpecies(existing.id, name: name,
-                  nestlingEndDays: int.tryParse(nestlingCtrl.text),
-                  juvenileEndDays: int.tryParse(juvenileCtrl.text),
-                  adultWeighIntervalDays: int.tryParse(adultCtrl.text));
+                  nestlingEndDays: int.tryParse(nestlingEndCtrl.text),
+                  juvenileEndDays: int.tryParse(juvenileEndCtrl.text),
+                  nestlingWeighIntervalDays: int.tryParse(nestlingWICtrl.text),
+                  juvenileWeighIntervalDays: int.tryParse(juvenileWICtrl.text),
+                  adultWeighIntervalDays: int.tryParse(adultWICtrl.text));
               final userId = ref.read(workerProvider).userId;
               if (userId != null) {
                 await ref.read(syncQueueProvider).enqueue(
@@ -109,15 +124,19 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
                     'name': name,
                     'nestlingEndDays': sp.nestlingEndDays,
                     'juvenileEndDays': sp.juvenileEndDays,
+                    'nestlingWeighIntervalDays': sp.nestlingWeighIntervalDays,
+                    'juvenileWeighIntervalDays': sp.juvenileWeighIntervalDays,
                     'adultWeighIntervalDays': sp.adultWeighIntervalDays,
                   },
                 );
               }
             } else {
               final sp = await db.createSpecies(name,
-                  nestlingEndDays: int.tryParse(nestlingCtrl.text) ?? 45,
-                  juvenileEndDays: int.tryParse(juvenileCtrl.text) ?? 120,
-                  adultWeighIntervalDays: int.tryParse(adultCtrl.text) ?? 7);
+                  nestlingEndDays: int.tryParse(nestlingEndCtrl.text) ?? 45,
+                  juvenileEndDays: int.tryParse(juvenileEndCtrl.text) ?? 120,
+                  nestlingWeighIntervalDays: int.tryParse(nestlingWICtrl.text) ?? 1,
+                  juvenileWeighIntervalDays: int.tryParse(juvenileWICtrl.text) ?? 3,
+                  adultWeighIntervalDays: int.tryParse(adultWICtrl.text) ?? 7);
               final userId = ref.read(workerProvider).userId;
               if (userId != null) {
                 await ref.read(syncQueueProvider).enqueue(
@@ -129,6 +148,8 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
                     'name': name,
                     'nestlingEndDays': sp.nestlingEndDays,
                     'juvenileEndDays': sp.juvenileEndDays,
+                    'nestlingWeighIntervalDays': sp.nestlingWeighIntervalDays,
+                    'juvenileWeighIntervalDays': sp.juvenileWeighIntervalDays,
                     'adultWeighIntervalDays': sp.adultWeighIntervalDays,
                   },
                 );

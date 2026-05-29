@@ -4,6 +4,7 @@ import '../../providers.dart';
 import '../../services/alert_service.dart';
 import '../birds/bird_detail_screen.dart';
 
+
 class AlertsScreen extends ConsumerWidget {
   const AlertsScreen({super.key});
 
@@ -28,6 +29,7 @@ class AlertsScreen extends ConsumerWidget {
           ),
         ],
       ),
+
       body: FutureBuilder<List<AnomalyAlert>>(
         future: service.detectAll(),
         builder: (context, snapshot) {

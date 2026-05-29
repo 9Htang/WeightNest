@@ -10,36 +10,30 @@ import 'package:postgres/postgres.dart';
 
 const _uuid = Uuid();
 final _validTokens = <String>{};
+final _qrSessions = <String, DateTime>{};
 int _dataVersion = 0;
 
 // ─── 配置（环境变量 > 命令行参数 > 默认值） ───
 
-int _serverPort() =>
-    int.tryParse(Platform.environment['SERVER_PORT'] ?? '') ??
-    int.tryParse(_arg(0)) ??
-    8080;
+int _serverPort() => int.tryParse(Platform.environment['SERVER_PORT'] ?? '') ?? int.tryParse(_arg(0)) ?? 8080;
 
-String _serverPin() =>
-    Platform.environment['SERVER_PIN'] ?? _arg(1) ?? '1234';
+String _serverPin() => Platform.environment['SERVER_PIN'] ?? _arg(1) ?? '1234';
 
-String _pgHost() =>
-    Platform.environment['PG_HOST'] ?? _arg(2) ?? 'localhost';
+String _pgHost() => Platform.environment['PG_HOST'] ?? _arg(2) ?? 'localhost';
 
-int _pgPort() =>
-    int.tryParse(Platform.environment['PG_PORT'] ?? '') ?? 5432;
+int _pgPort() => int.tryParse(Platform.environment['PG_PORT'] ?? '') ?? 5432;
 
-String _pgDatabase() =>
-    Platform.environment['PG_DATABASE'] ?? 'weightnest';
+String _pgDatabase() => Platform.environment['PG_DATABASE'] ?? 'weightnest';
 
-String _pgUsername() =>
-    Platform.environment['PG_USERNAME'] ?? 'postgres';
+String _pgUsername() => Platform.environment['PG_USERNAME'] ?? 'postgres';
 
-String _pgPassword() =>
-    Platform.environment['PG_PASSWORD'] ?? 'postgres';
+String _pgPassword() => Platform.environment['PG_PASSWORD'] ?? 'postgres';
 
 String _arg(int i) => i < _rawArgs.length ? _rawArgs[i] : '';
 List<String> get _rawArgs {
-  try { return List<String>.from(Platform.executableArguments); } catch (_) {}
+  try {
+    return List<String>.from(Platform.executableArguments);
+  } catch (_) {}
   return [];
 }
 
@@ -62,26 +56,35 @@ void main() async {
 
   await _initDb();
   await _runMigrations();
+  await _initDefaults();
+  await _loadDataVersion();
 
   final app = Router()
     ..get('/qr', _handleQr)
     ..post('/auth/connect', _handleConnect)
+    ..post('/auth/qr-session', _handleQrSession)
+    ..post('/auth/qr-login', _handleQrLogin)
     ..post('/sync', _handleSync)
     ..get('/changes', _handleChanges)
+    ..get('/changes/stream', _handleChangesStream)
     ..get('/audit-log', _handleAuditLog)
     ..get('/data-version', (_) => Response.ok('$_dataVersion'))
     ..get('/birds', _handleBirds)
     ..get('/birds/<id>', _handleBirdDetail)
     ..get('/birds/<id>/weights', _handleBirdWeights)
+    ..patch('/birds/<id>', _handleUpdateBird)
+    ..post('/tasks/publish', _handlePublishTasks)
+    ..get('/rooms', _handleRooms)
+    ..post('/rooms', _handleCreateRoom)
+    ..patch('/rooms/<id>', _handleUpdateRoom)
+    ..get('/species', _handleSpecies)
+    ..patch('/species/<id>', _handleUpdateSpecies)
     ..get('/users', _handleUsers)
     ..post('/users', _handleCreateUser)
     ..patch('/users/<id>', _handleUpdateUser)
     ..get('/health', (_) => Response.ok('{"status":"ok"}'));
 
-  final handler = Pipeline()
-      .addMiddleware(corsHeaders())
-      .addMiddleware(logRequests())
-      .addHandler(app.call);
+  final handler = Pipeline().addMiddleware(corsHeaders()).addMiddleware(logRequests()).addHandler(app.call);
 
   await io.serve(handler, '0.0.0.0', port);
   final ip = await _localIp();
@@ -109,6 +112,8 @@ Future<void> _initDb() async {
     CREATE TABLE IF NOT EXISTS species (
       id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
       nestling_end_days INT DEFAULT 45, juvenile_end_days INT DEFAULT 120,
+      nestling_weigh_interval_days INT DEFAULT 1,
+      juvenile_weigh_interval_days INT DEFAULT 3,
       adult_weigh_interval_days INT DEFAULT 7,
       created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
       deleted_at TIMESTAMP
@@ -135,7 +140,8 @@ Future<void> _initDb() async {
       id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
       ring_number TEXT, species_id INT NOT NULL, room_id INT,
       birth_date TIMESTAMP NOT NULL, gender TEXT DEFAULT '未知',
-      sort_order INT DEFAULT 0, status TEXT DEFAULT '正常', notes TEXT,
+      sort_order INT DEFAULT 0, weigh_interval_days INT,
+      status TEXT DEFAULT '正常', notes TEXT,
       created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
       deleted_at TIMESTAMP
     )
@@ -164,30 +170,89 @@ Future<void> _initDb() async {
       device_id TEXT PRIMARY KEY, connected_at TIMESTAMP DEFAULT NOW()
     )
   ''');
+  await _db.execute('''
+    CREATE TABLE IF NOT EXISTS server_state (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    )
+  ''');
 }
 
 // ─── 数据库迁移 ───
 
 Future<void> _runMigrations() async {
-  // 为 change_log 补充审计字段
   try {
     await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS user_id INT');
     await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS action TEXT');
+    // v3: weigh interval configuration
+    await _db.execute('ALTER TABLE species ADD COLUMN IF NOT EXISTS nestling_weigh_interval_days INT DEFAULT 1');
+    await _db.execute('ALTER TABLE species ADD COLUMN IF NOT EXISTS juvenile_weigh_interval_days INT DEFAULT 3');
+    await _db.execute('ALTER TABLE birds ADD COLUMN IF NOT EXISTS weigh_interval_days INT');
   } catch (e) {
     print('迁移警告: $e');
   }
 }
+
+/// 服务端品种初始化（与手机端 initDefaults 保持一致）
+Future<void> _initDefaults() async {
+  final species = [
+    '牡丹鹦鹉', '金太阳', '虎皮鹦鹉', '玄凤鹦鹉', '金刚鹦鹉',
+  ];
+  for (final name in species) {
+    final exists = await _db.execute(
+      Sql.named('SELECT 1 FROM species WHERE name=@n'),
+      parameters: {'n': name},
+    );
+    if (exists.isEmpty) {
+      await _db.execute(
+        Sql.named('INSERT INTO species (uuid, name) VALUES (@u, @n)'),
+        parameters: {'u': _uuid.v4(), 'n': name},
+      );
+    }
+  }
+
+  // 默认管理员
+  final adminExists = await _db.execute("SELECT 1 FROM users WHERE username='admin'");
+  if (adminExists.isEmpty) {
+    await _db.execute(
+      Sql.named("INSERT INTO users (uuid, username, display_name, role) VALUES (@u, 'admin', '管理员', 'admin')"),
+      parameters: {'u': _uuid.v4()},
+    );
+  }
+}
+
+Future<void> _loadDataVersion() async {
+  try {
+    final r = await _db.execute("SELECT value FROM server_state WHERE key='data_version'");
+    if (r.isNotEmpty) {
+      _dataVersion = int.tryParse(r.first[0] as String) ?? 0;
+    }
+  } catch (_) {}
+}
+
+Future<void> _bumpVersion() async {
+  _dataVersion++;
+  try {
+    await _db.execute(
+      Sql.named("INSERT INTO server_state (key, value) VALUES ('data_version', @v) "
+          "ON CONFLICT (key) DO UPDATE SET value=@v"),
+      parameters: {'v': '$_dataVersion'},
+    );
+  } catch (_) {}
+}
+
+// ─── 数据库迁移 ───
 
 // ─── 二维码页面 ───
 
 Future<Response> _handleQr(Request req) async {
   final ip = await _localIp();
   final port = _serverPort();
-  // Docker 内无法自动获取宿主机 IP，优先用参数 > 环境变量 > 自动检测
-  final host = req.url.queryParameters['host'] ??
-      Platform.environment['SERVER_HOST'] ??
-      ip;
-  final data = jsonEncode({'host': host, 'port': port});
+  final envHost = Platform.environment['SERVER_HOST'];
+  final host = req.url.queryParameters['host'] ?? (envHost != null && envHost.isNotEmpty ? envHost : null) ?? ip;
+  final session = req.url.queryParameters['session'];
+  final qrJson = <String, dynamic>{'host': host, 'port': port};
+  if (session != null) qrJson['session'] = session;
+  final data = jsonEncode(qrJson);
 
   final qr = QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M);
   final img = QrImage(qr);
@@ -238,6 +303,49 @@ Future<Response> _handleConnect(Request req) async {
   return Response.ok(jsonEncode({'token': token}));
 }
 
+// ─── 扫码登录 ───
+
+/// 桌面端创建 QR 登录会话（返回 8 位会话码，有效期 2 分钟）
+Future<Response> _handleQrSession(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final sessionId = _uuid.v4().substring(0, 8);
+  _qrSessions[sessionId] = DateTime.now().add(const Duration(minutes: 2));
+  final ip = await _localIp();
+  final port = _serverPort();
+  final envHost = Platform.environment['SERVER_HOST'];
+  final host = req.url.queryParameters['host'] ?? (envHost != null && envHost.isNotEmpty ? envHost : null) ?? ip;
+  return Response.ok(jsonEncode({
+    'session': sessionId,
+    'host': host,
+    'port': port,
+  }));
+}
+
+/// 手机端用 QR 会话码换取 auth token（免 PIN）
+Future<Response> _handleQrLogin(Request req) async {
+  final body = jsonDecode(await req.readAsString());
+  final session = body['session'] as String?;
+  final deviceId = body['deviceId'] as String? ?? 'mobile';
+
+  if (session == null || !_qrSessions.containsKey(session)) {
+    return Response.forbidden('{"error":"无效或已使用的登录会话"}');
+  }
+  if (_qrSessions[session]!.isBefore(DateTime.now())) {
+    _qrSessions.remove(session);
+    return Response.forbidden('{"error":"登录会话已过期"}');
+  }
+  _qrSessions.remove(session);
+
+  final token = _uuid.v4();
+  _validTokens.add(token);
+  await _db.execute(
+    Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, NOW()) '
+        'ON CONFLICT (device_id) DO UPDATE SET connected_at = NOW()'),
+    parameters: {'d': deviceId},
+  );
+  return Response.ok(jsonEncode({'token': token}));
+}
+
 // ─── 同步 ───
 
 Future<Response> _handleSync(Request req) async {
@@ -248,16 +356,19 @@ Future<Response> _handleSync(Request req) async {
   for (final op in ops) {
     final opId = op['opId'] as String;
     try {
-      final r = await _db.execute(Sql.named('SELECT 1 FROM synced_ops WHERE op_id=@id'),
-          parameters: {'id': opId});
-      if (r.isNotEmpty) { successOps.add(opId); continue; }
+      final r = await _db.execute(Sql.named('SELECT 1 FROM synced_ops WHERE op_id=@id'), parameters: {'id': opId});
+      if (r.isNotEmpty) {
+        successOps.add(opId);
+        continue;
+      }
       await _applyOp(op);
-      await _db.execute(Sql.named('INSERT INTO synced_ops (op_id) VALUES (@id)'),
-          parameters: {'id': opId});
+      await _db.execute(Sql.named('INSERT INTO synced_ops (op_id) VALUES (@id)'), parameters: {'id': opId});
       successOps.add(opId);
-    } catch (e) { print('同步失败 $opId: $e'); }
+    } catch (e) {
+      print('同步失败 $opId: $e');
+    }
   }
-  if (successOps.isNotEmpty) _dataVersion++;
+  if (successOps.isNotEmpty) await _bumpVersion();
   return Response.ok(jsonEncode({'successOps': successOps}));
 }
 
@@ -270,44 +381,135 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
 
   switch (action) {
     case 'add_weight':
-      await _db.execute(Sql.named(
-          'INSERT INTO weight_records (uuid,bird_id,weight_g,recorded_at,recorded_by,is_fasting) '
-          'VALUES (@a,@b,@c,@d,@e,@f)'),
-        parameters: {'a': entityUuid, 'b': p('birdId'), 'c': p('weightG'),
-          'd': DateTime.parse(p('recordedAt')), 'e': op['userId'], 'f': p('isFasting') ?? true});
+      final birdUuid = p('birdUuid') as String?;
+      int serverBirdId;
+      if (birdUuid != null) {
+        final r = await _db.execute(
+          Sql.named('SELECT id FROM birds WHERE uuid=@u'),
+          parameters: {'u': birdUuid},
+        );
+        if (r.isEmpty) throw Exception('add_weight: bird UUID not found: $birdUuid');
+        serverBirdId = r.first[0] as int;
+      } else {
+        serverBirdId = p('birdId') as int;
+      }
+      await _db.execute(
+          Sql.named('INSERT INTO weight_records (uuid,bird_id,weight_g,recorded_at,recorded_by,is_fasting) '
+              'VALUES (@a,@b,@c,@d,@e,@f)'),
+          parameters: {
+            'a': entityUuid,
+            'b': serverBirdId,
+            'c': p('weightG'),
+            'd': DateTime.parse(p('recordedAt')),
+            'e': op['userId'],
+            'f': p('isFasting') ?? true
+          });
       break;
+    case 'delete_weight':
+      await _db.execute(
+        Sql.named('DELETE FROM weight_records WHERE uuid=@u'),
+        parameters: {'u': entityUuid},
+      );
+      // Fallback: old records may have mismatched UUIDs, match by birdUuid + same-minute recordedAt
+      {
+        final delBirdUuid = p('birdUuid') as String?;
+        final delRecordedAt = p('recordedAt') as String?;
+        if (delBirdUuid != null && delRecordedAt != null) {
+          final br = await _db.execute(
+            Sql.named('SELECT id FROM birds WHERE uuid=@u'),
+            parameters: {'u': delBirdUuid},
+          );
+          if (br.isNotEmpty) {
+            final serverBirdId = br.first[0] as int;
+            final ra = DateTime.parse(delRecordedAt);
+            final ms = DateTime(ra.year, ra.month, ra.day, ra.hour, ra.minute);
+            final me = ms.add(const Duration(minutes: 1));
+            await _db.execute(
+              Sql.named('DELETE FROM weight_records WHERE bird_id=@bid AND recorded_at>=@ms AND recorded_at<@me'),
+              parameters: {'bid': serverBirdId, 'ms': ms, 'me': me},
+            );
+          }
+        }
+      }
+      break;
+    case 'edit_weight':
+      {
+        final setClauses = <String>[];
+        final params = <String, dynamic>{'u': entityUuid};
+        if (payload.containsKey('weightG')) {
+          setClauses.add('weight_g=@wg'); params['wg'] = p('weightG');
+        }
+        if (payload.containsKey('isFasting')) {
+          setClauses.add('is_fasting=@f'); params['f'] = p('isFasting');
+        }
+        if (payload.containsKey('recordedAt')) {
+          setClauses.add('recorded_at=@ra'); params['ra'] = DateTime.parse(p('recordedAt'));
+        }
+        if (setClauses.isNotEmpty) {
+          await _db.execute(
+            Sql.named('UPDATE weight_records SET ${setClauses.join(', ')} WHERE uuid=@u'),
+            parameters: params,
+          );
+          // Fallback: old records with mismatched UUIDs, match by birdUuid + same-minute recordedAt
+          final editBirdUuid = p('birdUuid') as String?;
+          if (editBirdUuid != null && payload.containsKey('recordedAt')) {
+            final br = await _db.execute(
+              Sql.named('SELECT id FROM birds WHERE uuid=@u'),
+              parameters: {'u': editBirdUuid},
+            );
+            if (br.isNotEmpty) {
+              final serverBirdId = br.first[0] as int;
+              final ra = DateTime.parse(p('recordedAt'));
+              final ms = DateTime(ra.year, ra.month, ra.day, ra.hour, ra.minute);
+              final me = ms.add(const Duration(minutes: 1));
+              final fbParams = <String, dynamic>{'bid': serverBirdId, 'ms': ms, 'me': me};
+              if (payload.containsKey('weightG')) fbParams['wg'] = p('weightG');
+              if (payload.containsKey('isFasting')) fbParams['f'] = p('isFasting');
+              if (payload.containsKey('recordedAt')) fbParams['ra'] = DateTime.parse(p('recordedAt'));
+              await _db.execute(
+                Sql.named('UPDATE weight_records SET ${setClauses.join(', ')} WHERE bird_id=@bid AND recorded_at>=@ms AND recorded_at<@me'),
+                parameters: fbParams,
+              );
+            }
+          }
+        }
+        break;
+      }
     case 'create_bird':
-      await _db.execute(Sql.named(
-          'INSERT INTO birds (uuid,name,species_id,room_id,birth_date,gender,ring_number) '
-          'VALUES (@a,@b,@c,@d,@e,@f,@g)'),
-        parameters: {'a': entityUuid, 'b': p('name'), 'c': p('speciesId') ?? 1,
-          'd': p('roomId'), 'e': DateTime.parse(p('birthDate')),
-          'f': p('gender') ?? '未知', 'g': p('ringNumber')});
+      await _db.execute(
+          Sql.named('INSERT INTO birds (uuid,name,species_id,room_id,birth_date,gender,ring_number) '
+              'VALUES (@a,@b,@c,@d,@e,@f,@g)'),
+          parameters: {
+            'a': entityUuid,
+            'b': p('name'),
+            'c': p('speciesId') ?? 1,
+            'd': p('roomId'),
+            'e': DateTime.parse(p('birthDate')),
+            'f': p('gender') ?? '未知',
+            'g': p('ringNumber')
+          });
       break;
     case 'update_bird':
       await _db.execute(Sql.named(
-          'UPDATE birds SET name=@n, ring_number=@r, updated_at=NOW() WHERE id=@id'),
-        parameters: {'n': p('name'), 'r': p('ringNumber'), 'id': p('id')});
+          'UPDATE birds SET name=@n, species_id=@s, ring_number=@r, updated_at=NOW() WHERE id=@id'),
+          parameters: {'n': p('name'), 's': p('speciesId') ?? 1, 'r': p('ringNumber'), 'id': p('id')});
       break;
     case 'create_room':
       await _db.execute(Sql.named('INSERT INTO rooms (uuid,name) VALUES (@a,@b)'),
-        parameters: {'a': entityUuid, 'b': p('name')});
+          parameters: {'a': entityUuid, 'b': p('name')});
       break;
     case 'create_species':
       await _db.execute(Sql.named('INSERT INTO species (uuid,name) VALUES (@a,@b)'),
-        parameters: {'a': entityUuid, 'b': p('name')});
+          parameters: {'a': entityUuid, 'b': p('name')});
       break;
     case 'create_user':
-      await _db.execute(Sql.named(
-          'INSERT INTO users (uuid,username,display_name,role) VALUES (@a,@b,@c,@d)'),
-        parameters: {'a': entityUuid, 'b': p('username'), 'c': p('displayName'),
-          'd': p('role') ?? 'keeper'});
+      await _db.execute(Sql.named('INSERT INTO users (uuid,username,display_name,role) VALUES (@a,@b,@c,@d)'),
+          parameters: {'a': entityUuid, 'b': p('username'), 'c': p('displayName'), 'd': p('role') ?? 'keeper'});
       break;
   }
-  await _db.execute(Sql.named(
-      'INSERT INTO change_log (entity_type,entity_uuid,data,user_id,action) VALUES (@a,@b,@c,@d,@e)'),
-    parameters: {'a': entityType, 'b': entityUuid, 'c': jsonEncode(payload),
-      'd': op['userId'], 'e': action});
+  await _db.execute(
+      Sql.named('INSERT INTO change_log (entity_type,entity_uuid,data,user_id,action) VALUES (@a,@b,@c,@d,@e)'),
+      parameters: {'a': entityType, 'b': entityUuid, 'c': jsonEncode(payload), 'd': op['userId'], 'e': action});
 }
 
 // ─── 增量拉取 ───
@@ -317,20 +519,80 @@ Future<Response> _handleChanges(Request req) async {
   final since = int.tryParse(req.url.queryParameters['since'] ?? '0') ?? 0;
   final sinceDate = DateTime.fromMillisecondsSinceEpoch(since);
 
-  final result = await _db.execute(Sql.named(
-      'SELECT entity_type,entity_uuid,data,created_at FROM change_log '
-      'WHERE created_at>@s ORDER BY created_at ASC LIMIT 200'),
-    parameters: {'s': sinceDate});
+  final result = await _db.execute(
+      Sql.named('SELECT entity_type,entity_uuid,data,action,created_at FROM change_log '
+          'WHERE created_at>@s ORDER BY created_at ASC LIMIT 200'),
+      parameters: {'s': sinceDate});
 
   final changes = <Map<String, dynamic>>[];
   for (final row in result) {
     changes.add({
-      'entityType': row[0], 'entityUuid': row[1],
+      'entityType': row[0],
+      'entityUuid': row[1],
       'data': row[2] is Map ? row[2] : jsonDecode(row[2] as String),
-      'createdAt': (row[3] as DateTime).toIso8601String(),
+      'action': row[3],
+      'createdAt': (row[4] as DateTime).toIso8601String(),
     });
   }
   return Response.ok(jsonEncode({'changes': changes}));
+}
+
+// ─── SSE 实时推送变更 ───
+
+Future<Response> _handleChangesStream(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final since = int.tryParse(req.url.queryParameters['since'] ?? '0') ?? 0;
+  var lastTs = DateTime.fromMillisecondsSinceEpoch(since);
+
+  return Response.ok(
+    _streamChanges(lastTs),
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  );
+}
+
+Stream<String> _streamChanges(DateTime sinceDate) async* {
+  var lastCheck = sinceDate;
+  final maxIdle = 15; // send heartbeat every 15s
+  var idle = 0;
+
+  while (idle < 2) { // max ~30s, then client reconnects
+    await Future.delayed(const Duration(seconds: 2));
+
+    try {
+      final result = await _db.execute(
+        Sql.named('SELECT entity_type, entity_uuid, data, action, created_at FROM change_log '
+            'WHERE created_at > @s ORDER BY created_at ASC LIMIT 50'),
+        parameters: {'s': lastCheck},
+      );
+
+      if (result.isNotEmpty) {
+        idle = 0;
+        for (final row in result) {
+          final change = jsonEncode({
+            'entityType': row[0],
+            'entityUuid': row[1],
+            'data': row[2] is Map ? row[2] : jsonDecode(row[2] as String),
+            'action': row[3],
+            'createdAt': (row[4] as DateTime).toIso8601String(),
+          });
+          yield 'data: $change\n\n';
+          if ((row[4] as DateTime).isAfter(lastCheck)) {
+            lastCheck = row[4] as DateTime;
+          }
+        }
+      } else {
+        idle++;
+        yield ': heartbeat\n\n';
+      }
+    } catch (_) {
+      break;
+    }
+  }
+  yield 'data: {"type":"eof"}\n\n';
 }
 
 // ─── 审计日志 ───
@@ -386,27 +648,28 @@ Future<Response> _handleAuditLog(Request req) async {
   params['limit'] = pageSize;
   params['offset'] = offset;
   final result = await _db.execute(
-    Sql.named(
-      'SELECT cl.id, cl.entity_type, cl.entity_uuid, cl.data, cl.action, '
-      'cl.created_at, cl.user_id, COALESCE(u.display_name, \'未知\') as user_name '
-      'FROM change_log cl '
-      'LEFT JOIN users u ON cl.user_id = u.id '
-      'WHERE $whereClause '
-      'ORDER BY cl.created_at DESC '
-      'LIMIT @limit OFFSET @offset'),
+    Sql.named('SELECT cl.id, cl.entity_type, cl.entity_uuid, cl.data, cl.action, '
+        'cl.created_at, cl.user_id, COALESCE(u.display_name, \'未知\') as user_name '
+        'FROM change_log cl '
+        'LEFT JOIN users u ON cl.user_id = u.id '
+        'WHERE $whereClause '
+        'ORDER BY cl.created_at DESC '
+        'LIMIT @limit OFFSET @offset'),
     parameters: params,
   );
 
-  final items = result.map((row) => {
-    'id': row[0],
-    'entityType': row[1],
-    'entityUuid': row[2],
-    'data': row[3] is Map ? row[3] : jsonDecode(row[3] as String),
-    'action': row[4],
-    'createdAt': (row[5] as DateTime).toIso8601String(),
-    'userId': row[6],
-    'userName': row[7],
-  }).toList();
+  final items = result
+      .map((row) => {
+            'id': row[0],
+            'entityType': row[1],
+            'entityUuid': row[2],
+            'data': row[3] is Map ? row[3] : jsonDecode(row[3] as String),
+            'action': row[4],
+            'createdAt': (row[5] as DateTime).toIso8601String(),
+            'userId': row[6],
+            'userName': row[7],
+          })
+      .toList();
 
   return Response.ok(jsonEncode({
     'items': items,
@@ -432,7 +695,7 @@ Future<Response> _handleBirds(Request req) async {
            s.name as species_name,
            r.name as room_name
     FROM birds b
-    JOIN species s ON b.species_id = s.id
+    LEFT JOIN species s ON b.species_id = s.id
     LEFT JOIN rooms r ON b.room_id = r.id
     WHERE b.deleted_at IS NULL
   ''';
@@ -453,15 +716,24 @@ Future<Response> _handleBirds(Request req) async {
   sql += ' ORDER BY b.sort_order ASC, b.name ASC';
 
   final result = await _db.execute(Sql.named(sql), parameters: params);
-  final birds = result.map((row) => {
-    'id': row[0], 'uuid': row[1], 'name': row[2], 'ringNumber': row[3],
-    'speciesId': row[4], 'roomId': row[5],
-    'birthDate': (row[6] as DateTime).toIso8601String(),
-    'gender': row[7], 'status': row[8], 'notes': row[9],
-    'createdAt': (row[10] as DateTime?)?.toIso8601String(),
-    'updatedAt': (row[11] as DateTime?)?.toIso8601String(),
-    'speciesName': row[12], 'roomName': row[13],
-  }).toList();
+  final birds = result
+      .map((row) => {
+            'id': row[0],
+            'uuid': row[1],
+            'name': row[2],
+            'ringNumber': row[3],
+            'speciesId': row[4],
+            'roomId': row[5],
+            'birthDate': (row[6] as DateTime).toIso8601String(),
+            'gender': row[7],
+            'status': row[8],
+            'notes': row[9],
+            'createdAt': (row[10] as DateTime?)?.toIso8601String(),
+            'updatedAt': (row[11] as DateTime?)?.toIso8601String(),
+            'speciesName': row[12],
+            'roomName': row[13],
+          })
+      .toList();
 
   return Response.ok(jsonEncode({'birds': birds}));
 }
@@ -477,7 +749,7 @@ Future<Response> _handleBirdDetail(Request req) async {
            s.name as species_name, s.nestling_end_days, s.juvenile_end_days,
            r.name as room_name
     FROM birds b
-    JOIN species s ON b.species_id = s.id
+    LEFT JOIN species s ON b.species_id = s.id
     LEFT JOIN rooms r ON b.room_id = r.id
     WHERE b.id=@id AND b.deleted_at IS NULL
   '''), parameters: {'id': id});
@@ -485,11 +757,19 @@ Future<Response> _handleBirdDetail(Request req) async {
   if (result.isEmpty) return Response.notFound('{"error":"not found"}');
   final row = result.first;
   return Response.ok(jsonEncode({
-    'id': row[0], 'uuid': row[1], 'name': row[2], 'ringNumber': row[3],
-    'speciesId': row[4], 'roomId': row[5],
+    'id': row[0],
+    'uuid': row[1],
+    'name': row[2],
+    'ringNumber': row[3],
+    'speciesId': row[4],
+    'roomId': row[5],
     'birthDate': (row[6] as DateTime).toIso8601String(),
-    'gender': row[7], 'status': row[8], 'notes': row[9],
-    'speciesName': row[12], 'nestlingEndDays': row[13], 'juvenileEndDays': row[14],
+    'gender': row[7],
+    'status': row[8],
+    'notes': row[9],
+    'speciesName': row[12],
+    'nestlingEndDays': row[13],
+    'juvenileEndDays': row[14],
     'roomName': row[15],
   }));
 }
@@ -507,14 +787,223 @@ Future<Response> _handleBirdWeights(Request req) async {
     LIMIT 500
   '''), parameters: {'id': id});
 
-  final weights = result.map((row) => {
-    'id': row[0], 'uuid': row[1], 'birdId': row[2],
-    'weightG': row[3],
-    'recordedAt': (row[4] as DateTime).toIso8601String(),
-    'recordedBy': row[5], 'isFasting': row[6], 'notes': row[7],
-  }).toList();
+  final weights = result
+      .map((row) => {
+            'id': row[0],
+            'uuid': row[1],
+            'birdId': row[2],
+            'weightG': row[3],
+            'recordedAt': (row[4] as DateTime).toIso8601String(),
+            'recordedBy': row[5],
+            'isFasting': row[6],
+            'notes': row[7],
+          })
+      .toList();
 
   return Response.ok(jsonEncode({'weights': weights}));
+}
+
+// ─── 更新鹦鹉 ───
+
+Future<Response> _handleUpdateBird(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
+
+  final body = jsonDecode(await req.readAsString());
+  final updates = <String>[];
+  final params = <String, dynamic>{'id': id};
+
+  if (body.containsKey('name')) { updates.add('name=@n'); params['n'] = body['name']; }
+  if (body.containsKey('speciesId')) { updates.add('species_id=@s'); params['s'] = body['speciesId']; }
+  if (body.containsKey('roomId')) { updates.add('room_id=@r'); params['r'] = body['roomId']; }
+  if (body.containsKey('status')) { updates.add('status=@st'); params['st'] = body['status']; }
+  if (body.containsKey('notes')) { updates.add('notes=@no'); params['no'] = body['notes']; }
+  if (body.containsKey('ringNumber')) { updates.add('ring_number=@rn'); params['rn'] = body['ringNumber']; }
+  if (body.containsKey('weighIntervalDays')) {
+    updates.add('weigh_interval_days=@wi'); params['wi'] = body['weighIntervalDays'];
+  }
+
+  if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
+  updates.add('updated_at=NOW()');
+
+  await _db.execute(
+    Sql.named('UPDATE birds SET ${updates.join(', ')} WHERE id=@id'),
+    parameters: params,
+  );
+
+  // Write change log
+  final birdResult = await _db.execute(Sql.named('SELECT uuid FROM birds WHERE id=@id'), parameters: {'id': id});
+  if (birdResult.isNotEmpty) {
+    final birdUuid = birdResult.first[0] as String;
+    await _db.execute(Sql.named(
+      'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+      parameters: {'a': 'bird', 'b': birdUuid, 'c': jsonEncode(body), 'd': 'update_bird'},
+    );
+    await _bumpVersion();
+  }
+
+  return Response.ok(jsonEncode({'ok': true}));
+}
+
+// ─── 发布称重任务 ───
+
+Future<Response> _handlePublishTasks(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final body = jsonDecode(await req.readAsString());
+  final birdIds = (body['birdIds'] as List?)?.map((e) => e as int).toList() ?? [];
+  if (birdIds.isEmpty) return Response(400, body: '{"error":"birdIds required"}');
+
+  final today = DateTime.now();
+  final dayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+  for (final birdId in birdIds) {
+    // Write change_log entry — mobile apps will generate local tasks on pull
+    await _db.execute(Sql.named(
+      'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+      parameters: {
+        'a': 'task', 'b': _uuid.v4(), 'c': jsonEncode({'birdId': birdId, 'dueDate': dayStr, 'status': '待完成'}),
+        'd': 'publish_task',
+      },
+    );
+  }
+
+  await _bumpVersion();
+  return Response.ok(jsonEncode({'published': birdIds.length}));
+}
+
+// ─── 房间管理 ───
+
+Future<Response> _handleRooms(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final result = await _db.execute('''
+    SELECT r.id, r.uuid, r.name, r.sort_order, r.assigned_user_id,
+           COALESCE(u.display_name, '') as assigned_name,
+           (SELECT COUNT(*) FROM birds b WHERE b.room_id = r.id AND b.deleted_at IS NULL) as bird_count
+    FROM rooms r
+    LEFT JOIN users u ON r.assigned_user_id = u.id
+    WHERE r.deleted_at IS NULL
+    ORDER BY r.sort_order, r.id
+  ''');
+  final items = result.map((row) => {
+    'id': row[0], 'uuid': row[1], 'name': row[2], 'sortOrder': row[3],
+    'assignedUserId': row[4], 'assignedUserName': row[5],
+    'birdCount': row[6],
+  }).toList();
+  return Response.ok(jsonEncode({'rooms': items}));
+}
+
+Future<Response> _handleCreateRoom(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final body = jsonDecode(await req.readAsString());
+  final name = body['name'] as String?;
+  if (name == null || name.isEmpty) return Response(400, body: '{"error":"name required"}');
+  final uuid = _uuid.v4();
+  await _db.execute(Sql.named(
+    'INSERT INTO rooms (uuid, name, sort_order, assigned_user_id) VALUES (@u, @n, 0, @a)'),
+    parameters: {'u': uuid, 'n': name, 'a': body['assignedUserId']},
+  );
+  await _db.execute(Sql.named(
+    'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+    parameters: {'a': 'room', 'b': uuid, 'c': jsonEncode(body), 'd': 'create_room'},
+  );
+  await _bumpVersion();
+  return Response.ok(jsonEncode({'uuid': uuid}));
+}
+
+Future<Response> _handleUpdateRoom(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
+  final body = jsonDecode(await req.readAsString());
+  final updates = <String>[];
+  final params = <String, dynamic>{'id': id};
+  if (body.containsKey('name')) { updates.add('name=@n'); params['n'] = body['name']; }
+  if (body.containsKey('sortOrder')) { updates.add('sort_order=@so'); params['so'] = body['sortOrder']; }
+  if (body.containsKey('assignedUserId')) { updates.add('assigned_user_id=@a'); params['a'] = body['assignedUserId']; }
+  if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
+  updates.add('updated_at=NOW()');
+  await _db.execute(Sql.named('UPDATE rooms SET ${updates.join(', ')} WHERE id=@id'), parameters: params);
+  final r = await _db.execute(Sql.named('SELECT uuid FROM rooms WHERE id=@id'), parameters: {'id': id});
+  if (r.isNotEmpty) {
+    await _db.execute(Sql.named('INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+      parameters: {'a': 'room', 'b': r.first[0] as String, 'c': jsonEncode(body), 'd': 'update_room'});
+    await _bumpVersion();
+  }
+  return Response.ok(jsonEncode({'ok': true}));
+}
+
+// ─── 品种列表及配置 ───
+
+Future<Response> _handleSpecies(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final result = await _db.execute('''
+    SELECT id, uuid, name, nestling_end_days, juvenile_end_days,
+           nestling_weigh_interval_days, juvenile_weigh_interval_days,
+           adult_weigh_interval_days, created_at
+    FROM species WHERE deleted_at IS NULL ORDER BY id
+  ''');
+  final items = result.map((row) => {
+    'id': row[0], 'uuid': row[1], 'name': row[2],
+    'nestlingEndDays': row[3], 'juvenileEndDays': row[4],
+    'nestlingWeighIntervalDays': row[5], 'juvenileWeighIntervalDays': row[6],
+    'adultWeighIntervalDays': row[7],
+    'createdAt': (row[8] as DateTime).toIso8601String(),
+  }).toList();
+  return Response.ok(jsonEncode({'species': items}));
+}
+
+Future<Response> _handleUpdateSpecies(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final id = int.tryParse(req.params['id'] ?? '');
+  if (id == null) return Response(400, body: '{"error":"invalid id"}');
+
+  final body = jsonDecode(await req.readAsString());
+  final updates = <String>[];
+  final params = <String, dynamic>{'id': id};
+  final fields = {
+    'nestlingEndDays': 'nestling_end_days', 'juvenileEndDays': 'juvenile_end_days',
+    'nestlingWeighIntervalDays': 'nestling_weigh_interval_days',
+    'juvenileWeighIntervalDays': 'juvenile_weigh_interval_days',
+    'adultWeighIntervalDays': 'adult_weigh_interval_days',
+  };
+  for (final e in fields.entries) {
+    if (body.containsKey(e.key)) {
+      updates.add('${e.value}=@${e.key}');
+      params[e.key] = body[e.key];
+    }
+  }
+
+  if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
+  updates.add('updated_at=NOW()');
+  await _db.execute(
+    Sql.named('UPDATE species SET ${updates.join(', ')} WHERE id=@id'),
+    parameters: params,
+  );
+
+  // Change log — write full species data so mobile can upsert
+  final spResult = await _db.execute(Sql.named(
+    'SELECT uuid, name, nestling_end_days, juvenile_end_days, nestling_weigh_interval_days, juvenile_weigh_interval_days, adult_weigh_interval_days FROM species WHERE id=@id'),
+    parameters: {'id': id},
+  );
+  if (spResult.isNotEmpty) {
+    final fullData = jsonEncode({
+      'uuid': spResult.first[0] as String,
+      'name': spResult.first[1] as String,
+      'nestlingEndDays': spResult.first[2] as int,
+      'juvenileEndDays': spResult.first[3] as int,
+      'nestlingWeighIntervalDays': spResult.first[4] as int,
+      'juvenileWeighIntervalDays': spResult.first[5] as int,
+      'adultWeighIntervalDays': spResult.first[6] as int,
+    });
+    await _db.execute(Sql.named(
+      'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+      parameters: {'a': 'species', 'b': spResult.first[0] as String, 'c': fullData, 'd': 'update_species'},
+    );
+    await _bumpVersion();
+  }
+
+  return Response.ok(jsonEncode({'ok': true}));
 }
 
 // ─── 用户管理 ───
@@ -528,14 +1017,19 @@ Future<Response> _handleUsers(Request req) async {
     ORDER BY id ASC
   ''');
 
-  final users = result.map((row) => {
-    'id': row[0], 'uuid': row[1], 'username': row[2], 'displayName': row[3],
-    'role': row[4],
-    'createdAt': (row[5] as DateTime).toIso8601String(),
-    'updatedAt': (row[6] as DateTime?)?.toIso8601String(),
-    'deletedAt': (row[7] as DateTime?)?.toIso8601String(),
-    'isActive': row[7] == null,
-  }).toList();
+  final users = result
+      .map((row) => {
+            'id': row[0],
+            'uuid': row[1],
+            'username': row[2],
+            'displayName': row[3],
+            'role': row[4],
+            'createdAt': (row[5] as DateTime).toIso8601String(),
+            'updatedAt': (row[6] as DateTime?)?.toIso8601String(),
+            'deletedAt': (row[7] as DateTime?)?.toIso8601String(),
+            'isActive': row[7] == null,
+          })
+      .toList();
 
   return Response.ok(jsonEncode({'users': users}));
 }
@@ -554,19 +1048,18 @@ Future<Response> _handleCreateUser(Request req) async {
   if (!['admin', 'keeper', 'viewer'].contains(role)) return Response(400, body: '{"error":"无效角色"}');
 
   final uuid = _uuid.v4();
-  final q = Sql.named(
-      'INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)');
+  final q = Sql.named('INSERT INTO users (uuid, username, display_name, password_hash, role) VALUES (@a,@b,@c,@d,@e)');
   await _db.execute(q, parameters: {'a': uuid, 'b': username, 'c': displayName, 'd': password, 'e': role});
 
   // 写入变更日志，手机端可通过 /changes 拉取
-  final logQ = Sql.named(
-      'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
+  final logQ = Sql.named('INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
   await _db.execute(logQ, parameters: {
-    'a': 'user', 'b': uuid,
+    'a': 'user',
+    'b': uuid,
     'c': jsonEncode({'username': username, 'displayName': displayName, 'passwordHash': password, 'role': role}),
     'd': 'create_user',
   });
-  _dataVersion++;
+  await _bumpVersion();
 
   return Response.ok(jsonEncode({'uuid': uuid}));
 }
@@ -612,12 +1105,14 @@ Future<Response> _handleUpdateUser(Request req) async {
   final userResult = await _db.execute(Sql.named('SELECT uuid FROM users WHERE id=@id'), parameters: {'id': id});
   if (userResult.isNotEmpty) {
     final userUuid = userResult.first[0] as String;
-    final logQ = Sql.named(
-        'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
+    final logQ = Sql.named('INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)');
     await _db.execute(logQ, parameters: {
-      'a': 'user', 'b': userUuid, 'c': jsonEncode(body), 'd': 'update_user',
+      'a': 'user',
+      'b': userUuid,
+      'c': jsonEncode(body),
+      'd': 'update_user',
     });
-    _dataVersion++;
+    await _bumpVersion();
   }
 
   return Response.ok(jsonEncode({'ok': true}));

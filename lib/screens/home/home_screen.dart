@@ -6,12 +6,32 @@ import '../weigh/weigh_screen.dart';
 import '../birds/birds_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../alerts/alerts_screen.dart';
-import '../species/species_screen.dart';
-import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
 import '../worker/worker_screen.dart';
 import '../login/login_screen.dart';
-import '../../../widgets/server_status_bar.dart';
+
+
+Future<void> _showLogoutConfirm(BuildContext context, WidgetRef ref) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('退出登录'),
+      content: const Text('确定要退出当前账号吗？'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('退出')),
+      ],
+    ),
+  );
+  if (ok == true) {
+    await ref.read(workerProvider.notifier).clear();
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -44,28 +64,22 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('WeightNest'),
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const WorkerSelectScreen())),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: theme.colorScheme.primary,
-                  child: Text(
-                    worker.displayName[0].toUpperCase(),
-                    style: const TextStyle(fontSize: 12, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
+          padding: const EdgeInsets.only(left: 12),
+          child: CircleAvatar(
+            radius: 14,
+            backgroundColor: theme.colorScheme.primary,
+            child: Text(
+              worker.displayName[0].toUpperCase(),
+              style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '退出登录',
+            onPressed: () => _showLogoutConfirm(context, ref),
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(context,
@@ -73,7 +87,7 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      persistentFooterButtons: const [ServerStatusBar()],
+
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(todayTasksProvider);
@@ -143,12 +157,12 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen())),
                 ),
                 _ActionBtn(
-                  icon: Icons.pets, label: '品种管理',
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeciesScreen())),
+                  icon: Icons.warning_amber, label: '异常提醒',
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsScreen())),
                 ),
                 _ActionBtn(
-                  icon: Icons.meeting_room, label: '房间管理',
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoomsScreen())),
+                  icon: Icons.scale, label: '快速称重',
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WeighScreen(roomId: null))),
                 ),
               ],
             ),
@@ -324,6 +338,25 @@ class _RoomCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
+                if (room.assignedUserId != null)
+                  Consumer(builder: (_, ref, __) {
+                    final usersAsync = ref.watch(allUsersProvider);
+                    return usersAsync.when(
+                      data: (users) {
+                        final u = users.where((u) => u.id == room.assignedUserId).firstOrNull;
+                        return u != null
+                            ? Padding(padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(children: [
+                                  Icon(Icons.person, size: 12, color: Colors.blue.shade400),
+                                  const SizedBox(width: 4),
+                                  Text(u.displayName, style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
+                                ]))
+                            : const SizedBox.shrink();
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  }),
                 birdsAsync.when(
                   loading: () => const SizedBox(height: 16, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
                   error: (_, __) => const Text('-'),

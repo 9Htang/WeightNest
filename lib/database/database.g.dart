@@ -48,6 +48,22 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(120));
+  static const VerificationMeta _nestlingWeighIntervalDaysMeta =
+      const VerificationMeta('nestlingWeighIntervalDays');
+  @override
+  late final GeneratedColumn<int> nestlingWeighIntervalDays =
+      GeneratedColumn<int>('nestling_weigh_interval_days', aliasedName, false,
+          type: DriftSqlType.int,
+          requiredDuringInsert: false,
+          defaultValue: const Constant(1));
+  static const VerificationMeta _juvenileWeighIntervalDaysMeta =
+      const VerificationMeta('juvenileWeighIntervalDays');
+  @override
+  late final GeneratedColumn<int> juvenileWeighIntervalDays =
+      GeneratedColumn<int>('juvenile_weigh_interval_days', aliasedName, false,
+          type: DriftSqlType.int,
+          requiredDuringInsert: false,
+          defaultValue: const Constant(3));
   static const VerificationMeta _adultWeighIntervalDaysMeta =
       const VerificationMeta('adultWeighIntervalDays');
   @override
@@ -85,6 +101,8 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
         name,
         nestlingEndDays,
         juvenileEndDays,
+        nestlingWeighIntervalDays,
+        juvenileWeighIntervalDays,
         adultWeighIntervalDays,
         createdAt,
         updatedAt,
@@ -127,6 +145,20 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
           juvenileEndDays.isAcceptableOrUnknown(
               data['juvenile_end_days']!, _juvenileEndDaysMeta));
     }
+    if (data.containsKey('nestling_weigh_interval_days')) {
+      context.handle(
+          _nestlingWeighIntervalDaysMeta,
+          nestlingWeighIntervalDays.isAcceptableOrUnknown(
+              data['nestling_weigh_interval_days']!,
+              _nestlingWeighIntervalDaysMeta));
+    }
+    if (data.containsKey('juvenile_weigh_interval_days')) {
+      context.handle(
+          _juvenileWeighIntervalDaysMeta,
+          juvenileWeighIntervalDays.isAcceptableOrUnknown(
+              data['juvenile_weigh_interval_days']!,
+              _juvenileWeighIntervalDaysMeta));
+    }
     if (data.containsKey('adult_weigh_interval_days')) {
       context.handle(
           _adultWeighIntervalDaysMeta,
@@ -164,6 +196,12 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
           .read(DriftSqlType.int, data['${effectivePrefix}nestling_end_days'])!,
       juvenileEndDays: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}juvenile_end_days'])!,
+      nestlingWeighIntervalDays: attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}nestling_weigh_interval_days'])!,
+      juvenileWeighIntervalDays: attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}juvenile_weigh_interval_days'])!,
       adultWeighIntervalDays: attachedDatabase.typeMapping.read(
           DriftSqlType.int,
           data['${effectivePrefix}adult_weigh_interval_days'])!,
@@ -193,7 +231,13 @@ class Specy extends DataClass implements Insertable<Specy> {
   /// 幼鸟阶段结束天数
   final int juvenileEndDays;
 
-  /// 称重周期（天），成鸟用
+  /// 雏鸟称重间隔（天）
+  final int nestlingWeighIntervalDays;
+
+  /// 幼鸟称重间隔（天）
+  final int juvenileWeighIntervalDays;
+
+  /// 成鸟称重间隔（天）
   final int adultWeighIntervalDays;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -204,6 +248,8 @@ class Specy extends DataClass implements Insertable<Specy> {
       required this.name,
       required this.nestlingEndDays,
       required this.juvenileEndDays,
+      required this.nestlingWeighIntervalDays,
+      required this.juvenileWeighIntervalDays,
       required this.adultWeighIntervalDays,
       required this.createdAt,
       required this.updatedAt,
@@ -216,6 +262,10 @@ class Specy extends DataClass implements Insertable<Specy> {
     map['name'] = Variable<String>(name);
     map['nestling_end_days'] = Variable<int>(nestlingEndDays);
     map['juvenile_end_days'] = Variable<int>(juvenileEndDays);
+    map['nestling_weigh_interval_days'] =
+        Variable<int>(nestlingWeighIntervalDays);
+    map['juvenile_weigh_interval_days'] =
+        Variable<int>(juvenileWeighIntervalDays);
     map['adult_weigh_interval_days'] = Variable<int>(adultWeighIntervalDays);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -232,6 +282,8 @@ class Specy extends DataClass implements Insertable<Specy> {
       name: Value(name),
       nestlingEndDays: Value(nestlingEndDays),
       juvenileEndDays: Value(juvenileEndDays),
+      nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
+      juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -250,6 +302,10 @@ class Specy extends DataClass implements Insertable<Specy> {
       name: serializer.fromJson<String>(json['name']),
       nestlingEndDays: serializer.fromJson<int>(json['nestlingEndDays']),
       juvenileEndDays: serializer.fromJson<int>(json['juvenileEndDays']),
+      nestlingWeighIntervalDays:
+          serializer.fromJson<int>(json['nestlingWeighIntervalDays']),
+      juvenileWeighIntervalDays:
+          serializer.fromJson<int>(json['juvenileWeighIntervalDays']),
       adultWeighIntervalDays:
           serializer.fromJson<int>(json['adultWeighIntervalDays']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -266,6 +322,10 @@ class Specy extends DataClass implements Insertable<Specy> {
       'name': serializer.toJson<String>(name),
       'nestlingEndDays': serializer.toJson<int>(nestlingEndDays),
       'juvenileEndDays': serializer.toJson<int>(juvenileEndDays),
+      'nestlingWeighIntervalDays':
+          serializer.toJson<int>(nestlingWeighIntervalDays),
+      'juvenileWeighIntervalDays':
+          serializer.toJson<int>(juvenileWeighIntervalDays),
       'adultWeighIntervalDays': serializer.toJson<int>(adultWeighIntervalDays),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -279,6 +339,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           String? name,
           int? nestlingEndDays,
           int? juvenileEndDays,
+          int? nestlingWeighIntervalDays,
+          int? juvenileWeighIntervalDays,
           int? adultWeighIntervalDays,
           DateTime? createdAt,
           DateTime? updatedAt,
@@ -289,6 +351,10 @@ class Specy extends DataClass implements Insertable<Specy> {
         name: name ?? this.name,
         nestlingEndDays: nestlingEndDays ?? this.nestlingEndDays,
         juvenileEndDays: juvenileEndDays ?? this.juvenileEndDays,
+        nestlingWeighIntervalDays:
+            nestlingWeighIntervalDays ?? this.nestlingWeighIntervalDays,
+        juvenileWeighIntervalDays:
+            juvenileWeighIntervalDays ?? this.juvenileWeighIntervalDays,
         adultWeighIntervalDays:
             adultWeighIntervalDays ?? this.adultWeighIntervalDays,
         createdAt: createdAt ?? this.createdAt,
@@ -306,6 +372,12 @@ class Specy extends DataClass implements Insertable<Specy> {
       juvenileEndDays: data.juvenileEndDays.present
           ? data.juvenileEndDays.value
           : this.juvenileEndDays,
+      nestlingWeighIntervalDays: data.nestlingWeighIntervalDays.present
+          ? data.nestlingWeighIntervalDays.value
+          : this.nestlingWeighIntervalDays,
+      juvenileWeighIntervalDays: data.juvenileWeighIntervalDays.present
+          ? data.juvenileWeighIntervalDays.value
+          : this.juvenileWeighIntervalDays,
       adultWeighIntervalDays: data.adultWeighIntervalDays.present
           ? data.adultWeighIntervalDays.value
           : this.adultWeighIntervalDays,
@@ -323,6 +395,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           ..write('name: $name, ')
           ..write('nestlingEndDays: $nestlingEndDays, ')
           ..write('juvenileEndDays: $juvenileEndDays, ')
+          ..write('nestlingWeighIntervalDays: $nestlingWeighIntervalDays, ')
+          ..write('juvenileWeighIntervalDays: $juvenileWeighIntervalDays, ')
           ..write('adultWeighIntervalDays: $adultWeighIntervalDays, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -332,8 +406,18 @@ class Specy extends DataClass implements Insertable<Specy> {
   }
 
   @override
-  int get hashCode => Object.hash(id, uuid, name, nestlingEndDays,
-      juvenileEndDays, adultWeighIntervalDays, createdAt, updatedAt, deletedAt);
+  int get hashCode => Object.hash(
+      id,
+      uuid,
+      name,
+      nestlingEndDays,
+      juvenileEndDays,
+      nestlingWeighIntervalDays,
+      juvenileWeighIntervalDays,
+      adultWeighIntervalDays,
+      createdAt,
+      updatedAt,
+      deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -343,6 +427,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           other.name == this.name &&
           other.nestlingEndDays == this.nestlingEndDays &&
           other.juvenileEndDays == this.juvenileEndDays &&
+          other.nestlingWeighIntervalDays == this.nestlingWeighIntervalDays &&
+          other.juvenileWeighIntervalDays == this.juvenileWeighIntervalDays &&
           other.adultWeighIntervalDays == this.adultWeighIntervalDays &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -355,6 +441,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
   final Value<String> name;
   final Value<int> nestlingEndDays;
   final Value<int> juvenileEndDays;
+  final Value<int> nestlingWeighIntervalDays;
+  final Value<int> juvenileWeighIntervalDays;
   final Value<int> adultWeighIntervalDays;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -365,6 +453,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     this.name = const Value.absent(),
     this.nestlingEndDays = const Value.absent(),
     this.juvenileEndDays = const Value.absent(),
+    this.nestlingWeighIntervalDays = const Value.absent(),
+    this.juvenileWeighIntervalDays = const Value.absent(),
     this.adultWeighIntervalDays = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -376,6 +466,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     required String name,
     this.nestlingEndDays = const Value.absent(),
     this.juvenileEndDays = const Value.absent(),
+    this.nestlingWeighIntervalDays = const Value.absent(),
+    this.juvenileWeighIntervalDays = const Value.absent(),
     this.adultWeighIntervalDays = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -388,6 +480,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     Expression<String>? name,
     Expression<int>? nestlingEndDays,
     Expression<int>? juvenileEndDays,
+    Expression<int>? nestlingWeighIntervalDays,
+    Expression<int>? juvenileWeighIntervalDays,
     Expression<int>? adultWeighIntervalDays,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -399,6 +493,10 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
       if (name != null) 'name': name,
       if (nestlingEndDays != null) 'nestling_end_days': nestlingEndDays,
       if (juvenileEndDays != null) 'juvenile_end_days': juvenileEndDays,
+      if (nestlingWeighIntervalDays != null)
+        'nestling_weigh_interval_days': nestlingWeighIntervalDays,
+      if (juvenileWeighIntervalDays != null)
+        'juvenile_weigh_interval_days': juvenileWeighIntervalDays,
       if (adultWeighIntervalDays != null)
         'adult_weigh_interval_days': adultWeighIntervalDays,
       if (createdAt != null) 'created_at': createdAt,
@@ -413,6 +511,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
       Value<String>? name,
       Value<int>? nestlingEndDays,
       Value<int>? juvenileEndDays,
+      Value<int>? nestlingWeighIntervalDays,
+      Value<int>? juvenileWeighIntervalDays,
       Value<int>? adultWeighIntervalDays,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
@@ -423,6 +523,10 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
       name: name ?? this.name,
       nestlingEndDays: nestlingEndDays ?? this.nestlingEndDays,
       juvenileEndDays: juvenileEndDays ?? this.juvenileEndDays,
+      nestlingWeighIntervalDays:
+          nestlingWeighIntervalDays ?? this.nestlingWeighIntervalDays,
+      juvenileWeighIntervalDays:
+          juvenileWeighIntervalDays ?? this.juvenileWeighIntervalDays,
       adultWeighIntervalDays:
           adultWeighIntervalDays ?? this.adultWeighIntervalDays,
       createdAt: createdAt ?? this.createdAt,
@@ -449,6 +553,14 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     if (juvenileEndDays.present) {
       map['juvenile_end_days'] = Variable<int>(juvenileEndDays.value);
     }
+    if (nestlingWeighIntervalDays.present) {
+      map['nestling_weigh_interval_days'] =
+          Variable<int>(nestlingWeighIntervalDays.value);
+    }
+    if (juvenileWeighIntervalDays.present) {
+      map['juvenile_weigh_interval_days'] =
+          Variable<int>(juvenileWeighIntervalDays.value);
+    }
     if (adultWeighIntervalDays.present) {
       map['adult_weigh_interval_days'] =
           Variable<int>(adultWeighIntervalDays.value);
@@ -473,6 +585,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
           ..write('name: $name, ')
           ..write('nestlingEndDays: $nestlingEndDays, ')
           ..write('juvenileEndDays: $juvenileEndDays, ')
+          ..write('nestlingWeighIntervalDays: $nestlingWeighIntervalDays, ')
+          ..write('juvenileWeighIntervalDays: $juvenileWeighIntervalDays, ')
           ..write('adultWeighIntervalDays: $adultWeighIntervalDays, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -1455,6 +1569,12 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _weighIntervalDaysMeta =
+      const VerificationMeta('weighIntervalDays');
+  @override
+  late final GeneratedColumn<int> weighIntervalDays = GeneratedColumn<int>(
+      'weigh_interval_days', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -1503,6 +1623,7 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
         birthDate,
         gender,
         sortOrder,
+        weighIntervalDays,
         status,
         notes,
         createdAt,
@@ -1564,6 +1685,12 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
       context.handle(_sortOrderMeta,
           sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
     }
+    if (data.containsKey('weigh_interval_days')) {
+      context.handle(
+          _weighIntervalDaysMeta,
+          weighIntervalDays.isAcceptableOrUnknown(
+              data['weigh_interval_days']!, _weighIntervalDaysMeta));
+    }
     if (data.containsKey('status')) {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
@@ -1611,6 +1738,8 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           .read(DriftSqlType.string, data['${effectivePrefix}gender'])!,
       sortOrder: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
+      weighIntervalDays: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}weigh_interval_days']),
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       notes: attachedDatabase.typeMapping
@@ -1653,6 +1782,9 @@ class Bird extends DataClass implements Insertable<Bird> {
   /// 自定义排序
   final int sortOrder;
 
+  /// 单只称重间隔覆盖（天），NULL=使用品种默认值
+  final int? weighIntervalDays;
+
   /// 状态：正常/异常/已离舍
   final String status;
 
@@ -1671,6 +1803,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       required this.birthDate,
       required this.gender,
       required this.sortOrder,
+      this.weighIntervalDays,
       required this.status,
       this.notes,
       required this.createdAt,
@@ -1692,6 +1825,9 @@ class Bird extends DataClass implements Insertable<Bird> {
     map['birth_date'] = Variable<DateTime>(birthDate);
     map['gender'] = Variable<String>(gender);
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || weighIntervalDays != null) {
+      map['weigh_interval_days'] = Variable<int>(weighIntervalDays);
+    }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -1718,6 +1854,9 @@ class Bird extends DataClass implements Insertable<Bird> {
       birthDate: Value(birthDate),
       gender: Value(gender),
       sortOrder: Value(sortOrder),
+      weighIntervalDays: weighIntervalDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weighIntervalDays),
       status: Value(status),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
@@ -1742,6 +1881,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       birthDate: serializer.fromJson<DateTime>(json['birthDate']),
       gender: serializer.fromJson<String>(json['gender']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      weighIntervalDays: serializer.fromJson<int?>(json['weighIntervalDays']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1762,6 +1902,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       'birthDate': serializer.toJson<DateTime>(birthDate),
       'gender': serializer.toJson<String>(gender),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'weighIntervalDays': serializer.toJson<int?>(weighIntervalDays),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1780,6 +1921,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           DateTime? birthDate,
           String? gender,
           int? sortOrder,
+          Value<int?> weighIntervalDays = const Value.absent(),
           String? status,
           Value<String?> notes = const Value.absent(),
           DateTime? createdAt,
@@ -1795,6 +1937,9 @@ class Bird extends DataClass implements Insertable<Bird> {
         birthDate: birthDate ?? this.birthDate,
         gender: gender ?? this.gender,
         sortOrder: sortOrder ?? this.sortOrder,
+        weighIntervalDays: weighIntervalDays.present
+            ? weighIntervalDays.value
+            : this.weighIntervalDays,
         status: status ?? this.status,
         notes: notes.present ? notes.value : this.notes,
         createdAt: createdAt ?? this.createdAt,
@@ -1813,6 +1958,9 @@ class Bird extends DataClass implements Insertable<Bird> {
       birthDate: data.birthDate.present ? data.birthDate.value : this.birthDate,
       gender: data.gender.present ? data.gender.value : this.gender,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      weighIntervalDays: data.weighIntervalDays.present
+          ? data.weighIntervalDays.value
+          : this.weighIntervalDays,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1833,6 +1981,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('weighIntervalDays: $weighIntervalDays, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -1853,6 +2002,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       birthDate,
       gender,
       sortOrder,
+      weighIntervalDays,
       status,
       notes,
       createdAt,
@@ -1871,6 +2021,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           other.birthDate == this.birthDate &&
           other.gender == this.gender &&
           other.sortOrder == this.sortOrder &&
+          other.weighIntervalDays == this.weighIntervalDays &&
           other.status == this.status &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
@@ -1888,6 +2039,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
   final Value<DateTime> birthDate;
   final Value<String> gender;
   final Value<int> sortOrder;
+  final Value<int?> weighIntervalDays;
   final Value<String> status;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -1903,6 +2055,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.birthDate = const Value.absent(),
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.weighIntervalDays = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1919,6 +2072,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     required DateTime birthDate,
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.weighIntervalDays = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1938,6 +2092,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     Expression<DateTime>? birthDate,
     Expression<String>? gender,
     Expression<int>? sortOrder,
+    Expression<int>? weighIntervalDays,
     Expression<String>? status,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -1954,6 +2109,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       if (birthDate != null) 'birth_date': birthDate,
       if (gender != null) 'gender': gender,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (weighIntervalDays != null) 'weigh_interval_days': weighIntervalDays,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -1972,6 +2128,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       Value<DateTime>? birthDate,
       Value<String>? gender,
       Value<int>? sortOrder,
+      Value<int?>? weighIntervalDays,
       Value<String>? status,
       Value<String?>? notes,
       Value<DateTime>? createdAt,
@@ -1987,6 +2144,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       sortOrder: sortOrder ?? this.sortOrder,
+      weighIntervalDays: weighIntervalDays ?? this.weighIntervalDays,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -2025,6 +2183,9 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (weighIntervalDays.present) {
+      map['weigh_interval_days'] = Variable<int>(weighIntervalDays.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -2055,6 +2216,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('weighIntervalDays: $weighIntervalDays, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -4281,6 +4443,8 @@ typedef $$SpeciesTableCreateCompanionBuilder = SpeciesCompanion Function({
   required String name,
   Value<int> nestlingEndDays,
   Value<int> juvenileEndDays,
+  Value<int> nestlingWeighIntervalDays,
+  Value<int> juvenileWeighIntervalDays,
   Value<int> adultWeighIntervalDays,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -4292,6 +4456,8 @@ typedef $$SpeciesTableUpdateCompanionBuilder = SpeciesCompanion Function({
   Value<String> name,
   Value<int> nestlingEndDays,
   Value<int> juvenileEndDays,
+  Value<int> nestlingWeighIntervalDays,
+  Value<int> juvenileWeighIntervalDays,
   Value<int> adultWeighIntervalDays,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -4341,6 +4507,14 @@ class $$SpeciesTableFilterComposer
 
   ColumnFilters<int> get juvenileEndDays => $composableBuilder(
       column: $table.juvenileEndDays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get nestlingWeighIntervalDays => $composableBuilder(
+      column: $table.nestlingWeighIntervalDays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get juvenileWeighIntervalDays => $composableBuilder(
+      column: $table.juvenileWeighIntervalDays,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get adultWeighIntervalDays => $composableBuilder(
@@ -4404,6 +4578,14 @@ class $$SpeciesTableOrderingComposer
       column: $table.juvenileEndDays,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get nestlingWeighIntervalDays => $composableBuilder(
+      column: $table.nestlingWeighIntervalDays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get juvenileWeighIntervalDays => $composableBuilder(
+      column: $table.juvenileWeighIntervalDays,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get adultWeighIntervalDays => $composableBuilder(
       column: $table.adultWeighIntervalDays,
       builder: (column) => ColumnOrderings(column));
@@ -4441,6 +4623,12 @@ class $$SpeciesTableAnnotationComposer
 
   GeneratedColumn<int> get juvenileEndDays => $composableBuilder(
       column: $table.juvenileEndDays, builder: (column) => column);
+
+  GeneratedColumn<int> get nestlingWeighIntervalDays => $composableBuilder(
+      column: $table.nestlingWeighIntervalDays, builder: (column) => column);
+
+  GeneratedColumn<int> get juvenileWeighIntervalDays => $composableBuilder(
+      column: $table.juvenileWeighIntervalDays, builder: (column) => column);
 
   GeneratedColumn<int> get adultWeighIntervalDays => $composableBuilder(
       column: $table.adultWeighIntervalDays, builder: (column) => column);
@@ -4504,6 +4692,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<int> nestlingEndDays = const Value.absent(),
             Value<int> juvenileEndDays = const Value.absent(),
+            Value<int> nestlingWeighIntervalDays = const Value.absent(),
+            Value<int> juvenileWeighIntervalDays = const Value.absent(),
             Value<int> adultWeighIntervalDays = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -4515,6 +4705,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             name: name,
             nestlingEndDays: nestlingEndDays,
             juvenileEndDays: juvenileEndDays,
+            nestlingWeighIntervalDays: nestlingWeighIntervalDays,
+            juvenileWeighIntervalDays: juvenileWeighIntervalDays,
             adultWeighIntervalDays: adultWeighIntervalDays,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -4526,6 +4718,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             required String name,
             Value<int> nestlingEndDays = const Value.absent(),
             Value<int> juvenileEndDays = const Value.absent(),
+            Value<int> nestlingWeighIntervalDays = const Value.absent(),
+            Value<int> juvenileWeighIntervalDays = const Value.absent(),
             Value<int> adultWeighIntervalDays = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -4537,6 +4731,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             name: name,
             nestlingEndDays: nestlingEndDays,
             juvenileEndDays: juvenileEndDays,
+            nestlingWeighIntervalDays: nestlingWeighIntervalDays,
+            juvenileWeighIntervalDays: juvenileWeighIntervalDays,
             adultWeighIntervalDays: adultWeighIntervalDays,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -5324,6 +5520,7 @@ typedef $$BirdsTableCreateCompanionBuilder = BirdsCompanion Function({
   required DateTime birthDate,
   Value<String> gender,
   Value<int> sortOrder,
+  Value<int?> weighIntervalDays,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -5340,6 +5537,7 @@ typedef $$BirdsTableUpdateCompanionBuilder = BirdsCompanion Function({
   Value<DateTime> birthDate,
   Value<String> gender,
   Value<int> sortOrder,
+  Value<int?> weighIntervalDays,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -5450,6 +5648,10 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
       column: $table.sortOrder, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get weighIntervalDays => $composableBuilder(
+      column: $table.weighIntervalDays,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
@@ -5600,6 +5802,10 @@ class $$BirdsTableOrderingComposer
   ColumnOrderings<int> get sortOrder => $composableBuilder(
       column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get weighIntervalDays => $composableBuilder(
+      column: $table.weighIntervalDays,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
@@ -5685,6 +5891,9 @@ class $$BirdsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<int> get weighIntervalDays => $composableBuilder(
+      column: $table.weighIntervalDays, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -5842,6 +6051,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<DateTime> birthDate = const Value.absent(),
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
+            Value<int?> weighIntervalDays = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -5858,6 +6068,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             birthDate: birthDate,
             gender: gender,
             sortOrder: sortOrder,
+            weighIntervalDays: weighIntervalDays,
             status: status,
             notes: notes,
             createdAt: createdAt,
@@ -5874,6 +6085,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             required DateTime birthDate,
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
+            Value<int?> weighIntervalDays = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -5890,6 +6102,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             birthDate: birthDate,
             gender: gender,
             sortOrder: sortOrder,
+            weighIntervalDays: weighIntervalDays,
             status: status,
             notes: notes,
             createdAt: createdAt,

@@ -5,7 +5,6 @@ import '../../repositories/bird_repository.dart';
 import '../../database/database.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_screen.dart';
-import '../../../widgets/server_status_bar.dart';
 import '../worker/worker_screen.dart';
 
 /// 鹦鹉列表页 — 按房间分组、支持拖动排序
@@ -82,7 +81,6 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
           ),
         ],
       ),
-      persistentFooterButtons: const [ServerStatusBar()],
     );
   }
 

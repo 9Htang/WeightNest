@@ -32,6 +32,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   @override
   void dispose() {
+    _dateOverlay?.remove();
     widget.refreshKey.removeListener(_onRefresh);
     super.dispose();
   }
@@ -191,78 +192,190 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   Widget _buildFilterBar(ThemeData theme) {
     final hasFilter = _filterAction != null || _filterEntityType != null || _filterDateRange != null;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: theme.colorScheme.surfaceContainerLowest,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          const Icon(Icons.filter_list, size: 18),
-          const Text('筛选:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          // 操作类型
-          DropdownMenu<String?>(
-            initialSelection: _filterAction,
-            hintText: '操作类型',
-            dropdownMenuEntries: const [
-              DropdownMenuEntry(value: null, label: '全部'),
-              DropdownMenuEntry(value: 'create_bird', label: '新建鹦鹉'),
-              DropdownMenuEntry(value: 'update_bird', label: '编辑鹦鹉'),
-              DropdownMenuEntry(value: 'add_weight', label: '记录体重'),
-              DropdownMenuEntry(value: 'create_room', label: '新建房间'),
-              DropdownMenuEntry(value: 'create_species', label: '新建品种'),
-              DropdownMenuEntry(value: 'create_user', label: '新建用户'),
-            ],
-            onSelected: (v) {
-              _filterAction = v;
-              _applyFilters();
-            },
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          _buildDropdownChip<String>(
+            value: _filterAction,
+            hint: '操作类型',
+            itemLabel: _actionFilterLabel,
+            items: const ['create_bird', 'update_bird', 'add_weight', 'create_room', 'create_species', 'create_user'],
+            itemName: (v) => _actionFilterLabel(v),
+            onSelected: (v) { _filterAction = v; _applyFilters(); },
           ),
-          // 数据对象
-          DropdownMenu<String?>(
-            initialSelection: _filterEntityType,
-            hintText: '数据对象',
-            dropdownMenuEntries: const [
-              DropdownMenuEntry(value: null, label: '全部'),
-              DropdownMenuEntry(value: 'bird', label: '鹦鹉'),
-              DropdownMenuEntry(value: 'weight', label: '体重'),
-              DropdownMenuEntry(value: 'room', label: '房间'),
-              DropdownMenuEntry(value: 'species', label: '品种'),
-              DropdownMenuEntry(value: 'user', label: '用户'),
-            ],
-            onSelected: (v) {
-              _filterEntityType = v;
-              _applyFilters();
-            },
+          const SizedBox(width: 8),
+          _buildDropdownChip<String>(
+            value: _filterEntityType,
+            hint: '数据对象',
+            itemLabel: _entityFilterLabel,
+            items: const ['bird', 'weight', 'room', 'species', 'user'],
+            itemName: (v) => _entityFilterLabel(v),
+            onSelected: (v) { _filterEntityType = v; _applyFilters(); },
           ),
-          // 时间范围
-          ActionChip(
-            avatar: const Icon(Icons.date_range, size: 16),
-            label: Text(_filterDateRange == null
-                ? '时间范围'
-                : '${_filterDateRange!.start.toString().substring(0, 10)} ~ ${_filterDateRange!.end.toString().substring(0, 10)}'),
-            onPressed: () async {
-              final range = await showDateRangePicker(
-                context: context,
-                firstDate: DateTime(2024),
-                lastDate: DateTime.now(),
-                locale: const Locale('zh'),
-              );
-              if (range != null) {
-                setState(() => _filterDateRange = range);
-                _applyFilters();
-              }
-            },
-          ),
-          if (hasFilter)
-            ActionChip(
-              avatar: const Icon(Icons.clear, size: 16),
-              label: const Text('清除筛选'),
-              onPressed: _clearFilters,
+          const SizedBox(width: 8),
+          _buildDateChip(),
+          if (hasFilter) ...[
+            const SizedBox(width: 12),
+            SizedBox(
+              height: 32,
+              child: TextButton.icon(
+                onPressed: _clearFilters,
+                icon: const Icon(Icons.clear, size: 16),
+                label: const Text('清除', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+              ),
             ),
-        ],
+          ],
+        ]),
       ),
     );
+  }
+
+  String _actionFilterLabel(String action) {
+    switch (action) {
+      case 'create_bird': return '新建鹦鹉';
+      case 'update_bird': return '编辑鹦鹉';
+      case 'add_weight': return '记录体重';
+      case 'create_room': return '新建房间';
+      case 'create_species': return '新建品种';
+      case 'create_user': return '新建用户';
+      default: return action;
+    }
+  }
+
+  String _entityFilterLabel(String type) {
+    switch (type) {
+      case 'bird': return '鹦鹉';
+      case 'weight': return '体重';
+      case 'room': return '房间';
+      case 'species': return '品种';
+      case 'user': return '用户';
+      default: return type;
+    }
+  }
+
+  Widget _buildDropdownChip<T>({
+    required T? value,
+    required String hint,
+    required String Function(T) itemLabel,
+    required String Function(T) itemName,
+    required List<T> items,
+    required ValueChanged<T?> onSelected,
+  }) {
+    final theme = Theme.of(context);
+    final active = value != null;
+    return PopupMenuButton<T>(
+      onSelected: onSelected,
+      offset: const Offset(0, 36),
+      itemBuilder: (_) => [
+        PopupMenuItem<T>(value: null, height: 36, child: Text('全部$hint', style: const TextStyle(fontSize: 13, color: Colors.grey))),
+        ...items.map((v) => PopupMenuItem<T>(
+          value: v, height: 36,
+          child: Text(itemName(v), style: const TextStyle(fontSize: 13)),
+        )),
+      ],
+      child: Material(
+        color: active ? theme.colorScheme.primaryContainer : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_drop_down, size: 16,
+                  color: active ? theme.colorScheme.primary : Colors.grey.shade600),
+              const SizedBox(width: 4),
+              Text(value != null ? itemLabel(value) : hint, style: TextStyle(
+                fontSize: 12,
+                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                color: active ? theme.colorScheme.primary : Colors.grey.shade700,
+              )),
+              if (active)
+                GestureDetector(
+                  onTap: () => onSelected(null),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(Icons.close, size: 14, color: theme.colorScheme.primary.withAlpha(180)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  final _dateLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+
+  Widget _buildDateChip() {
+    final theme = Theme.of(context);
+    final active = _filterDateRange != null;
+    return CompositedTransformTarget(
+      link: _dateLink,
+      child: Material(
+        color: active ? theme.colorScheme.primaryContainer : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: _toggleDateOverlay,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.date_range, size: 16,
+                    color: active ? theme.colorScheme.primary : Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  active
+                      ? '${_filterDateRange!.start.toString().substring(0, 10)} ~ ${_filterDateRange!.end.toString().substring(0, 10)}'
+                      : '时间范围',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                    color: active ? theme.colorScheme.primary : Colors.grey.shade700,
+                  ),
+                ),
+                if (active)
+                  GestureDetector(
+                    onTap: () { _filterDateRange = null; _applyFilters(); },
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.close, size: 14, color: theme.colorScheme.primary.withAlpha(180)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) {
+      _dateOverlay!.remove();
+      _dateOverlay = null;
+      return;
+    }
+    _dateOverlay = _DateRangeDropdown(
+      initialRange: _filterDateRange,
+      link: _dateLink,
+      onApply: (range) {
+        _dateOverlay?.remove();
+        _dateOverlay = null;
+        setState(() => _filterDateRange = range);
+        _applyFilters();
+      },
+      onDismiss: () {
+        _dateOverlay?.remove();
+        _dateOverlay = null;
+      },
+    ).createOverlay(context);
+    Overlay.of(context).insert(_dateOverlay!);
   }
 
   Widget _buildContent(ThemeData theme) {
@@ -415,5 +528,279 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       default:
         return d.toString();
     }
+  }
+}
+
+class _DateRangeDropdown {
+  final DateTimeRange? initialRange;
+  final LayerLink link;
+  final ValueChanged<DateTimeRange?> onApply;
+  final VoidCallback onDismiss;
+
+  _DateRangeDropdown({required this.initialRange, required this.link, required this.onApply, required this.onDismiss});
+
+  OverlayEntry createOverlay(BuildContext context) {
+    return OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(onTap: onDismiss, child: const ColoredBox(color: Colors.transparent)),
+          ),
+          CompositedTransformFollower(
+            link: link,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: _CompactDateRangePicker(
+                initialRange: initialRange,
+                onApply: onApply,
+                onDismiss: onDismiss,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactDateRangePicker extends StatefulWidget {
+  final DateTimeRange? initialRange;
+  final ValueChanged<DateTimeRange?> onApply;
+  final VoidCallback onDismiss;
+
+  const _CompactDateRangePicker({this.initialRange, required this.onApply, required this.onDismiss});
+
+  @override
+  State<_CompactDateRangePicker> createState() => _CompactDateRangePickerState();
+}
+
+class _CompactDateRangePickerState extends State<_CompactDateRangePicker> {
+  late int _viewYear, _viewMonth;
+  DateTime? _rangeStart, _rangeEnd;
+  bool _pickingEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _viewYear = now.year;
+    _viewMonth = now.month;
+    _rangeStart = widget.initialRange?.start;
+    _rangeEnd = widget.initialRange?.end;
+    if (_rangeStart != null && _rangeEnd != null && _rangeStart != _rangeEnd) _pickingEnd = true;
+  }
+
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  void _onDayTapped(DateTime day) {
+    if (!_pickingEnd || _rangeStart == null) {
+      _rangeStart = day;
+      _rangeEnd = day;
+      _pickingEnd = true;
+    } else {
+      if (day.isBefore(_rangeStart!)) {
+        _rangeStart = day;
+        _rangeEnd = _rangeStart;
+      } else {
+        _rangeEnd = day;
+        _pickingEnd = false;
+      }
+    }
+    setState(() {});
+  }
+
+  void _apply() {
+    if (_rangeStart != null && _rangeEnd != null) {
+      final start = _rangeStart!;
+      final end = DateTime(_rangeEnd!.year, _rangeEnd!.month, _rangeEnd!.day, 23, 59, 59);
+      widget.onApply(start.isAfter(end) ? DateTimeRange(start: end, end: start) : DateTimeRange(start: start, end: end));
+    } else {
+      widget.onApply(null);
+    }
+  }
+
+  void _applyPreset(String preset) {
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    switch (preset) {
+      case 'today':
+        _rangeStart = today;
+        _rangeEnd = today;
+        break;
+      case '7d':
+        _rangeStart = today.subtract(const Duration(days: 6));
+        _rangeEnd = today;
+        break;
+      case '30d':
+        _rangeStart = today.subtract(const Duration(days: 29));
+        _rangeEnd = today;
+        break;
+      case 'month':
+        _rangeStart = DateTime(now.year, now.month, 1);
+        _rangeEnd = today;
+        break;
+    }
+    _pickingEnd = false;
+    setState(() {});
+  }
+
+  void _prevMonth() {
+    if (_viewMonth == 1) { _viewMonth = 12; _viewYear--; } else { _viewMonth--; }
+    setState(() {});
+  }
+
+  void _nextMonth() {
+    if (_viewMonth == 12) { _viewMonth = 1; _viewYear++; } else { _viewMonth++; }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    final daysInMonth = DateTime(_viewYear, _viewMonth + 1, 0).day;
+    final firstWeekday = DateTime(_viewYear, _viewMonth, 1).weekday % 7;
+    const dayNames = ['一', '二', '三', '四', '五', '六', '日'];
+
+    final s = _rangeStart;
+    final e = _rangeEnd;
+    bool inRange(DateTime d) {
+      if (s == null) return false;
+      if (e == null) return d == s;
+      return !d.isBefore(s) && !d.isAfter(e);
+    }
+    bool isEdge(DateTime d) => (s != null && d == s) || (e != null && d == e);
+
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Presets
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Row(children: [
+              _presetBtn('今天', 'today'),
+              const SizedBox(width: 6),
+              _presetBtn('7天', '7d'),
+              const SizedBox(width: 6),
+              _presetBtn('30天', '30d'),
+              const SizedBox(width: 6),
+              _presetBtn('本月', 'month'),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          // Month nav
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left, size: 20), visualDensity: VisualDensity.compact),
+              Text('$_viewYear 年 $_viewMonth 月', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              IconButton(
+                onPressed: _nextMonth,
+                icon: const Icon(Icons.chevron_right, size: 20),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          // Weekday headers
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: dayNames.map((d) => Expanded(
+                child: Center(child: Text(d, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600))),
+              )).toList(),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Day grid
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: _buildDayGrid(daysInMonth, firstWeekday, today, inRange, isEdge, theme),
+          ),
+          const Divider(height: 1),
+          // Footer
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
+              Text(
+                _rangeStart != null
+                    ? '${_rangeStart!.toIso8601String().substring(0, 10)}  ~  ${_rangeEnd != null ? _rangeEnd!.toIso8601String().substring(0, 10) : '...'}'
+                    : '请选择日期',
+                style: TextStyle(fontSize: 12, color: _rangeStart != null ? theme.colorScheme.primary : Colors.grey.shade500),
+              ),
+              const Spacer(),
+              TextButton(onPressed: _apply, child: const Text('确定', style: TextStyle(fontSize: 13))),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _presetBtn(String label, String value) {
+    return SizedBox(
+      height: 26,
+      child: OutlinedButton(
+        onPressed: () => _applyPreset(value),
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
+        child: Text(label, style: const TextStyle(fontSize: 11)),
+      ),
+    );
+  }
+
+  Widget _buildDayGrid(int days, int firstWeekday, DateTime today, bool Function(DateTime) inRange,
+      bool Function(DateTime) isEdge, ThemeData theme) {
+    final rows = <Widget>[];
+    var day = 1;
+    for (var row = 0; row < 6; row++) {
+      final cells = <Widget>[];
+      for (var col = 0; col < 7; col++) {
+        if (row == 0 && col < firstWeekday || day > days) {
+          cells.add(const Expanded(child: SizedBox(height: 32)));
+        } else {
+          final date = DateTime(_viewYear, _viewMonth, day);
+          final selected = isEdge(date);
+          final mid = inRange(date) && !selected;
+          final isToday = date == today;
+          cells.add(Expanded(
+            child: GestureDetector(
+              onTap: () => _onDayTapped(date),
+              child: Container(
+                height: 32,
+                margin: const EdgeInsets.all(1),
+                decoration: BoxDecoration(
+                  color: selected ? theme.colorScheme.primary : mid ? theme.colorScheme.primaryContainer : null,
+                  borderRadius: selected ? BorderRadius.circular(6) : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$day',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.bold : isToday ? FontWeight.w600 : FontWeight.normal,
+                    color: selected ? theme.colorScheme.onPrimary : mid ? theme.colorScheme.primary : isToday ? theme.colorScheme.primary : null,
+                  ),
+                ),
+              ),
+            ),
+          ));
+          day++;
+        }
+      }
+      rows.add(Row(children: cells));
+      if (day > days) break;
+    }
+    return Column(children: rows);
   }
 }

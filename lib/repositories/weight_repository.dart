@@ -113,4 +113,27 @@ extension WeightRepository on AppDatabase {
 
   Future<void> removeWeight(int id) =>
       (delete(weights)..where((w) => w.id.equals(id))).go();
+
+  Future<void> removeWeightByUuid(String uuid) =>
+      (delete(weights)..where((w) => w.uuid.equals(uuid))).go();
+
+  Future<void> updateWeight(int id, {
+    double? weightG,
+    bool? isFasting,
+    DateTime? recordedAt,
+    String? notes,
+  }) async {
+    await (update(weights)..where((w) => w.id.equals(id))).write(
+      WeightsCompanion(
+        weightG: weightG != null ? Value(weightG) : const Value.absent(),
+        isFasting: isFasting != null ? Value(isFasting) : const Value.absent(),
+        recordedAt: recordedAt != null ? Value(recordedAt) : const Value.absent(),
+        notes: notes != null ? Value(notes) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<Weight?> getWeightByUuid(String uuid) =>
+      (select(weights)..where((w) => w.uuid.equals(uuid))).getSingleOrNull();
 }

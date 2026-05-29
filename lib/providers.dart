@@ -52,11 +52,12 @@ final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
   return db.getAllSpecies();
 });
 
-/// 今日任务
+/// 今日任务（仅显示当前登录员工的任务）
 final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
   await db.generateTodayTasks();
-  return db.getTodayTasks(null);
+  final worker = ref.watch(workerProvider);
+  return db.getTodayTasks(worker.userId);
 });
 
 /// 逾期任务
@@ -121,7 +122,11 @@ final syncQueueProvider = Provider<SyncQueueService>((ref) {
 final syncEngineProvider = Provider<SyncEngine>((ref) {
   final db = ref.watch(databaseProvider);
   final queue = ref.watch(syncQueueProvider);
-  return SyncEngine(db, queue);
+  final engine = SyncEngine(db, queue);
+  engine.onWeightChanged = () {
+    ref.read(weightSavedProvider.notifier).state++;
+  };
+  return engine;
 });
 
 /// 同步连接状态

@@ -9,9 +9,10 @@ import '../../repositories/user_repository.dart';
 class WorkerInfo {
   final int? userId;
   final String displayName;
+  final String username;
   final String role;
 
-  const WorkerInfo({this.userId, this.displayName = '未选择', this.role = ''});
+  const WorkerInfo({this.userId, this.displayName = '未选择', this.username = '', this.role = ''});
 
   bool get isSelected => userId != null;
   bool get isAdmin => role == 'admin';
@@ -26,30 +27,32 @@ class WorkerNotifier extends StateNotifier<WorkerInfo> {
   static const _keyName = 'worker_name';
   static const _keyId = 'worker_id';
   static const _keyRole = 'worker_role';
+  static const _keyUsername = 'worker_username';
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getInt(_keyId);
     final name = prefs.getString(_keyName);
     final role = prefs.getString(_keyRole) ?? '';
+    final username = prefs.getString(_keyUsername) ?? '';
     if (id != null && name != null) {
-      // 管理员不允许用手机端，自动清除
       if (role == 'admin') {
         await clear();
         return;
       }
-      state = WorkerInfo(userId: id, displayName: name, role: role);
+      state = WorkerInfo(userId: id, displayName: name, username: username, role: role);
     }
   }
 
   /// 登录（校验后设置，管理员拒绝）
-  Future<void> login(int id, String name, String role) async {
+  Future<void> login(int id, String name, String role, {String username = ''}) async {
     if (role == 'admin') throw Exception('管理员请使用电脑端');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyId, id);
     await prefs.setString(_keyName, name);
     await prefs.setString(_keyRole, role);
-    state = WorkerInfo(userId: id, displayName: name, role: role);
+    await prefs.setString(_keyUsername, username);
+    state = WorkerInfo(userId: id, displayName: name, username: username, role: role);
   }
 
   Future<void> selectWorker(int id, String name) async {
@@ -64,6 +67,8 @@ class WorkerNotifier extends StateNotifier<WorkerInfo> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyId);
     await prefs.remove(_keyName);
+    await prefs.remove(_keyRole);
+    await prefs.remove(_keyUsername);
     state = const WorkerInfo();
   }
 }
@@ -113,7 +118,7 @@ class WorkerSelectScreen extends ConsumerWidget {
                   title: Text(u.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(u.role == 'keeper' ? '饲养员' : '查看者'),
                   onTap: () async {
-                    await ref.read(workerProvider.notifier).login(u.id, u.displayName, u.role);
+                    await ref.read(workerProvider.notifier).login(u.id, u.displayName, u.role, username: u.username);
                     if (context.mounted) Navigator.pop(context);
                   },
                 ),

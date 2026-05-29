@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
+import '../../repositories/weight_repository.dart';
 import '../worker/worker_screen.dart';
+
 
 class BirdDetailScreen extends ConsumerWidget {
   final BirdWithDetails bird;
@@ -33,6 +35,7 @@ class BirdDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -139,7 +142,24 @@ class BirdDetailScreen extends ConsumerWidget {
                       child: Text('暂无体重记录'),
                     ))
                   : Column(
-                      children: weights.map((w) => _WeightRow(weight: w, theme: theme)).toList(),
+                      children: weights.map((w) {
+                        return Dismissible(
+                          key: ValueKey('weight_${w.id}'),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (_) => _confirmDeleteWeight(context, ref, w, bird.bird.uuid),
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            color: Colors.red.shade400,
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          child: _WeightRow(
+                            weight: w,
+                            theme: theme,
+                            onTap: () => _showEditWeightDialog(context, ref, w, bird.bird.uuid),
+                          ),
+                        );
+                      }).toList(),
                     ),
             ),
           ],
@@ -203,6 +223,66 @@ class BirdDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<bool> _confirmDeleteWeight(BuildContext context, WidgetRef ref, Weight weight, String birdUuid) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('删除 ${weight.weightG.toStringAsFixed(1)}g 的体重记录？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (result == true && context.mounted) {
+      final userId = ref.read(workerProvider).userId;
+      if (userId != null) {
+        await ref.read(syncQueueProvider).enqueue(
+          userId: userId,
+          action: 'delete_weight',
+          entityType: 'weight',
+          entityUuid: weight.uuid,
+          payload: {'birdUuid': birdUuid, 'birdId': weight.birdId, 'weightG': weight.weightG, 'recordedAt': weight.recordedAt.toIso8601String()},
+        );
+      }
+      await ref.read(databaseProvider).removeWeight(weight.id);
+      ref.read(weightSavedProvider.notifier).state++;
+    }
+    return result ?? false;
+  }
+
+  void _showEditWeightDialog(BuildContext context, WidgetRef ref, Weight weight, String birdUuid) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _WeightEditDialog(weight: weight, onSave: (w, fasting, time) async {
+        final db = ref.read(databaseProvider);
+        await db.updateWeight(weight.id, weightG: w, isFasting: fasting, recordedAt: time);
+        final userId = ref.read(workerProvider).userId;
+        if (userId != null) {
+          await ref.read(syncQueueProvider).enqueue(
+            userId: userId,
+            action: 'edit_weight',
+            entityType: 'weight',
+            entityUuid: weight.uuid,
+            payload: {
+              'birdUuid': birdUuid,
+              'birdId': weight.birdId,
+              'weightG': w,
+              'isFasting': fasting,
+              'recordedAt': time.toIso8601String(),
+            },
+          );
+        }
+        ref.read(weightSavedProvider.notifier).state++;
+      }),
     );
   }
 }
@@ -443,12 +523,13 @@ class _InfoRow extends StatelessWidget {
 class _WeightRow extends StatelessWidget {
   final Weight weight;
   final ThemeData theme;
-  const _WeightRow({required this.weight, required this.theme});
+  final VoidCallback? onTap;
+  const _WeightRow({required this.weight, required this.theme, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final dateStr = DateFormat('MM-dd HH:mm').format(weight.recordedAt);
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.symmetric(vertical: 2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -477,6 +558,8 @@ class _WeightRow extends StatelessWidget {
         ),
       ),
     );
+    if (onTap == null) return card;
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: card);
   }
 }
 
@@ -670,4 +753,93 @@ class _DateLabelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _WeightEditDialog extends StatefulWidget {
+  final Weight weight;
+  final void Function(double weightG, bool isFasting, DateTime recordedAt) onSave;
+
+  const _WeightEditDialog({required this.weight, required this.onSave});
+
+  @override
+  State<_WeightEditDialog> createState() => _WeightEditDialogState();
+}
+
+class _WeightEditDialogState extends State<_WeightEditDialog> {
+  late TextEditingController _weightCtrl;
+  late bool _isFasting;
+  late DateTime _recordedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _weightCtrl = TextEditingController(text: widget.weight.weightG.toStringAsFixed(1));
+    _isFasting = widget.weight.isFasting;
+    _recordedAt = widget.weight.recordedAt;
+  }
+
+  @override
+  void dispose() {
+    _weightCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('编辑体重记录'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _weightCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: '体重 (g)', suffixText: 'g'),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('空腹'),
+            value: _isFasting,
+            onChanged: (v) => setState(() => _isFasting = v),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('记录时间'),
+            subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_recordedAt)),
+            trailing: const Icon(Icons.access_time),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _recordedAt,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+              );
+              if (date == null || !mounted) return;
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.fromDateTime(_recordedAt),
+              );
+              if (time == null) return;
+              setState(() {
+                _recordedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          onPressed: () {
+            final w = double.tryParse(_weightCtrl.text);
+            if (w == null || w <= 0) return;
+            widget.onSave(w, _isFasting, _recordedAt);
+            Navigator.pop(context);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
 }

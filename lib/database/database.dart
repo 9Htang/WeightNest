@@ -17,7 +17,7 @@ class AppDatabase extends _$AppDatabase {
   ));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -25,16 +25,12 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (Migrator m, int from, int to) async {
-          // v1 → v2: 数据丢弃重来，删除旧表重建
-          await m.deleteTable('sync_log');
-          await m.createTable(syncQueue);
-          // 为全部表加 uuid/updatedAt/deletedAt 列
-          // 直接删库重建（数据丢弃）
-          final tables = ['species', 'users', 'rooms', 'birds', 'weights', 'tasks', 'alert_records'];
-          for (final t in tables) {
-            await m.deleteTable(t);
+          if (from < 3) {
+            // v2 → v3: add weigh interval columns
+            await m.addColumn(species, species.nestlingWeighIntervalDays);
+            await m.addColumn(species, species.juvenileWeighIntervalDays);
+            await m.addColumn(birds, birds.weighIntervalDays);
           }
-          await m.createAll();
         },
       );
 
