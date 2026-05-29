@@ -788,9 +788,7 @@ class _TabHeader extends StatelessWidget {
               final label = isRightPane
                   ? (tabs[i].customLabel ?? _tabLabels[tabs[i].index])
                   : _tabLabels[tabs[i].index];
-              final tabWidget = GestureDetector(
-                onTap: () => tabController.animateTo(i),
-                child: Container(
+              final tabContent = Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -815,46 +813,92 @@ class _TabHeader extends StatelessWidget {
                       child: Icon(Icons.close, size: 14, color: scheme.onSurface.withAlpha(100)),
                     ),
                   ]),
-                ),
-              );
+                );
 
-              if (onTabDragToSplit == null) return tabWidget;
+              if (onTabDragToSplit == null) {
+                return GestureDetector(
+                  onTap: () => tabController.animateTo(i),
+                  child: tabContent,
+                );
+              }
 
-              return LongPressDraggable<int>(
-                data: tabs[i].index,
-                delay: const Duration(milliseconds: 200),
-                dragAnchorStrategy: pointerDragAnchorStrategy,
-                onDragEnd: (details) {
-                  final screenWidth = MediaQuery.of(context).size.width;
-                  if (details.offset.dx > screenWidth * 0.55) {
-                    onTabDragToSplit!(tabs[i].index);
-                  }
-                },
-                onDraggableCanceled: (_, offset) {
-                  final screenWidth = MediaQuery.of(context).size.width;
-                  if (offset.dx > screenWidth * 0.55) {
-                    onTabDragToSplit!(tabs[i].index);
-                  }
-                },
-                feedback: Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                childWhenDragging: Opacity(opacity: 0.4, child: tabWidget),
-                child: tabWidget,
+              // Use _DraggableTab — supports both mouse drag (immediate) and
+              // touch long-press via a dual-mode gesture detector.
+              return _DraggableTab(
+                tabIndex: tabs[i].index,
+                label: label,
+                isSelected: isSelected,
+                scheme: scheme,
+                tabController: tabController,
+                tabIndexInList: i,
+                tabContent: tabContent,
+                onDragToSplit: onTabDragToSplit!,
               );
             },
           ),
         ),
       ]),
+    );
+  }
+}
+
+// ── Draggable tab — supports both mouse (immediate) and touch (long-press) drag-to-split ──
+class _DraggableTab extends StatelessWidget {
+  final int tabIndex;
+  final String label;
+  final bool isSelected;
+  final ColorScheme scheme;
+  final TabController tabController;
+  final int tabIndexInList;
+  final Widget tabContent;
+  final void Function(int tabIndex) onDragToSplit;
+
+  const _DraggableTab({
+    required this.tabIndex,
+    required this.label,
+    required this.isSelected,
+    required this.scheme,
+    required this.tabController,
+    required this.tabIndexInList,
+    required this.tabContent,
+    required this.onDragToSplit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LongPressDraggable<int>(
+      data: tabIndex,
+      delay: const Duration(milliseconds: 150),
+      feedback: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(4),
+        color: scheme.surfaceContainerHighest,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.compare_arrows, size: 14, color: scheme.primary),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.primary)),
+          ]),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: tabContent),
+      onDragEnd: (details) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        if (details.offset.dx > screenWidth * 0.55) {
+          onDragToSplit(tabIndex);
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => tabController.animateTo(tabIndexInList),
+        child: tabContent,
+      ),
     );
   }
 }
