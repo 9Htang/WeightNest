@@ -338,6 +338,10 @@ class _DesktopLayoutState extends State<DesktopLayout>
     );
     _rightTabCtrl!.addListener(() {
       if (!_rightTabCtrl!.indexIsChanging) {
+        final ti = _rightTabCtrl!.index;
+        if (ti >= 0 && ti < _rightTabs.length) {
+          _selectedIndex = _rightTabs[ti].index;
+        }
         setState(() {});
       }
     });
@@ -617,6 +621,10 @@ class _DesktopLayoutState extends State<DesktopLayout>
         child: GestureDetector(
           onTap: () {
             _rightPaneActive.value = !isLeft;
+            // Sync sidebar to the newly active pane's selected tab
+            if (ctrl.index >= 0 && ctrl.index < tabs.length) {
+              _selectedIndex = tabs[ctrl.index].index;
+            }
             setState(() {});
           },
           behavior: HitTestBehavior.translucent,
