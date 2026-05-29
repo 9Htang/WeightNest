@@ -92,6 +92,8 @@ class _DesktopLayoutState extends State<DesktopLayout>
   TabController? _rightTabCtrl;
   double _splitRatio = 0.5;
   final _rightPaneActive = ValueNotifier<bool>(false);
+  bool _isDragging = false;
+  bool _dragFromLeft = false;
 
   static const _maxTabs = 6;
 
@@ -572,6 +574,7 @@ class _DesktopLayoutState extends State<DesktopLayout>
       required bool isLeft,
     }) {
       final active = _rightPaneActive.value == !isLeft;
+      final isDropTarget = _isDragging && (_dragFromLeft != isLeft);
       final header = tabs.isNotEmpty
           ? _TabHeader(
               tabs: tabs,
@@ -581,6 +584,8 @@ class _DesktopLayoutState extends State<DesktopLayout>
               isRightPane: !isLeft,
               onTabDragToSplit: isLeft ? _openTabInRightPane : _openTabInLeftPane,
               dragToLeft: !isLeft,
+              onDragStarted: () => setState(() { _isDragging = true; _dragFromLeft = isLeft; }),
+              onDragEnded: () => setState(() { _isDragging = false; }),
             )
           : const SizedBox.shrink();
 
@@ -601,7 +606,16 @@ class _DesktopLayoutState extends State<DesktopLayout>
                   color: active ? scheme.primary : Colors.transparent,
                   width: 2.5,
                 ),
+                left: isDropTarget && !isLeft
+                    ? BorderSide(color: scheme.primary, width: 2.5)
+                    : BorderSide.none,
+                right: isDropTarget && isLeft
+                    ? BorderSide(color: scheme.primary, width: 2.5)
+                    : BorderSide.none,
               ),
+              color: isDropTarget
+                  ? scheme.primary.withAlpha(12)
+                  : Colors.transparent,
             ),
             child: Column(children: [
               header,
@@ -781,6 +795,8 @@ class _TabHeader extends StatelessWidget {
   final bool isRightPane;
   final void Function(int tabIndex)? onTabDragToSplit;
   final bool dragToLeft;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
 
   const _TabHeader({
     required this.tabs,
@@ -790,6 +806,8 @@ class _TabHeader extends StatelessWidget {
     this.isRightPane = false,
     this.onTabDragToSplit,
     this.dragToLeft = false,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   @override
@@ -862,6 +880,8 @@ class _TabHeader extends StatelessWidget {
                 tabContent: tabContent,
                 onDragToSplit: onTabDragToSplit!,
                 dragToLeft: dragToLeft,
+                onDragStarted: onDragStarted,
+                onDragEnded: onDragEnded,
               );
             },
           ),
@@ -872,8 +892,9 @@ class _TabHeader extends StatelessWidget {
 }
 
 // ── Draggable tab — supports both mouse and touch drag-to-split ──
-// Uses the tab's center-point absolute X to decide split, so the
-// threshold is consistent regardless of where the tab sits in the header.
+// Uses a fixed pixel-offset threshold (120 px) independent of screen
+// size or tab position.  Fires onDragStarted/onDragEnded so the parent
+// can show a drop-zone highlight on the target pane.
 class _DraggableTab extends StatefulWidget {
   final int tabIndex;
   final String label;
@@ -884,6 +905,8 @@ class _DraggableTab extends StatefulWidget {
   final Widget tabContent;
   final void Function(int tabIndex) onDragToSplit;
   final bool dragToLeft;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
 
   const _DraggableTab({
     required this.tabIndex,
@@ -895,6 +918,8 @@ class _DraggableTab extends StatefulWidget {
     required this.tabContent,
     required this.onDragToSplit,
     this.dragToLeft = false,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   @override
@@ -902,14 +927,8 @@ class _DraggableTab extends StatefulWidget {
 }
 
 class _DraggableTabState extends State<_DraggableTab> {
-  double _startCenterDx = 0;
-
   void _onDragStarted() {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box != null) {
-      final offset = box.localToGlobal(Offset.zero);
-      _startCenterDx = offset.dx + box.size.width / 2;
-    }
+    widget.onDragStarted?.call();
   }
 
   @override
@@ -938,11 +957,9 @@ class _DraggableTabState extends State<_DraggableTab> {
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: widget.tabContent),
       onDragEnd: (details) {
-        final endX = _startCenterDx + details.offset.dx;
-        final screenWidth = MediaQuery.of(context).size.width;
-        final hit = widget.dragToLeft
-            ? endX < screenWidth * 0.45
-            : endX > screenWidth * 0.55;
+        widget.onDragEnded?.call();
+        final dx = details.offset.dx;
+        final hit = widget.dragToLeft ? dx < -120 : dx > 120;
         if (hit) {
           widget.onDragToSplit(widget.tabIndex);
         }
