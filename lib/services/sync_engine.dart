@@ -37,13 +37,15 @@ class SyncEngine {
     _serverPort = port;
     _token = token;
     _pin = pin;
-    // ① 全量拉取基础数据（UUID 锚定）
+    // ① 先推送本地未上传的操作（离线期间产生的数据不能丢）
+    await pushOperations();
+    // ② 全量拉取基础数据（UUID 锚定）
     await _fullSyncSpecies();
     await _fullSyncRooms();
     await _fullSyncUsers();
-    // ② 全量拉取鹦鹉（名称+日期去重）
+    // ③ 全量拉取鹦鹉（名称+日期去重）
     await _fullSyncBirds();
-    // ③ 增量拉取其他变更
+    // ④ 增量拉取其他变更
     await pullChanges();
     return true;
   }
