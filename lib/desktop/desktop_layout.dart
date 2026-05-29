@@ -254,6 +254,28 @@ class _DesktopLayoutState extends State<DesktopLayout>
     _rebuildRightCtrl(_rightTabs.length - 1);
   }
 
+  // ── Drag right-pane tab back to left pane ──
+  void _openTabInLeftPane(int index) {
+    if (_leftTabs.any((t) => t.index == index)) return;
+    final rightIdx = _rightTabs.indexWhere((t) => t.index == index);
+    if (rightIdx < 0) return;
+
+    final widget = _buildScreen(index);
+
+    setState(() {
+      _rightTabs.removeAt(rightIdx);
+      _leftTabs.add(_TabData(index, widget));
+    });
+    _rebuildLeftCtrl(_leftTabs.length - 1);
+
+    if (_rightTabs.isEmpty) {
+      _rightTabCtrl?.dispose();
+      _rightTabCtrl = null;
+    } else {
+      _rebuildRightCtrl(_rightTabCtrl!.index.clamp(0, _rightTabs.length - 1));
+    }
+  }
+
   void _closeRightTab(int tabIdx) {
     setState(() => _rightTabs.removeAt(tabIdx));
 
@@ -557,7 +579,8 @@ class _DesktopLayoutState extends State<DesktopLayout>
               onClose: (i) => _closeTab(i, rightPane: !isLeft),
               scheme: scheme,
               isRightPane: !isLeft,
-              onTabDragToSplit: isLeft ? _openTabInRightPane : null,
+              onTabDragToSplit: isLeft ? _openTabInRightPane : _openTabInLeftPane,
+              dragToLeft: !isLeft,
             )
           : const SizedBox.shrink();
 
@@ -757,6 +780,7 @@ class _TabHeader extends StatelessWidget {
   final ColorScheme scheme;
   final bool isRightPane;
   final void Function(int tabIndex)? onTabDragToSplit;
+  final bool dragToLeft;
 
   const _TabHeader({
     required this.tabs,
@@ -765,6 +789,7 @@ class _TabHeader extends StatelessWidget {
     required this.scheme,
     this.isRightPane = false,
     this.onTabDragToSplit,
+    this.dragToLeft = false,
   });
 
   @override
@@ -836,6 +861,7 @@ class _TabHeader extends StatelessWidget {
                 tabIndexInList: i,
                 tabContent: tabContent,
                 onDragToSplit: onTabDragToSplit!,
+                dragToLeft: dragToLeft,
               );
             },
           ),
@@ -846,8 +872,8 @@ class _TabHeader extends StatelessWidget {
 }
 
 // ── Draggable tab — supports both mouse and touch drag-to-split ──
-// Uses absolute end position, not relative offset, so the threshold is
-// consistent regardless of where the tab sits in the header.
+// Uses the tab's center-point absolute X to decide split, so the
+// threshold is consistent regardless of where the tab sits in the header.
 class _DraggableTab extends StatefulWidget {
   final int tabIndex;
   final String label;
@@ -857,6 +883,7 @@ class _DraggableTab extends StatefulWidget {
   final int tabIndexInList;
   final Widget tabContent;
   final void Function(int tabIndex) onDragToSplit;
+  final bool dragToLeft;
 
   const _DraggableTab({
     required this.tabIndex,
@@ -867,6 +894,7 @@ class _DraggableTab extends StatefulWidget {
     required this.tabIndexInList,
     required this.tabContent,
     required this.onDragToSplit,
+    this.dragToLeft = false,
   });
 
   @override
@@ -874,12 +902,13 @@ class _DraggableTab extends StatefulWidget {
 }
 
 class _DraggableTabState extends State<_DraggableTab> {
-  double _startGlobalDx = 0;
+  double _startCenterDx = 0;
 
   void _onDragStarted() {
     final box = context.findRenderObject() as RenderBox?;
     if (box != null) {
-      _startGlobalDx = box.localToGlobal(Offset.zero).dx;
+      final offset = box.localToGlobal(Offset.zero);
+      _startCenterDx = offset.dx + box.size.width / 2;
     }
   }
 
@@ -909,9 +938,12 @@ class _DraggableTabState extends State<_DraggableTab> {
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: widget.tabContent),
       onDragEnd: (details) {
-        final endX = _startGlobalDx + details.offset.dx;
+        final endX = _startCenterDx + details.offset.dx;
         final screenWidth = MediaQuery.of(context).size.width;
-        if (endX > screenWidth * 0.55) {
+        final hit = widget.dragToLeft
+            ? endX < screenWidth * 0.45
+            : endX > screenWidth * 0.55;
+        if (hit) {
           widget.onDragToSplit(widget.tabIndex);
         }
       },
