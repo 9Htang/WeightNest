@@ -486,13 +486,25 @@ class SyncEngine {
 
   Future<void> _applyRoom(Map<String, dynamic> d) async {
     final existing = await _db.getRoomByName(d['name']);
-    if (existing != null) return;
-    await _db.createRoom(d['name']);
+    if (existing != null) {
+      await _db.updateRoom(existing.id, name: d['name'],
+        assignedUserId: d['assignedUserId'] as int?,
+        sortOrder: d['sortOrder'] as int?);
+      return;
+    }
+    await _db.createRoom(d['name'], assignedUserId: d['assignedUserId'] as int?);
   }
 
   Future<void> _applyUser(Map<String, dynamic> d) async {
     final existing = await _db.getByUsername(d['username']);
-    if (existing != null) return;
+    if (existing != null) {
+      await _db.updateUser(existing.id,
+        displayName: d['displayName'] as String?,
+        role: d['role'] as String?,
+        isActive: d['isActive'] as bool?,
+      );
+      return;
+    }
     await _db.createUser(d['username'], d['displayName'], d['passwordHash'] ?? '',
       role: d['role'] ?? 'keeper');
   }
@@ -506,6 +518,15 @@ class SyncEngine {
       if (serverUuid != null && existing.uuid != serverUuid) {
         await _db.updateBirdUuid(existing.id, serverUuid);
       }
+      // 增量同步也要更新字段（桌面端修改后通过 /changes 推送到手机）
+      await _db.updateBird(existing.id,
+        speciesId: d['speciesId'] as int?,
+        roomId: d['roomId'] as int?,
+        ringNumber: d['ringNumber'] as String?,
+        gender: d['gender'] as String?,
+        status: d['status'] as String?,
+        notes: d['notes'] as String?,
+      );
       return;
     }
     await _db.createBird(
