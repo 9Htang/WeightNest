@@ -70,14 +70,14 @@ final overdueTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
 final initDefaultsProvider = FutureProvider<void>((ref) async {
   final db = ref.watch(databaseProvider);
 
-  // 品种
+  // 品种（默认值与服务端保持一致，连接后会被服务端数据覆盖）
   final existing = await db.getAllSpecies();
   if (existing.isEmpty) {
     await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-    await db.createSpecies('金太阳', nestlingEndDays: 60, juvenileEndDays: 180);
-    await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 30, juvenileEndDays: 90);
-    await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 150);
-    await db.createSpecies('金刚鹦鹉', nestlingEndDays: 90, juvenileEndDays: 365);
+    await db.createSpecies('金太阳', nestlingEndDays: 45, juvenileEndDays: 120);
+    await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+    await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+    await db.createSpecies('金刚鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
   }
 
   // 默认管理员

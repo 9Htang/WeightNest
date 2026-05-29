@@ -101,6 +101,16 @@ extension BirdRepository on AppDatabase {
         }
       });
 
+  Future<int> getBirdCountBySpecies(int speciesId) async {
+    final list = await (select(birds)..where((t) => t.speciesId.equals(speciesId))).get();
+    return list.length;
+  }
+
+  Future<int> getBirdCountByRoom(int roomId) async {
+    final list = await (select(birds)..where((t) => t.roomId.equals(roomId))).get();
+    return list.length;
+  }
+
   Future<void> removeBird(int id) =>
       (delete(birds)..where((t) => t.id.equals(id))).go();
 

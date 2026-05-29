@@ -24,11 +24,12 @@ extension UserRepository on AppDatabase {
     return (await getUserById(rows.first.read<int>('id')))!;
   }
 
-  Future<User> updateUser(int id, {String? displayName, String? role}) async {
+  Future<User> updateUser(int id, {String? displayName, String? role, bool? isActive}) async {
     final list = await (update(users)..where((t) => t.id.equals(id)))
         .writeReturning(UsersCompanion(
       displayName: displayName != null ? Value(displayName) : const Value.absent(),
       role: role != null ? Value(role) : const Value.absent(),
+      deletedAt: isActive != null ? Value(isActive ? null : DateTime.now()) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;
