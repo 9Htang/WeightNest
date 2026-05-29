@@ -45,7 +45,9 @@ class SyncEngine {
     await _fullSyncUsers();
     // ③ 全量拉取鹦鹉（名称+日期去重）
     await _fullSyncBirds();
-    // ④ 增量拉取其他变更
+    // ④ 鸟清理后再清理房间（鸟已清除则房间无引用可删）
+    await _cleanupRooms();
+    // ⑤ 增量拉取其他变更
     await pullChanges();
     return true;
   }
@@ -95,16 +97,25 @@ class SyncEngine {
           await _db.createRoom(name, assignedUserId: assignedId);
         }
       }
-      // 清理本地有而服务端没有的房间（无鹦鹉关联的才删）
+      // 保存服务端房间名集合，供后续清理用
+      _serverRoomNames = serverNames;
+    } catch (_) {}
+  }
+
+  Future<void> _cleanupRooms() async {
+    if (_serverRoomNames == null) return;
+    try {
       final local = await _db.getAllRooms();
       for (final room in local) {
-        if (!serverNames.contains(room.name)) {
+        if (!_serverRoomNames!.contains(room.name)) {
           final count = await _db.getBirdCountByRoom(room.id);
           if (count == 0) await _db.removeRoom(room.id);
         }
       }
     } catch (_) {}
   }
+
+  Set<String>? _serverRoomNames;
 
   Future<void> _fullSyncUsers() async {
     try {
