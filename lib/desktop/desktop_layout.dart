@@ -950,9 +950,29 @@ class _DraggableTab extends StatefulWidget {
 }
 
 class _DraggableTabState extends State<_DraggableTab> {
+  bool _pointerIsDown = false;
+  bool _dragFired = false;
+
   void _onDragStarted() {
-    debugPrint('[DRAG] started label="${widget.label}" dragToLeft=${widget.dragToLeft}');
+    _dragFired = true;
+    debugPrint('[DRAG] started label="${widget.label}"');
     widget.onDragStarted?.call();
+  }
+
+  void _onPointerDown(PointerDownEvent _) {
+    _pointerIsDown = true;
+    _dragFired = false;
+  }
+
+  void _onPointerUp(PointerUpEvent _) {
+    if (_pointerIsDown && !_dragFired) {
+      widget.tabController.animateTo(widget.tabIndexInList);
+    }
+    _pointerIsDown = false;
+  }
+
+  void _onPointerMove(PointerMoveEvent _) {
+    _pointerIsDown = false;
   }
 
   @override
@@ -983,15 +1003,17 @@ class _DraggableTabState extends State<_DraggableTab> {
       onDragEnd: (details) {
         final dx = details.offset.dx;
         final hit = dx.abs() > 120;
-        debugPrint('[DRAG] end dx=$dx dragToLeft=${widget.dragToLeft} hit=$hit tabIndex=${widget.tabIndex}');
+        debugPrint('[DRAG] end dx=$dx hit=$hit tabIndex=${widget.tabIndex}');
         if (hit) {
           widget.onDragToSplit(widget.tabIndex);
         }
+        _dragFired = false;
         widget.onDragEnded?.call();
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => widget.tabController.animateTo(widget.tabIndexInList),
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerUp: _onPointerUp,
+        onPointerMove: _onPointerMove,
         child: widget.tabContent,
       ),
     );
