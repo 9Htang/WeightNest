@@ -258,17 +258,21 @@ class _DesktopLayoutState extends State<DesktopLayout>
 
   // ── Drag right-pane tab back to left pane ──
   void _openTabInLeftPane(int index) {
-    if (_leftTabs.any((t) => t.index == index)) return;
     final rightIdx = _rightTabs.indexWhere((t) => t.index == index);
     if (rightIdx < 0) return;
 
-    final widget = _buildScreen(index);
-
     setState(() {
       _rightTabs.removeAt(rightIdx);
-      _leftTabs.add(_TabData(index, widget));
+
+      if (!_leftTabs.any((t) => t.index == index)) {
+        _leftTabs.add(_TabData(index, _buildScreen(index)));
+        // rebuild left controller after adding, outside setState
+      }
     });
-    _rebuildLeftCtrl(_leftTabs.length - 1);
+
+    if (_leftTabs.length > _leftTabCtrl!.length) {
+      _rebuildLeftCtrl(_leftTabs.length - 1);
+    }
 
     if (_rightTabs.isEmpty) {
       _rightTabCtrl?.dispose();
@@ -957,15 +961,15 @@ class _DraggableTabState extends State<_DraggableTab> {
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: widget.tabContent),
       onDragEnd: (details) {
-        widget.onDragEnded?.call();
         final dx = details.offset.dx;
         final hit = widget.dragToLeft ? dx < -120 : dx > 120;
         if (hit) {
           widget.onDragToSplit(widget.tabIndex);
         }
+        widget.onDragEnded?.call();
       },
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+        behavior: HitTestBehavior.translucent,
         onTap: () => widget.tabController.animateTo(widget.tabIndexInList),
         child: widget.tabContent,
       ),
