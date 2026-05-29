@@ -6,7 +6,106 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:uuid/uuid.dart';
 import 'package:qr/qr.dart';
-import 'package:postgres/postgres.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+// ─── SQLite 适配层（兼容原 postgres Sql.named 语法） ───
+
+class Sql {
+  final String sql;
+  Sql.named(this.sql);
+}
+
+class PgResult extends Iterable<List<Object?>> {
+  final List<List<Object?>> _rows;
+  PgResult(Object rows) : _rows = _build(rows);
+
+  static List<List<Object?>> _build(Object rows) {
+    if (rows is List && rows.isEmpty) return [];
+    final result = <List<Object?>>[];
+    for (int i = 0; i < (rows as List).length; i++) {
+      final row = rows[i];
+      final converted = <Object?>[];
+      for (int j = 0; j < (row as List).length; j++) {
+        final v = row[j];
+        if (v is String) {
+          final dt = DateTime.tryParse(v);
+          converted.add(dt ?? v);
+        } else {
+          converted.add(v);
+        }
+      }
+      result.add(converted);
+    }
+    return result;
+  }
+
+  @override
+  bool get isEmpty => _rows.isEmpty;
+  bool get isNotEmpty => _rows.isNotEmpty;
+  List<Object?> get first => _rows.first;
+  @override
+  Iterator<List<Object?>> get iterator => _rows.iterator;
+}
+
+(String, List<dynamic>) _namedToPositional(String sql, Map<String, dynamic> params) {
+  final positional = <dynamic>[];
+  final converted = sql.replaceAllMapped(RegExp(r'@(\w+)'), (m) {
+    var value = params[m.group(1)!];
+    if (value is DateTime) value = value.toIso8601String();
+    if (value is bool) value = value ? 1 : 0;
+    positional.add(value);
+    return '?';
+  });
+  return (converted, positional);
+}
+
+class Pg {
+  final Database _db;
+  Pg._(this._db);
+
+  static Future<Pg> open(String path) async {
+    final db = sqlite3.open(path);
+    db.execute('PRAGMA journal_mode=WAL');
+    db.execute('PRAGMA foreign_keys=ON');
+    return Pg._(db);
+  }
+
+  Future<PgResult> execute(dynamic sql, {Map<String, dynamic>? parameters}) async {
+    final sqlStr = sql is Sql ? sql.sql : sql as String;
+    final params = parameters ?? {};
+    if (params.isNotEmpty) {
+      final (sql2, positional) = _namedToPositional(sqlStr, params);
+      if (_isSelect(sql2)) {
+        final stmt = _db.prepare(sql2);
+        try {
+          return PgResult(stmt.select(positional).rows.toList());
+        } finally {
+          stmt.dispose();
+        }
+      } else {
+        final stmt = _db.prepare(sql2);
+        try {
+          stmt.execute(positional);
+        } finally {
+          stmt.dispose();
+        }
+        return PgResult([]);
+      }
+    } else {
+      if (_isSelect(sqlStr)) {
+        return PgResult(_db.select(sqlStr).rows.toList());
+      } else {
+        _db.execute(sqlStr);
+        return PgResult([]);
+      }
+    }
+  }
+
+  bool _isSelect(String s) {
+    final t = s.trimLeft().toUpperCase();
+    return t.startsWith('SELECT') || t.startsWith('WITH');
+  }
+}
 
 const _uuid = Uuid();
 final _validTokens = <String>{};
@@ -15,21 +114,10 @@ int _dataVersion = 0;
 
 // ─── 配置（环境变量 > 命令行参数 > 默认值） ───
 
-int _serverPort() => int.tryParse(Platform.environment['SERVER_PORT'] ?? '') ?? int.tryParse(_arg(0)) ?? 8080;
-
+int _serverPort() => int.tryParse(Platform.environment['SERVER_PORT'] ?? '') ?? int.tryParse(_arg(0) ?? '') ?? 8080;
 String _serverPin() => Platform.environment['SERVER_PIN'] ?? _arg(1) ?? '1234';
 
-String _pgHost() => Platform.environment['PG_HOST'] ?? _arg(2) ?? 'localhost';
-
-int _pgPort() => int.tryParse(Platform.environment['PG_PORT'] ?? '') ?? 5432;
-
-String _pgDatabase() => Platform.environment['PG_DATABASE'] ?? 'weightnest';
-
-String _pgUsername() => Platform.environment['PG_USERNAME'] ?? 'postgres';
-
-String _pgPassword() => Platform.environment['PG_PASSWORD'] ?? 'postgres';
-
-String _arg(int i) => i < _rawArgs.length ? _rawArgs[i] : '';
+String? _arg(int i) => i < _rawArgs.length ? _rawArgs[i] : null;
 List<String> get _rawArgs {
   try {
     return List<String>.from(Platform.executableArguments);
@@ -37,22 +125,23 @@ List<String> get _rawArgs {
   return [];
 }
 
-late final Connection _db;
+String _dbPath() {
+  // 优先从环境变量读取，默认项目 data/ 目录
+  final env = Platform.environment['DB_PATH'];
+  if (env != null && env.isNotEmpty) return env;
+  // 兼容 Docker 挂载 /app/data 和本地运行
+  final dir = Directory('data');
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+  return 'data${Platform.pathSeparator}weightnest.db';
+}
+
+late final Pg _db;
 
 void main() async {
   final port = _serverPort();
   final pin = _serverPin();
 
-  _db = await Connection.open(
-    Endpoint(
-      host: _pgHost(),
-      port: _pgPort(),
-      database: _pgDatabase(),
-      username: _pgUsername(),
-      password: _pgPassword(),
-    ),
-    settings: ConnectionSettings(sslMode: SslMode.disable),
-  );
+  _db = await Pg.open(_dbPath());
 
   await _initDb();
   await _runMigrations();
@@ -90,7 +179,7 @@ void main() async {
   final ip = await _localIp();
   print('🦜 WeightNest 服务器已启动 → http://$ip:$port');
   print('🔑 PIN: $pin');
-  print('🗄  PG: ${_pgHost()}:${_pgPort()}/${_pgDatabase()}');
+  print('🗄  SQLite: ${_dbPath()}');
 }
 
 Future<String> _localIp() async {
@@ -110,64 +199,64 @@ Future<String> _localIp() async {
 Future<void> _initDb() async {
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS species (
-      id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
-      nestling_end_days INT DEFAULT 45, juvenile_end_days INT DEFAULT 120,
-      nestling_weigh_interval_days INT DEFAULT 1,
-      juvenile_weigh_interval_days INT DEFAULT 3,
-      adult_weigh_interval_days INT DEFAULT 7,
-      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
-      deleted_at TIMESTAMP
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+      nestling_end_days INTEGER DEFAULT 45, juvenile_end_days INTEGER DEFAULT 120,
+      nestling_weigh_interval_days INTEGER DEFAULT 1,
+      juvenile_weigh_interval_days INTEGER DEFAULT 3,
+      adult_weigh_interval_days INTEGER DEFAULT 7,
+      created_at TEXT DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+      deleted_at TEXT
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, username TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL, username TEXT NOT NULL,
       display_name TEXT NOT NULL, password_hash TEXT DEFAULT '', role TEXT DEFAULT 'keeper',
-      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
-      deleted_at TIMESTAMP
+      created_at TEXT DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+      deleted_at TEXT
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS rooms (
-      id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
-      sort_order INT DEFAULT 0, assigned_user_id INT,
-      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
-      deleted_at TIMESTAMP
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0, assigned_user_id INTEGER,
+      created_at TEXT DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+      deleted_at TEXT
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS birds (
-      id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
-      ring_number TEXT, species_id INT NOT NULL, room_id INT,
-      birth_date TIMESTAMP NOT NULL, gender TEXT DEFAULT '未知',
-      sort_order INT DEFAULT 0, weigh_interval_days INT,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+      ring_number TEXT, species_id INTEGER NOT NULL, room_id INTEGER,
+      birth_date TEXT NOT NULL, gender TEXT DEFAULT '未知',
+      sort_order INTEGER DEFAULT 0, weigh_interval_days INTEGER,
       status TEXT DEFAULT '正常', notes TEXT,
-      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(),
-      deleted_at TIMESTAMP
+      created_at TEXT DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+      deleted_at TEXT
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS weight_records (
-      id SERIAL PRIMARY KEY, uuid TEXT UNIQUE NOT NULL, bird_id INT NOT NULL,
-      weight_g REAL NOT NULL, recorded_at TIMESTAMP NOT NULL,
-      recorded_by INT, is_fasting BOOLEAN DEFAULT TRUE, notes TEXT,
-      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL, bird_id INTEGER NOT NULL,
+      weight_g REAL NOT NULL, recorded_at TEXT NOT NULL,
+      recorded_by INTEGER, is_fasting INTEGER DEFAULT 1, notes TEXT,
+      created_at TEXT DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT DEFAULT (CURRENT_TIMESTAMP)
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS synced_ops (
-      op_id TEXT UNIQUE NOT NULL, processed_at TIMESTAMP DEFAULT NOW()
+      op_id TEXT UNIQUE NOT NULL, processed_at TEXT DEFAULT (CURRENT_TIMESTAMP)
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS change_log (
-      id SERIAL PRIMARY KEY, entity_type TEXT NOT NULL, entity_uuid TEXT NOT NULL,
-      data JSONB NOT NULL, created_at TIMESTAMP DEFAULT NOW()
+      id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_uuid TEXT NOT NULL,
+      data TEXT NOT NULL, created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
     )
   ''');
   await _db.execute('''
     CREATE TABLE IF NOT EXISTS devices (
-      device_id TEXT PRIMARY KEY, connected_at TIMESTAMP DEFAULT NOW()
+      device_id TEXT PRIMARY KEY, connected_at TEXT DEFAULT (CURRENT_TIMESTAMP)
     )
   ''');
   await _db.execute('''
@@ -180,15 +269,19 @@ Future<void> _initDb() async {
 // ─── 数据库迁移 ───
 
 Future<void> _runMigrations() async {
-  try {
-    await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS user_id INT');
-    await _db.execute('ALTER TABLE change_log ADD COLUMN IF NOT EXISTS action TEXT');
-    // v3: weigh interval configuration
-    await _db.execute('ALTER TABLE species ADD COLUMN IF NOT EXISTS nestling_weigh_interval_days INT DEFAULT 1');
-    await _db.execute('ALTER TABLE species ADD COLUMN IF NOT EXISTS juvenile_weigh_interval_days INT DEFAULT 3');
-    await _db.execute('ALTER TABLE birds ADD COLUMN IF NOT EXISTS weigh_interval_days INT');
-  } catch (e) {
-    print('迁移警告: $e');
+  // SQLite 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS，逐条捕获
+  for (final sql in [
+    'ALTER TABLE change_log ADD COLUMN user_id INTEGER',
+    'ALTER TABLE change_log ADD COLUMN action TEXT',
+    'ALTER TABLE species ADD COLUMN nestling_weigh_interval_days INTEGER DEFAULT 1',
+    'ALTER TABLE species ADD COLUMN juvenile_weigh_interval_days INTEGER DEFAULT 3',
+    'ALTER TABLE birds ADD COLUMN weigh_interval_days INTEGER',
+  ]) {
+    try {
+      await _db.execute(sql);
+    } catch (_) {
+      // 列已存在，忽略
+    }
   }
 }
 
@@ -296,8 +389,8 @@ Future<Response> _handleConnect(Request req) async {
   final token = _uuid.v4();
   _validTokens.add(token);
   await _db.execute(
-    Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, NOW()) '
-        'ON CONFLICT (device_id) DO UPDATE SET connected_at = NOW()'),
+    Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, CURRENT_TIMESTAMP) '
+        'ON CONFLICT (device_id) DO UPDATE SET connected_at = CURRENT_TIMESTAMP'),
     parameters: {'d': deviceId ?? 'unknown'},
   );
   return Response.ok(jsonEncode({'token': token}));
@@ -339,8 +432,8 @@ Future<Response> _handleQrLogin(Request req) async {
   final token = _uuid.v4();
   _validTokens.add(token);
   await _db.execute(
-    Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, NOW()) '
-        'ON CONFLICT (device_id) DO UPDATE SET connected_at = NOW()'),
+    Sql.named('INSERT INTO devices (device_id, connected_at) VALUES (@d, CURRENT_TIMESTAMP) '
+        'ON CONFLICT (device_id) DO UPDATE SET connected_at = CURRENT_TIMESTAMP'),
     parameters: {'d': deviceId},
   );
   return Response.ok(jsonEncode({'token': token}));
@@ -491,7 +584,7 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
       break;
     case 'update_bird':
       await _db.execute(Sql.named(
-          'UPDATE birds SET name=@n, species_id=@s, ring_number=@r, updated_at=NOW() WHERE id=@id'),
+          'UPDATE birds SET name=@n, species_id=@s, ring_number=@r, updated_at=CURRENT_TIMESTAMP WHERE id=@id'),
           parameters: {'n': p('name'), 's': p('speciesId') ?? 1, 'r': p('ringNumber'), 'id': p('id')});
       break;
     case 'create_room':
@@ -556,10 +649,9 @@ Future<Response> _handleChangesStream(Request req) async {
 
 Stream<String> _streamChanges(DateTime sinceDate) async* {
   var lastCheck = sinceDate;
-  final maxIdle = 15; // send heartbeat every 15s
   var idle = 0;
 
-  while (idle < 2) { // max ~30s, then client reconnects
+  while (idle < 2) { // max ~30s idle, then client reconnects
     await Future.delayed(const Duration(seconds: 2));
 
     try {
@@ -702,7 +794,7 @@ Future<Response> _handleBirds(Request req) async {
   final params = <String, dynamic>{};
 
   if (search != null && search.isNotEmpty) {
-    sql += ' AND (b.name ILIKE @search OR b.ring_number ILIKE @search)';
+    sql += ' AND (b.name LIKE @search OR b.ring_number LIKE @search)';
     params['search'] = '%$search%';
   }
   if (speciesId != null) {
@@ -825,7 +917,7 @@ Future<Response> _handleUpdateBird(Request req) async {
   }
 
   if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
-  updates.add('updated_at=NOW()');
+  updates.add('updated_at=CURRENT_TIMESTAMP');
 
   await _db.execute(
     Sql.named('UPDATE birds SET ${updates.join(', ')} WHERE id=@id'),
@@ -922,7 +1014,7 @@ Future<Response> _handleUpdateRoom(Request req) async {
   if (body.containsKey('sortOrder')) { updates.add('sort_order=@so'); params['so'] = body['sortOrder']; }
   if (body.containsKey('assignedUserId')) { updates.add('assigned_user_id=@a'); params['a'] = body['assignedUserId']; }
   if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
-  updates.add('updated_at=NOW()');
+  updates.add('updated_at=CURRENT_TIMESTAMP');
   await _db.execute(Sql.named('UPDATE rooms SET ${updates.join(', ')} WHERE id=@id'), parameters: params);
   final r = await _db.execute(Sql.named('SELECT uuid FROM rooms WHERE id=@id'), parameters: {'id': id});
   if (r.isNotEmpty) {
@@ -975,7 +1067,7 @@ Future<Response> _handleUpdateSpecies(Request req) async {
   }
 
   if (updates.isEmpty) return Response(400, body: '{"error":"no changes"}');
-  updates.add('updated_at=NOW()');
+  updates.add('updated_at=CURRENT_TIMESTAMP');
   await _db.execute(
     Sql.named('UPDATE species SET ${updates.join(', ')} WHERE id=@id'),
     parameters: params,
@@ -1092,12 +1184,12 @@ Future<Response> _handleUpdateUser(Request req) async {
     if (body['isActive'] == true) {
       updates.add('deleted_at=NULL');
     } else {
-      updates.add('deleted_at=NOW()');
+      updates.add('deleted_at=CURRENT_TIMESTAMP');
     }
   }
 
   if (updates.isEmpty) return Response(400, body: '{"error":"无变更"}');
-  updates.add('updated_at=NOW()');
+  updates.add('updated_at=CURRENT_TIMESTAMP');
   final q = Sql.named('UPDATE users SET ${updates.join(', ')} WHERE id=@id');
   await _db.execute(q, parameters: params);
 
