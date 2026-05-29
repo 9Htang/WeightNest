@@ -293,30 +293,35 @@ class SyncEngine {
         return;
       }
 
-      // Parse SSE stream
       String buffer = '';
-      await for (final chunk in response.stream.transform(utf8.decoder)) {
+      String? lastEventId;
+      await for (final chunk in response.stream.transform(utf8.decoder).timeout(const Duration(seconds: 120))) {
         buffer += chunk;
+        // 防止缓冲区无限增长
+        if (buffer.length > 65536) buffer = buffer.substring(buffer.length - 32768);
         while (buffer.contains('\n\n')) {
           final idx = buffer.indexOf('\n\n');
-          final line = buffer.substring(0, idx);
+          final event = buffer.substring(0, idx);
           buffer = buffer.substring(idx + 2);
 
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6);
-            if (data.contains('"eof"')) break;
-            try {
-              final change = jsonDecode(data) as Map<String, dynamic>;
-              await _applyChanges([change]);
-              _lastPull = DateTime.now();
-            } catch (_) {}
+          // 处理多行 SSE 事件（data: 行可有多条）
+          String? data;
+          for (final line in event.split('\n')) {
+            if (line.startsWith('data: ')) {
+              data = (data ?? '') + line.substring(6);
+            }
           }
-          // Heartbeat comments (": heartbeat") — ignored
+          if (data == null) continue; // heartbeat comment, skip
+          if (data.contains('"eof"')) return; // 正常的 EOF 信号
+          try {
+            final change = jsonDecode(data) as Map<String, dynamic>;
+            await _applyChanges([change]);
+            _lastPull = DateTime.now();
+          } catch (_) {}
         }
       }
     } catch (_) {}
 
-    // Reconnect after 2 seconds
     _scheduleReconnect();
   }
 
@@ -329,30 +334,38 @@ class SyncEngine {
 
   // ─── 上传 ───
 
+  bool _pushing = false;
+
   Future<void> pushOperations() async {
+    if (_pushing) return;
     final ops = await _queue.getUnsynced(batchSize: 50);
     if (ops.isEmpty) return;
-
-    final payload = ops.map((o) => {
-      'opId': o.opId,
-      'deviceId': o.deviceId,
-      'userId': o.userId,
-      'action': o.action,
-      'entityType': o.entityType,
-      'entityUuid': o.entityUuid,
-      'payload': jsonDecode(o.payload),
-      'createdAt': o.createdAt.toIso8601String(),
-    }).toList();
+    _pushing = true;
 
     try {
+      final payload = <Map<String, dynamic>>[];
+      for (final o in ops) {
+        try {
+          payload.add({
+            'opId': o.opId, 'deviceId': o.deviceId, 'userId': o.userId,
+            'action': o.action, 'entityType': o.entityType,
+            'entityUuid': o.entityUuid,
+            'payload': jsonDecode(o.payload),
+            'createdAt': o.createdAt.toIso8601String(),
+          });
+        } catch (e) {
+          // 损坏的 payload — 直接标记已同步避免无限重试
+          print('同步队列损坏 $o.opId: $e');
+          await _queue.markSynced([o.opId]);
+        }
+      }
+      if (payload.isEmpty) return;
+
       final token = _token;
       if (token == null) return;
       final res = await http.post(
         Uri.parse('$_baseUrl/sync'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Token': token,
-        },
+        headers: {'Content-Type': 'application/json', 'X-Token': token},
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
 
@@ -360,7 +373,6 @@ class SyncEngine {
         final body = jsonDecode(res.body);
         final successOps = List<String>.from(body['successOps'] ?? []);
         await _queue.markSynced(successOps);
-        // Auto-complete tasks for synced weight operations
         await _autoCompleteTasksForWeights(ops, successOps);
       } else if (res.statusCode == 403) {
         await _reAuth();
@@ -379,7 +391,11 @@ class SyncEngine {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      print('同步推送失败: $e');
+    } finally {
+      _pushing = false;
+    }
   }
 
   /// Auto-complete today's tasks when weight ops are confirmed by server
