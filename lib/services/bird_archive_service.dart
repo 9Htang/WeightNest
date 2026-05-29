@@ -126,6 +126,18 @@ class SpeciesService {
     throw Exception('API 错误: ${res.statusCode}');
   }
 
+  Future<void> create(String name, {int? nestlingEndDays, int? juvenileEndDays, int? nestlingWeighIntervalDays, int? juvenileWeighIntervalDays, int? adultWeighIntervalDays}) async {
+    final body = <String, dynamic>{'name': name};
+    if (nestlingEndDays != null) body['nestlingEndDays'] = nestlingEndDays;
+    if (juvenileEndDays != null) body['juvenileEndDays'] = juvenileEndDays;
+    if (nestlingWeighIntervalDays != null) body['nestlingWeighIntervalDays'] = nestlingWeighIntervalDays;
+    if (juvenileWeighIntervalDays != null) body['juvenileWeighIntervalDays'] = juvenileWeighIntervalDays;
+    if (adultWeighIntervalDays != null) body['adultWeighIntervalDays'] = adultWeighIntervalDays;
+    var res = await http.post(Uri.parse('$_baseUrl/species'), headers: _jsonHeaders, body: jsonEncode(body)).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 403) { await _auth.refresh(); res = await http.post(Uri.parse('$_baseUrl/species'), headers: _jsonHeaders, body: jsonEncode(body)).timeout(const Duration(seconds: 10)); }
+    if (res.statusCode != 200) throw Exception('创建失败: ${res.statusCode}');
+  }
+
   Future<void> update(int id, {int? nestlingEndDays, int? juvenileEndDays, int? nestlingWeighIntervalDays, int? juvenileWeighIntervalDays, int? adultWeighIntervalDays}) async {
     final body = <String, dynamic>{};
     if (nestlingEndDays != null) body['nestlingEndDays'] = nestlingEndDays;

@@ -173,6 +173,7 @@ void main() async {
     ..post('/rooms', _handleCreateRoom)
     ..patch('/rooms/<id>', _handleUpdateRoom)
     ..get('/species', _handleSpecies)
+    ..post('/species', _handleCreateSpecies)
     ..patch('/species/<id>', _handleUpdateSpecies)
     ..get('/users', _handleUsers)
     ..post('/users', _handleCreateUser)
@@ -1078,6 +1079,32 @@ Future<Response> _handleUpdateRoom(Request req) async {
 }
 
 // ─── 品种列表及配置 ───
+
+Future<Response> _handleCreateSpecies(Request req) async {
+  if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');
+  final body = jsonDecode(await req.readAsString());
+  final name = body['name'] as String?;
+  if (name == null || name.isEmpty) return Response(400, body: '{"error":"name required"}');
+  final uuid = _uuid.v4();
+  await _db.execute(Sql.named(
+    'INSERT INTO species (uuid, name, nestling_end_days, juvenile_end_days, nestling_weigh_interval_days, juvenile_weigh_interval_days, adult_weigh_interval_days) '
+    'VALUES (@u, @n, @ne, @je, @ni, @ji, @ai)'),
+    parameters: {
+      'u': uuid, 'n': name,
+      'ne': body['nestlingEndDays'] ?? 45,
+      'je': body['juvenileEndDays'] ?? 120,
+      'ni': body['nestlingWeighIntervalDays'] ?? 1,
+      'ji': body['juvenileWeighIntervalDays'] ?? 3,
+      'ai': body['adultWeighIntervalDays'] ?? 7,
+    },
+  );
+  await _db.execute(Sql.named(
+    'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
+    parameters: {'a': 'species', 'b': uuid, 'c': jsonEncode(body), 'd': 'create_species'},
+  );
+  await _bumpVersion();
+  return Response.ok(jsonEncode({'uuid': uuid}));
+}
 
 Future<Response> _handleSpecies(Request req) async {
   if (!_checkAuth(req)) return Response.forbidden('{"error":"auth"}');

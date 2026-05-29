@@ -60,6 +60,33 @@ class _SpeciesConfigScreenState extends State<SpeciesConfigScreen> {
     }
   }
 
+  void _showCreateDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _CreateDialog(onSave: (String name, Map<String, int> fields) {
+        Navigator.pop(ctx);
+        _create(name, fields);
+      }),
+    );
+  }
+
+  Future<void> _create(String name, Map<String, int> fields) async {
+    try {
+      await widget.service.create(name,
+        nestlingEndDays: fields['nestlingEndDays'],
+        juvenileEndDays: fields['juvenileEndDays'],
+        nestlingWeighIntervalDays: fields['nestlingWeighIntervalDays'],
+        juvenileWeighIntervalDays: fields['juvenileWeighIntervalDays'],
+        adultWeighIntervalDays: fields['adultWeighIntervalDays'],
+      );
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('创建失败: $e'), behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
   void _showEditDialog(SpeciesInfo sp) {
     showDialog(
       context: context,
@@ -87,6 +114,16 @@ class _SpeciesConfigScreenState extends State<SpeciesConfigScreen> {
           Text('品种配置', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const Spacer(),
           Text('${_species.length} 个品种', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('添加品种'),
+            onPressed: _showCreateDialog,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
+          ),
         ]),
       ),
       Expanded(child: _loading
@@ -219,6 +256,91 @@ class _EditDialogState extends State<_EditDialog> {
   }
 
   Widget _buildSection(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13));
+
+  Widget _numField(String key, String label) {
+    return TextField(
+      controller: _controllers[key],
+      decoration: InputDecoration(labelText: label, isDense: true, border: const OutlineInputBorder()),
+      keyboardType: TextInputType.number,
+    );
+  }
+}
+
+// ─── Create Dialog ───
+
+class _CreateDialog extends StatefulWidget {
+  final void Function(String name, Map<String, int> fields) onSave;
+
+  const _CreateDialog({required this.onSave});
+
+  @override
+  State<_CreateDialog> createState() => _CreateDialogState();
+}
+
+class _CreateDialogState extends State<_CreateDialog> {
+  final _nameCtrl = TextEditingController();
+  final _controllers = <String, TextEditingController>{
+    'nestlingEndDays': TextEditingController(text: '45'),
+    'juvenileEndDays': TextEditingController(text: '120'),
+    'nestlingWeighIntervalDays': TextEditingController(text: '1'),
+    'juvenileWeighIntervalDays': TextEditingController(text: '3'),
+    'adultWeighIntervalDays': TextEditingController(text: '7'),
+  };
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    for (final c in _controllers.values) { c.dispose(); }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加品种'),
+      content: SizedBox(width: 400, child: Form(
+        key: _formKey,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(
+            controller: _nameCtrl,
+            decoration: const InputDecoration(labelText: '品种名称', hintText: '例如: 虎皮鹦鹉', border: OutlineInputBorder()),
+            validator: (v) => (v == null || v.trim().isEmpty) ? '请输入品种名称' : null,
+          ),
+          const SizedBox(height: 16),
+          const Text('生长阶段（以下均使用默认值，可后续编辑）', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _numField('nestlingEndDays', '雏鸟结束天数')),
+            const SizedBox(width: 12),
+            Expanded(child: _numField('juvenileEndDays', '幼鸟结束天数')),
+          ]),
+          const SizedBox(height: 12),
+          const Text('称重间隔', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _numField('nestlingWeighIntervalDays', '雏鸟 (天)')),
+            const SizedBox(width: 12),
+            Expanded(child: _numField('juvenileWeighIntervalDays', '幼鸟 (天)')),
+            const SizedBox(width: 12),
+            Expanded(child: _numField('adultWeighIntervalDays', '成鸟 (天)')),
+          ]),
+        ]),
+      )),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(onPressed: () {
+          if (!_formKey.currentState!.validate()) return;
+          final fields = <String, int>{};
+          for (final e in _controllers.entries) {
+            final v = int.tryParse(e.value.text);
+            if (v != null && v > 0) fields[e.key] = v;
+          }
+          widget.onSave(_nameCtrl.text.trim(), fields);
+        }, child: const Text('创建')),
+      ],
+    );
+  }
 
   Widget _numField(String key, String label) {
     return TextField(
