@@ -183,15 +183,30 @@ void main() async {
 }
 
 Future<String> _localIp() async {
+  final candidates = <String>[];
   for (final iface in await NetworkInterface.list()) {
     for (final addr in iface.addresses) {
-      if (addr.type == InternetAddressType.IPv4 &&
-          (addr.address.startsWith('192.168.') || addr.address.startsWith('10.') || addr.address.startsWith('172.'))) {
-        if (!addr.address.startsWith('172.17.')) return addr.address; // 排除 Docker 网桥
+      if (addr.type != InternetAddressType.IPv4) continue;
+      final a = addr.address;
+      // 排除虚拟网卡地址段
+      if (a.startsWith('172.17.') || a.startsWith('172.18.') ||
+          a.startsWith('172.19.') || a.startsWith('172.2') ||
+          a.startsWith('172.3')) continue;
+      if (a.startsWith('192.168.') || a.startsWith('10.') || a.startsWith('172.')) {
+        candidates.add(a);
       }
     }
   }
-  return '127.0.0.1';
+  // 优先 192.168.x.x（最常见家用路由器），其次 10.x，最后其他
+  candidates.sort((a, b) {
+    int rank(String ip) {
+      if (ip.startsWith('192.168.')) return 0;
+      if (ip.startsWith('10.')) return 1;
+      return 2;
+    }
+    return rank(a).compareTo(rank(b));
+  });
+  return candidates.isNotEmpty ? candidates.first : '127.0.0.1';
 }
 
 // ─── 数据库初始化 ───
