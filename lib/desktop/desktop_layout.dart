@@ -982,7 +982,7 @@ class _DraggableTabState extends State<_DraggableTab> {
       childWhenDragging: Opacity(opacity: 0.3, child: widget.tabContent),
       onDragEnd: (details) {
         final dx = details.offset.dx;
-        final hit = widget.dragToLeft ? dx < -120 : dx > 120;
+        final hit = dx.abs() > 120;
         debugPrint('[DRAG] end dx=$dx dragToLeft=${widget.dragToLeft} hit=$hit tabIndex=${widget.tabIndex}');
         if (hit) {
           widget.onDragToSplit(widget.tabIndex);
