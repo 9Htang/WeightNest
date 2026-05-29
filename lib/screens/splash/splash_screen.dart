@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../providers.dart';
+import '../../repositories/user_repository.dart';
 import '../../screens/worker/worker_screen.dart';
 import '../../services/discovery_client.dart';
 import '../shell/mobile_shell.dart';
@@ -105,6 +106,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         await engine.connect(host, port, token, pin: '1234');
         engine.start();
         ref.read(syncConnectedProvider.notifier).state = true;
+
+        // 同步完成后校验缓存用户：如果服务端已不存在该用户，清除缓存
+        final worker = ref.read(workerProvider);
+        if (worker.isSelected && worker.username.isNotEmpty) {
+          final db = ref.read(databaseProvider);
+          final localUser = await db.getByUsername(worker.username);
+          if (localUser == null || localUser.deletedAt != null) {
+            await ref.read(workerProvider.notifier).clear();
+          }
+        }
+
         return true;
       }
     } catch (_) {}
