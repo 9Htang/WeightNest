@@ -149,6 +149,7 @@ class SyncEngine {
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return;
       final list = jsonDecode(res.body)['birds'] as List;
+      final matchedIds = <int>{};
       for (final b in list) {
         final name = b['name'] as String;
         final birthDate = DateTime.parse(b['birthDate']);
@@ -170,7 +171,7 @@ class SyncEngine {
         }
 
         if (existing == null) {
-          await _db.createBird(
+          final created = await _db.createBird(
             name: name,
             speciesId: localSpeciesId ?? b['speciesId'] ?? 1,
             birthDate: birthDate,
@@ -179,7 +180,9 @@ class SyncEngine {
             gender: b['gender'] as String? ?? '未知',
             uuid: serverUuid,
           );
+          matchedIds.add(created.id);
         } else {
+          matchedIds.add(existing.id);
           // 用服务端数据更新本地鹦鹉
           if (existing.uuid != serverUuid) {
             await _db.updateBirdUuid(existing.id, serverUuid);
@@ -190,6 +193,14 @@ class SyncEngine {
             ringNumber: b['ringNumber'] as String?,
             gender: b['gender'] as String?,
           );
+        }
+      }
+      // 清理本地有而服务端没有的鹦鹉（包括关联的体重记录）
+      final local = await _db.getAllWithDetails();
+      for (final b in local) {
+        if (!matchedIds.contains(b.bird.id)) {
+          await _db.removeWeightsByBirdId(b.bird.id);
+          await _db.removeBird(b.bird.id);
         }
       }
     } catch (_) {}

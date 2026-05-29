@@ -17,7 +17,8 @@ class AuditLogEntry {
 
   String get actionLabel { switch (action) {
     case 'create_bird': return '新建鹦鹉'; case 'update_bird': return '编辑鹦鹉';
-    case 'add_weight': return '记录体重'; case 'create_room': return '新建房间';
+    case 'add_weight': return '记录体重'; case 'edit_weight': return '修改体重';
+    case 'delete_weight': return '删除体重'; case 'create_room': return '新建房间';
     case 'create_species': return '新建品种'; case 'create_user': return '新建用户';
     default: return action ?? '未知操作'; }}
 

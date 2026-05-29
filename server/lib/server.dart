@@ -29,7 +29,13 @@ class PgResult extends Iterable<List<Object?>> {
         final v = row[j];
         if (v is String) {
           final dt = DateTime.tryParse(v);
-          converted.add(dt ?? v);
+          if (dt != null) {
+            // SQLite CURRENT_TIMESTAMP 格式 "2026-05-29 09:06:00" 是 UTC
+            // 客户端传来的 ISO 格式 "2026-05-29T17:06:00" 是本地时间
+            converted.add(v.contains('T') ? dt : DateTime.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second));
+          } else {
+            converted.add(v);
+          }
         } else {
           converted.add(v);
         }
@@ -490,13 +496,13 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
   switch (action) {
     case 'add_weight':
       final birdUuid = p('birdUuid') as String?;
-      int serverBirdId;
+      int? serverBirdId;
       if (birdUuid != null) {
         final r = await _db.execute(
           Sql.named('SELECT id FROM birds WHERE uuid=@u'),
           parameters: {'u': birdUuid},
         );
-        if (r.isEmpty) throw Exception('add_weight: bird UUID not found: $birdUuid');
+        if (r.isEmpty) return; // 鹦鹉已删除，无视此操作
         serverBirdId = r.first[0] as int;
       } else {
         serverBirdId = p('birdId') as int;
@@ -596,12 +602,34 @@ Future<void> _applyOp(Map<String, dynamic> op) async {
             'f': p('gender') ?? '未知',
             'g': p('ringNumber')
           });
+      // 解析品种名和房间名，写入变更日志时可读
+      final spResult = await _db.execute(Sql.named('SELECT name FROM species WHERE id=@id'),
+          parameters: {'id': p('speciesId') ?? 1});
+      if (spResult.isNotEmpty) payload['speciesName'] = spResult.first[0] as String;
+      if (p('roomId') != null) {
+        final rr = await _db.execute(Sql.named('SELECT name FROM rooms WHERE id=@id'),
+            parameters: {'id': p('roomId') as int});
+        if (rr.isNotEmpty) payload['roomName'] = rr.first[0] as String;
+      }
       break;
     case 'update_bird':
-      await _db.execute(Sql.named(
-          'UPDATE birds SET name=@n, species_id=@s, ring_number=@r, updated_at=CURRENT_TIMESTAMP WHERE id=@id'),
-          parameters: {'n': p('name'), 's': p('speciesId') ?? 1, 'r': p('ringNumber'), 'id': p('id')});
-      break;
+      {
+        // 通过 UUID 解析服务端 ID（客户端 payload 里没有 id 字段）
+        final r = await _db.execute(
+          Sql.named('SELECT id FROM birds WHERE uuid=@u'),
+          parameters: {'u': entityUuid},
+        );
+        if (r.isEmpty) return; // 鹦鹉已删除，无视此操作
+        final serverId = r.first[0] as int;
+        await _db.execute(Sql.named(
+            'UPDATE birds SET name=@n, species_id=@s, ring_number=@r, updated_at=CURRENT_TIMESTAMP WHERE id=@id'),
+            parameters: {'n': p('name'), 's': p('speciesId') ?? 1, 'r': p('ringNumber'), 'id': serverId});
+        // 解析品种名，写入变更日志时可读
+        final spResult = await _db.execute(Sql.named('SELECT name FROM species WHERE id=@id'),
+            parameters: {'id': p('speciesId') ?? 1});
+        if (spResult.isNotEmpty) payload['speciesName'] = spResult.first[0] as String;
+        break;
+      }
     case 'create_room':
       await _db.execute(Sql.named('INSERT INTO rooms (uuid,name) VALUES (@a,@b)'),
           parameters: {'a': entityUuid, 'b': p('name')});
@@ -939,13 +967,22 @@ Future<Response> _handleUpdateBird(Request req) async {
     parameters: params,
   );
 
-  // Write change log
-  final birdResult = await _db.execute(Sql.named('SELECT uuid FROM birds WHERE id=@id'), parameters: {'id': id});
+  // Write change log — resolve IDs to names so audit log is readable
+  final birdResult = await _db.execute(Sql.named(
+    'SELECT b.uuid, b.name, s.name as sp_name FROM birds b LEFT JOIN species s ON b.species_id=s.id WHERE b.id=@id'),
+    parameters: {'id': id});
   if (birdResult.isNotEmpty) {
     final birdUuid = birdResult.first[0] as String;
+    final enriched = Map<String, dynamic>.from(body);
+    enriched['name'] = birdResult.first[1] as String;
+    enriched['speciesName'] = birdResult.first[2] as String?;
+    if (body.containsKey('roomId')) {
+      final rr = await _db.execute(Sql.named('SELECT name FROM rooms WHERE id=@id'), parameters: {'id': body['roomId']});
+      if (rr.isNotEmpty) enriched['roomName'] = rr.first[0] as String;
+    }
     await _db.execute(Sql.named(
       'INSERT INTO change_log (entity_type, entity_uuid, data, action) VALUES (@a,@b,@c,@d)'),
-      parameters: {'a': 'bird', 'b': birdUuid, 'c': jsonEncode(body), 'd': 'update_bird'},
+      parameters: {'a': 'bird', 'b': birdUuid, 'c': jsonEncode(enriched), 'd': 'update_bird'},
     );
     await _bumpVersion();
   }

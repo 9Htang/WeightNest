@@ -117,6 +117,9 @@ extension WeightRepository on AppDatabase {
   Future<void> removeWeightByUuid(String uuid) =>
       (delete(weights)..where((w) => w.uuid.equals(uuid))).go();
 
+  Future<void> removeWeightsByBirdId(int birdId) =>
+      (delete(weights)..where((w) => w.birdId.equals(birdId))).go();
+
   Future<void> updateWeight(int id, {
     double? weightG,
     bool? isFasting,

@@ -77,31 +77,41 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.info_outline, size: 20),
-            const SizedBox(width: 8),
-            Text('${entry.actionLabel} — ${entry.entityLabel}'),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: _actionColor(entry.action).withAlpha(30),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.info_outline, size: 18, color: _actionColor(entry.action)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(_dataSummary(entry),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
         content: SizedBox(
-          width: 400,
+          width: 420,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _detailRow('操作人', entry.userName),
-              _detailRow('操作类型', entry.actionLabel),
-              _detailRow('数据对象', entry.entityLabel),
-              _detailRow('UUID', entry.entityUuid),
-              _detailRow('时间', entry.createdAt.toLocal().toString().substring(0, 19)),
+              _detailRow(Icons.person_outline, '操作人', entry.userName),
+              _detailRow(Icons.access_time, '时间', entry.createdAt.toLocal().toString().substring(0, 19).replaceFirst('T', ' ')),
+              _detailRow(Icons.category_outlined, '操作类型', entry.actionLabel),
+              _detailRow(Icons.list_alt, '数据对象', entry.entityLabel),
               const SizedBox(height: 12),
               const Text('变更明细', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 4),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _formatData(entry.data),
@@ -118,13 +128,15 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 56, child: Text('$label:', style: TextStyle(color: Colors.grey.shade600, fontSize: 12))),
+          Icon(icon, size: 14, color: Colors.grey.shade500),
+          const SizedBox(width: 6),
+          SizedBox(width: 50, child: Text('$label:', style: TextStyle(color: Colors.grey.shade600, fontSize: 12))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
@@ -138,21 +150,53 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     'speciesId': '品种ID', 'roomId': '房间ID', 'birthDate': '出生日期',
     'notes': '备注', 'status': '状态', 'role': '角色',
     'password_hash': '密码', 'isActive': '启用', 'ageDays': '日龄',
+    'birdUuid': '鹦鹉UUID', 'weighIntervalDays': '称重间隔(天)',
+    'nestlingEndDays': '雏鸟期(天)', 'juvenileEndDays': '幼鸟期(天)',
+    'nestlingWeighIntervalDays': '雏鸟称重间隔', 'juvenileWeighIntervalDays': '幼鸟称重间隔',
+    'adultWeighIntervalDays': '成鸟称重间隔', 'sortOrder': '排序',
+    'assignedUserId': '指派用户', 'speciesName': '品种', 'roomName': '房间',
   };
 
-  /// 字段名汉化 + 布尔值转中文
+  static String _genderLabel(dynamic g) {
+    switch (g) {
+      case '雄性': return '雄性';
+      case '雌性': return '雌性';
+      default: return '未知';
+    }
+  }
+
+  static String _roleLabel(dynamic r) {
+    switch (r) {
+      case 'admin': return '管理员';
+      case 'keeper': return '饲养员';
+      default: return r?.toString() ?? '饲养员';
+    }
+  }
+
+  static String _fmtDt(String s) {
+    if (s.length < 19) return s;
+    return '${s.substring(0, 10)} ${s.substring(11, 19)}';
+  }
+
+  String _formatValue(String key, dynamic val) {
+    if (val is bool) return val ? '是' : '否';
+    if (val == null) return '-';
+    final s = val.toString();
+    switch (key) {
+      case 'gender': return _genderLabel(s);
+      case 'role': return _roleLabel(s);
+      case 'recordedAt': case 'birthDate': return _fmtDt(s);
+      case 'isActive': return val == true || val == 1 ? '启用' : '停用';
+      default: return s;
+    }
+  }
+
+  /// 字段名汉化 + 值翻译
   String _formatData(Map<String, dynamic> data) {
     final buf = StringBuffer();
     for (final entry in data.entries) {
       final label = _fieldLabels[entry.key] ?? entry.key;
-      final val = entry.value;
-      String display;
-      if (val is bool) {
-        display = val ? '是' : '否';
-      } else {
-        display = val.toString();
-      }
-      buf.writeln('$label: $display');
+      buf.writeln('$label: ${_formatValue(entry.key, entry.value)}');
     }
     return buf.toString().trimRight();
   }
@@ -168,6 +212,12 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
         return Colors.orange;
       case 'add_weight':
         return Colors.blue;
+      case 'edit_weight':
+        return Colors.indigo;
+      case 'delete_weight':
+        return Colors.red;
+      case 'delete_bird':
+        return Colors.red;
       default:
         return Colors.grey;
     }
@@ -201,7 +251,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
             value: _filterAction,
             hint: '操作类型',
             itemLabel: _actionFilterLabel,
-            items: const ['create_bird', 'update_bird', 'add_weight', 'create_room', 'create_species', 'create_user'],
+            items: const ['create_bird', 'update_bird', 'add_weight', 'edit_weight', 'delete_weight', 'create_room', 'create_species', 'create_user'],
             itemName: (v) => _actionFilterLabel(v),
             onSelected: (v) { _filterAction = v; _applyFilters(); },
           ),
@@ -238,6 +288,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       case 'create_bird': return '新建鹦鹉';
       case 'update_bird': return '编辑鹦鹉';
       case 'add_weight': return '记录体重';
+      case 'edit_weight': return '修改体重';
+      case 'delete_weight': return '删除体重';
       case 'create_room': return '新建房间';
       case 'create_species': return '新建品种';
       case 'create_user': return '新建用户';
@@ -420,15 +472,17 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
               return InkWell(
                 onTap: () => _showDetail(entry),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 6,
-                        height: 6,
+                        width: 4,
+                        height: 40,
+                        margin: const EdgeInsets.only(top: 2),
                         decoration: BoxDecoration(
                           color: _actionColor(entry.action),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -445,38 +499,39 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(entry.actionLabel,
-                                      style: TextStyle(fontSize: 12, color: _actionColor(entry.action), fontWeight: FontWeight.w600)),
+                                      style: TextStyle(fontSize: 11, color: _actionColor(entry.action), fontWeight: FontWeight.w600)),
                                 ),
                                 const SizedBox(width: 8),
-                                Flexible(child: Text(entry.entityLabel,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                                    maxLines: 1, overflow: TextOverflow.ellipsis)),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text('操作人：${entry.userName}',
-                                      style: const TextStyle(fontSize: 11, color: Color(0xFF5C6BC0)),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Expanded(
+                                  child: Text(
+                                    _dataSummary(entry),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              _dataSummary(entry),
-                              style: const TextStyle(fontSize: 13),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.access_time, size: 13, color: Colors.grey.shade400),
+                                const SizedBox(width: 4),
+                                Text(
+                                  entry.createdAt.toLocal().toString().substring(0, 16).replaceFirst('T', ' '),
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                ),
+                                const SizedBox(width: 14),
+                                Icon(Icons.person_outline, size: 13, color: Colors.grey.shade400),
+                                const SizedBox(width: 4),
+                                Text(
+                                  entry.userName,
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            entry.createdAt.toLocal().toString().substring(11, 19),
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -515,16 +570,43 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   String _dataSummary(AuditLogEntry entry) {
     final d = entry.data;
     switch (entry.action) {
-      case 'create_bird':
-      case 'update_bird':
-        return '${d['name'] ?? '?'}  ${d['gender'] ?? ''}';
       case 'add_weight':
-        return '${d['weightG'] ?? '?'}g  ${d['isFasting'] == true ? '空腹' : '非空腹'}';
+        final w = d['weightG'];
+        final fasting = d['isFasting'] == true || d['isFasting'] == 1 ? '空腹' : '非空腹';
+        return '${w ?? '?'}g（$fasting）';
+      case 'edit_weight':
+        final w = d['weightG'];
+        final parts = <String>[];
+        if (w != null) parts.add('${w}g');
+        if (d['isFasting'] != null) parts.add(d['isFasting'] == true || d['isFasting'] == 1 ? '空腹' : '非空腹');
+        return parts.isEmpty ? '修改记录' : parts.join(' · ');
+      case 'delete_weight':
+        return '已删除';
+      case 'create_bird':
+        final name = d['name'] ?? '?';
+        final gender = _genderLabel(d['gender']);
+        final species = d['speciesName'] as String?;
+        final parts = <String>['「$name」'];
+        if (gender != '未知') parts.add(gender);
+        if (species != null && species.isNotEmpty) parts.add(species);
+        return parts.join(' · ');
+      case 'update_bird':
+        final name = d['name'] ?? '?';
+        final changes = <String>[];
+        if (d['ringNumber'] != null) changes.add('脚环号 ${d['ringNumber']}');
+        if (d['gender'] != null) changes.add(_genderLabel(d['gender']));
+        if (d['speciesName'] != null) changes.add('品种 ${d['speciesName']}');
+        if (d['status'] != null) changes.add('状态 ${d['status']}');
+        if (changes.isEmpty) return '「$name」';
+        return '「$name」— ${changes.join(' · ')}';
       case 'create_room':
+        return '「${d['name'] ?? '?'}」';
       case 'create_species':
-        return d['name'] ?? '';
+        return '「${d['name'] ?? '?'}」';
       case 'create_user':
-        return d['displayName'] ?? d['username'] ?? '';
+        final name = d['displayName'] ?? d['username'] ?? '?';
+        final role = _roleLabel(d['role']);
+        return '「$name」（$role）';
       default:
         return d.toString();
     }
