@@ -122,6 +122,24 @@ class _DesktopLayoutState extends State<DesktopLayout>
   }
 
   void _openTabInPane(int index, {required bool rightPane}) {
+    // Global dedup: all pages except BirdArchive (index 2) must be unique
+    // across both panes. BirdArchive can appear in both panes simultaneously.
+    if (index != 2) {
+      final leftIdx = _leftTabs.indexWhere((t) => t.index == index);
+      if (leftIdx >= 0) {
+        _leftTabCtrl?.animateTo(leftIdx);
+        setState(() { _selectedIndex = index; _rightPaneActive.value = false; });
+        return;
+      }
+      final rightIdx = _rightTabs.indexWhere((t) => t.index == index);
+      if (rightIdx >= 0) {
+        _rightTabCtrl?.animateTo(rightIdx);
+        setState(() { _selectedIndex = index; _rightPaneActive.value = true; });
+        return;
+      }
+    }
+
+    // Target-pane dedup
     final tabs = rightPane ? _rightTabs : _leftTabs;
     final existing = tabs.indexWhere((t) => t.index == index);
     if (existing >= 0) {
@@ -133,9 +151,6 @@ class _DesktopLayoutState extends State<DesktopLayout>
       setState(() => _selectedIndex = index);
       return;
     }
-
-    // Don't add duplicate bird archives in split view
-    if (rightPane && index == 2) return;
 
     final widget = _buildScreen(index,
         hideBirdList: rightPane && index == 2);
@@ -259,6 +274,8 @@ class _DesktopLayoutState extends State<DesktopLayout>
   // ── Drag right-pane tab back to left pane ──
   void _openTabInLeftPane(int index) {
     final rightIdx = _rightTabs.indexWhere((t) => t.index == index);
+    final leftHas = _leftTabs.any((t) => t.index == index);
+    debugPrint('[SPLIT] openInLeft index=$index rightIdx=$rightIdx leftHas=$leftHas');
     if (rightIdx < 0) return;
 
     setState(() {
@@ -266,7 +283,6 @@ class _DesktopLayoutState extends State<DesktopLayout>
 
       if (!_leftTabs.any((t) => t.index == index)) {
         _leftTabs.add(_TabData(index, _buildScreen(index)));
-        // rebuild left controller after adding, outside setState
       }
     });
 
@@ -280,6 +296,7 @@ class _DesktopLayoutState extends State<DesktopLayout>
     } else {
       _rebuildRightCtrl(_rightTabCtrl!.index.clamp(0, _rightTabs.length - 1));
     }
+    debugPrint('[SPLIT] done leftLen=${_leftTabs.length} rightLen=${_rightTabs.length}');
   }
 
   void _closeRightTab(int tabIdx) {
@@ -875,6 +892,7 @@ class _TabHeader extends StatelessWidget {
               // Use _DraggableTab — supports both mouse drag (immediate) and
               // touch long-press via a dual-mode gesture detector.
               return _DraggableTab(
+                key: ValueKey('drag_${tabs[i].index}'),
                 tabIndex: tabs[i].index,
                 label: label,
                 isSelected: isSelected,
@@ -913,6 +931,7 @@ class _DraggableTab extends StatefulWidget {
   final VoidCallback? onDragEnded;
 
   const _DraggableTab({
+    super.key,
     required this.tabIndex,
     required this.label,
     required this.isSelected,
@@ -932,6 +951,7 @@ class _DraggableTab extends StatefulWidget {
 
 class _DraggableTabState extends State<_DraggableTab> {
   void _onDragStarted() {
+    debugPrint('[DRAG] started label="${widget.label}" dragToLeft=${widget.dragToLeft}');
     widget.onDragStarted?.call();
   }
 
@@ -963,6 +983,7 @@ class _DraggableTabState extends State<_DraggableTab> {
       onDragEnd: (details) {
         final dx = details.offset.dx;
         final hit = widget.dragToLeft ? dx < -120 : dx > 120;
+        debugPrint('[DRAG] end dx=$dx dragToLeft=${widget.dragToLeft} hit=$hit tabIndex=${widget.tabIndex}');
         if (hit) {
           widget.onDragToSplit(widget.tabIndex);
         }
