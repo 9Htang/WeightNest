@@ -11,8 +11,9 @@ class WorkerInfo {
   final String displayName;
   final String username;
   final String role;
+  final bool isInitializing;
 
-  const WorkerInfo({this.userId, this.displayName = '未选择', this.username = '', this.role = ''});
+  const WorkerInfo({this.userId, this.displayName = '未选择', this.username = '', this.role = '', this.isInitializing = false});
 
   bool get isSelected => userId != null;
   bool get isAdmin => role == 'admin';
@@ -20,7 +21,7 @@ class WorkerInfo {
 
 /// 员工状态管理
 class WorkerNotifier extends StateNotifier<WorkerInfo> {
-  WorkerNotifier() : super(const WorkerInfo()) {
+  WorkerNotifier() : super(const WorkerInfo(isInitializing: true)) {
     _load();
   }
 
@@ -37,7 +38,8 @@ class WorkerNotifier extends StateNotifier<WorkerInfo> {
     final username = prefs.getString(_keyUsername) ?? '';
     if (id != null && name != null) {
       if (role == 'admin') {
-        await clear();
+        state = const WorkerInfo();
+        await _clearPrefs();
         return;
       }
       state = WorkerInfo(userId: id, displayName: name, username: username, role: role);
@@ -63,12 +65,16 @@ class WorkerNotifier extends StateNotifier<WorkerInfo> {
     state = WorkerInfo(userId: id, displayName: name);
   }
 
-  Future<void> clear() async {
+  Future<void> _clearPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyId);
     await prefs.remove(_keyName);
     await prefs.remove(_keyRole);
     await prefs.remove(_keyUsername);
+  }
+
+  Future<void> clear() async {
+    await _clearPrefs();
     state = const WorkerInfo();
   }
 }

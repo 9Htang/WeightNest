@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../worker/worker_screen.dart';
@@ -66,9 +68,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = '管理员请使用电脑端管理\n手机端仅供饲养员使用');
       return;
     }
-    if (u.passwordHash.isNotEmpty && _passwordCtrl.text != u.passwordHash) {
-      setState(() => _error = '密码错误');
-      return;
+    if (u.passwordHash.isNotEmpty) {
+      final entered = _passwordCtrl.text;
+      final enteredHash = sha256.convert(utf8.encode(entered)).toString();
+      // 兼容旧版明文存储：先比较哈希，再比较明文
+      if (enteredHash != u.passwordHash && entered != u.passwordHash) {
+        setState(() => _error = '密码错误');
+        return;
+      }
     }
 
     setState(() { _loggingIn = true; _error = null; });

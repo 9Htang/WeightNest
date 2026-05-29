@@ -73,7 +73,7 @@ class SyncEngine {
           if (count == 0) await _db.removeSpecies(sp.id);
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   Future<void> _fullSyncRooms() async {
@@ -99,7 +99,7 @@ class SyncEngine {
       }
       // 保存服务端房间名集合，供后续清理用
       _serverRoomNames = serverNames;
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   Future<void> _cleanupRooms() async {
@@ -112,7 +112,7 @@ class SyncEngine {
           if (count == 0) await _db.removeRoom(room.id);
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   Set<String>? _serverRoomNames;
@@ -149,7 +149,7 @@ class SyncEngine {
           await _db.updateUser(user.id, isActive: false);
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   Future<void> _fullSyncBirds() async {
@@ -223,7 +223,7 @@ class SyncEngine {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   /// 设置服务端地址
@@ -273,7 +273,7 @@ class SyncEngine {
       if (res.statusCode == 200) {
         _token = jsonDecode(res.body)['token'];
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   /// SSE 长连接监听服务端推送
@@ -317,10 +317,10 @@ class SyncEngine {
             final change = jsonDecode(data) as Map<String, dynamic>;
             await _applyChanges([change]);
             _lastPull = DateTime.now();
-          } catch (_) {}
+          } catch (e) { print('同步 engine: $e'); }
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
 
     _scheduleReconnect();
   }
@@ -417,7 +417,7 @@ class SyncEngine {
         if (task != null) {
           await _db.completeTask(task.task.id, op.userId);
         }
-      } catch (_) {}
+      } catch (e) { print('同步 engine: $e'); }
     }
   }
 
@@ -452,7 +452,7 @@ class SyncEngine {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { print('同步 engine: $e'); }
   }
 
   Future<void> _applyChanges(List changes) async {
@@ -488,7 +488,7 @@ class SyncEngine {
             await _applyTask(data);
             break;
         }
-      } catch (_) {}
+      } catch (e) { print('同步 engine: $e'); }
     }
   }
 

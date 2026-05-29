@@ -1,5 +1,5 @@
 name: weightnest_server
-description: WeightNest 中央服务器 — Dart shelf + PostgreSQL (WSL2)
+description: WeightNest 中央服务器 — Dart shelf + SQLite (单文件数据库)
 version: 1.0.0
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -9,6 +9,6 @@ dependencies:
   shelf_router: ^1.1.0
   shelf_cors_headers: ^0.1.5
   uuid: ^4.5.3
-  postgres: ^3.4.0
+  sqlite3: ^2.4.0
   qr: ^3.0.0
   path: ^1.9.0

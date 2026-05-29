@@ -723,7 +723,8 @@ class _ChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ChartPainter oldDelegate) =>
+      oldDelegate.points != points || oldDelegate.lineColor != lineColor || oldDelegate.dotColor != dotColor;
 }
 
 /// 日期标签画笔——在 X 轴关键位置画日期
@@ -752,7 +753,8 @@ class _DateLabelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _DateLabelPainter oldDelegate) =>
+      oldDelegate.dates != dates || oldDelegate.points != points;
 }
 
 class _WeightEditDialog extends StatefulWidget {

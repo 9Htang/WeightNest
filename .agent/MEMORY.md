@@ -24,7 +24,8 @@
 - LAN IP 自动检测（跳过虚拟网卡，优先 WLAN）
 
 ### 服务端 ✅
-- Docker Compose 部署 (shelf + PostgreSQL)
+- Docker Compose 部署 (shelf + PostgreSQL) → **已改为 SQLite 单文件数据库（方案 A）**
+- `feature/sqlite-standalone` 分支：server.exe 独立可执行文件（6.9 MB），零依赖部署
 - API：/health, /auth/connect, /sync, /changes, /data-version
 - /birds, /birds/:id, /birds/:id/weights
 - /users, POST /users, PATCH /users/:id
@@ -44,9 +45,10 @@
 - 防火墙规则：`netsh advfirewall firewall add rule name="WeightNest" dir=in action=allow protocol=TCP localport=8080`
 
 ## 待开发
-- [ ] UDP 广播自动发现（手机端发广播 → 桌面端应答 IP）
+- [x] UDP 广播自动发现（手机端发广播 → 桌面端应答 IP）— discovery_client/server 已实现
 - [ ] 数据报表导出模块（桌面端第四模块）
 - [ ] 全架构 APK（x86 兼容）
+- [ ] 方案 A 合并到 main（`feature/sqlite-standalone` 分支）
 
 ## 已知问题
 - Excel 导出 Android scoped storage → 改用临时目录 + 分享

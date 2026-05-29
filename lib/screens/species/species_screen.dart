@@ -62,6 +62,10 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
     );
   }
 
+  void _disposeControllers(List<TextEditingController> controllers) {
+    for (final c in controllers) { c.dispose(); }
+  }
+
   void _showEditDialog(BuildContext context, Specy? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final nestlingEndCtrl = TextEditingController(text: '${existing?.nestlingEndDays ?? 45}');
@@ -101,7 +105,12 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              _disposeControllers([nameCtrl, nestlingEndCtrl, juvenileEndCtrl, nestlingWICtrl, juvenileWICtrl, adultWICtrl]);
+              Navigator.pop(ctx);
+            },
+            child: const Text('取消')),
           FilledButton(onPressed: () async {
             final name = nameCtrl.text.trim();
             if (name.isEmpty) return;
@@ -155,6 +164,7 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
                 );
               }
             }
+            _disposeControllers([nameCtrl, nestlingEndCtrl, juvenileEndCtrl, nestlingWICtrl, juvenileWICtrl, adultWICtrl]);
             ref.invalidate(allSpeciesProvider);
             if (ctx.mounted) Navigator.pop(ctx);
           }, child: const Text('保存')),

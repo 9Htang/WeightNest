@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers.dart';
 import '../../services/discovery_client.dart';
 
@@ -140,7 +141,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
         if (mounted) {
           setState(() { _status = '登录成功，同步数据中...'; _connecting = false; });
-          await Future.delayed(const Duration(seconds: 1));
           if (mounted) Navigator.of(context).pop(true);
         }
       } else {
@@ -177,9 +177,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
         ref.read(syncConnectedProvider.notifier).state = true;
 
+        // 保存 PIN 供下次自动发现使用
+        final sp = await SharedPreferences.getInstance();
+        await sp.setString('connect_pin', pin);
+
         if (mounted) {
           setState(() { _status = '已连接！同步数据中...'; _connecting = false; });
-          await Future.delayed(const Duration(seconds: 1));
           if (mounted) Navigator.of(context).pop(true);
         }
       } else if (res.statusCode == 403) {
@@ -250,6 +253,25 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                               fit: StackFit.expand,
                               children: [
                                 MobileScanner(
+                                  errorBuilder: (context, error, child) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.no_photography, size: 48, color: Colors.grey),
+                                          const SizedBox(height: 8),
+                                          const Text('无法打开相机', style: TextStyle(color: Colors.grey)),
+                                          const SizedBox(height: 4),
+                                          Text('请授予相机权限后重试', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                                          const SizedBox(height: 12),
+                                          OutlinedButton(
+                                            onPressed: () => setState(() => _scanning = false),
+                                            child: const Text('手动输入 IP'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                   onDetect: (capture) {
                                     for (final barcode in capture.barcodes) {
                                       if (barcode.rawValue != null) {
@@ -310,7 +332,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                     Expanded(flex: 3, child: TextField(
                       controller: _ipController,
                       decoration: const InputDecoration(labelText: '服务器 IP', hintText: '192.168.x.x', isDense: true),
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.url,
+                      inputFormatters: [],
                     )),
                     const SizedBox(width: 8),
                     Expanded(flex: 1, child: TextField(

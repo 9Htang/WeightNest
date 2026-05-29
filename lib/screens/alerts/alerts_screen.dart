@@ -10,8 +10,7 @@ class AlertsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final db = ref.watch(databaseProvider);
-    final service = AlertService(db);
+    final alertsAsync = ref.watch(alertListProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -24,23 +23,17 @@ class AlertsScreen extends ConsumerWidget {
                 const SnackBar(content: Text('已确认提醒（下次启动重新检测）'), behavior: SnackBarBehavior.floating),
               );
               ref.invalidate(alertCountProvider);
+              ref.invalidate(alertListProvider);
             },
             child: const Text('忽略全部', style: TextStyle(color: Colors.white70, fontSize: 13)),
           ),
         ],
       ),
 
-      body: FutureBuilder<List<AnomalyAlert>>(
-        future: service.detectAll(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('加载失败: ${snapshot.error}'));
-          }
-
-          final alerts = snapshot.data ?? [];
+      body: alertsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('加载失败: $e')),
+        data: (alerts) {
           if (alerts.isEmpty) {
             return Center(
               child: Column(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../providers.dart';
 import '../../repositories/user_repository.dart';
@@ -23,6 +24,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   _Step _step = _Step.init;
   String _status = '';
   String? _myIp;
+  String? _pin;
   DiscoveredServer? _found;
 
   @override
@@ -45,6 +47,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<void> _doDiscovery() async {
     final hasCache = ref.read(workerProvider).isSelected;
+    // 读取缓存的 PIN（若有），避免硬编码
+    final sp = await SharedPreferences.getInstance();
+    _pin = sp.getString('connect_pin');
 
     // Step 1: get local network info
     setState(() { _step = _Step.init; _status = '检测网络...'; });
@@ -85,7 +90,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (hasCache) {
         // Cached user → can go offline
         setState(() { _status = '离线模式'; });
-        await Future.delayed(const Duration(milliseconds: 600));
         if (mounted) _goNext(true);
       }
     }
@@ -96,16 +100,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       final res = await http.post(
         Uri.parse('http://$host:$port/auth/connect'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'pin': '1234', 'deviceId': 'flutter'}),
+        body: jsonEncode({'pin': _pin ?? '1234', 'deviceId': 'flutter'}),
       ).timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final token = body['token'] as String;
+        final pin = _pin ?? '1234';
         final engine = ref.read(syncEngineProvider);
-        await engine.connect(host, port, token, pin: '1234');
+        await engine.connect(host, port, token, pin: pin);
         engine.start();
         ref.read(syncConnectedProvider.notifier).state = true;
+
+        // 保存 PIN 供下次自动发现使用
+        if (_pin == null) {
+          final sp = await SharedPreferences.getInstance();
+          await sp.setString('connect_pin', pin);
+        }
 
         // 同步完成后校验缓存用户：如果服务端已不存在该用户，清除缓存
         final worker = ref.read(workerProvider);

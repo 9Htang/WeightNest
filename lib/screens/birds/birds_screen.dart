@@ -100,17 +100,23 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   }
 
   Widget _buildBirdList(BuildContext context, List<BirdWithDetails> birds, WidgetRef ref) {
+    final weightsAsync = ref.watch(allLatestWeightsProvider);
+
     return ReorderableListView.builder(
       itemCount: birds.length,
       onReorder: (oldIndex, newIndex) async {
         if (newIndex > oldIndex) newIndex--;
-        final item = birds.removeAt(oldIndex);
-        birds.insert(newIndex, item);
-        setState(() {});
-        // 持久化排序
+        final reordered = List<BirdWithDetails>.from(birds);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        setState(() {
+          birds
+            ..clear()
+            ..addAll(reordered);
+        });
         final orders = <int, int>{};
-        for (int i = 0; i < birds.length; i++) {
-          orders[birds[i].bird.id] = i;
+        for (int i = 0; i < reordered.length; i++) {
+          orders[reordered[i].bird.id] = i;
         }
         final db = ref.read(databaseProvider);
         await db.updateSortOrders(orders);
@@ -120,6 +126,11 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
         return _BirdListTile(
           key: ValueKey(b.bird.id),
           bird: b,
+          weight: weightsAsync.when(
+            data: (map) => map[b.bird.id],
+            loading: () => null,
+            error: (_, __) => null,
+          ),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: b)),
@@ -186,8 +197,13 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
         context: context,
         builder: (ctx) => _AddBirdDialog(spList: spList, roomList: roomList),
       ).then((_) => ref.invalidate(allBirdsProvider));
-    } catch (_) {
+    } catch (e) {
       if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载失败: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
     }
   }
 }
@@ -434,12 +450,14 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
 /// 鹦鹉列表项
 class _BirdListTile extends ConsumerWidget {
   final BirdWithDetails bird;
+  final Weight? weight;
   final VoidCallback onTap;
   final VoidCallback onWeigh;
 
   const _BirdListTile({
     super.key,
     required this.bird,
+    required this.weight,
     required this.onTap,
     required this.onWeigh,
   });
@@ -447,7 +465,7 @@ class _BirdListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final latestWeight = ref.watch(latestWeightProvider(bird.bird.id));
+    final w = weight;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -465,7 +483,6 @@ class _BirdListTile extends ConsumerWidget {
                   child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
                 ),
               ),
-              // 鸟头像
               Container(
                 width: 40, height: 40,
                 decoration: BoxDecoration(
@@ -481,7 +498,6 @@ class _BirdListTile extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // 信息
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,27 +522,21 @@ class _BirdListTile extends ConsumerWidget {
                   ],
                 ),
               ),
-              // 体重
-              latestWeight.when(
-                data: (w) => w != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('${w.weightG.toStringAsFixed(1)}g',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary)),
-                          Text(_formatDate(w.recordedAt),
-                            style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
-                        ],
-                      )
-                    : const Text('-', style: TextStyle(color: Colors.grey)),
-                loading: () => const SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-                error: (_, __) => const Text('-'),
-              ),
+              if (w != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${w.weightG.toStringAsFixed(1)}g',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary)),
+                    Text(_formatDate(w.recordedAt),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
+                  ],
+                )
+              else
+                const Text('-', style: TextStyle(color: Colors.grey)),
               const SizedBox(width: 4),
-              // 快速称重
               IconButton(
                 icon: const Icon(Icons.monitor_weight_outlined, size: 20),
                 tooltip: '称重',

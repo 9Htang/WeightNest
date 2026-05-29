@@ -58,6 +58,12 @@ class _MobileShellState extends ConsumerState<MobileShell> {
   Widget build(BuildContext context) {
     final worker = ref.watch(workerProvider);
 
+    if (worker.isInitializing) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     if (!worker.isSelected) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacement(
@@ -78,7 +84,7 @@ class _MobileShellState extends ConsumerState<MobileShell> {
         children: const [
           HomeShell(),
           TasksScreen(),
-          SizedBox.shrink(), // Placeholder for weigh tab
+          WeighScreen(roomId: null),
           BirdsScreen(),
           SettingsScreen(),
         ],
@@ -86,14 +92,6 @@ class _MobileShellState extends ConsumerState<MobileShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
-          if (i == 2) {
-            // Weigh tab — push to weigh screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WeighScreen(roomId: null)),
-            );
-            return;
-          }
           setState(() => _currentIndex = i);
         },
         backgroundColor: scheme.surface,
@@ -164,7 +162,7 @@ class HomeScreenContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(initDefaultsProvider);
+    ref.read(initDefaultsProvider);
     final theme = Theme.of(context);
     final tasksAsync = ref.watch(todayTasksProvider);
     final alertsAsync = ref.watch(alertCountProvider);

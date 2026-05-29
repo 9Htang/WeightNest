@@ -223,7 +223,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
 final weighProvider =
     StateNotifierProvider<WeighNotifier, WeighState>((ref) {
   final db = ref.watch(databaseProvider);
-  final syncQueue = SyncQueueService(db);
+  final syncQueue = ref.watch(syncQueueProvider);
   return WeighNotifier(db, syncQueue, onWeightSaved: () {
     ref.read(weightSavedProvider.notifier).state++;
   });

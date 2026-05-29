@@ -24,6 +24,15 @@ final allBirdsProvider = FutureProvider<List<BirdWithDetails>>((ref) async {
   return db.getAllWithDetails();
 });
 
+/// 所有鹦鹉的最新体重（批量查询，避免 N+1）
+final allLatestWeightsProvider = FutureProvider<Map<int, Weight?>>((ref) async {
+  ref.watch(weightSavedProvider);
+  final db = ref.watch(databaseProvider);
+  final birds = await db.getAllWithDetails();
+  if (birds.isEmpty) return {};
+  return db.getLatestByBirds(birds.map((b) => b.bird.id).toList());
+});
+
 /// 某只鹦鹉的体重列表
 final birdWeightsProvider =
     FutureProvider.family<List<Weight>, int>((ref, birdId) async {
@@ -85,6 +94,13 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
   if (users.isEmpty) {
     await db.createUser('admin', '管理员', '', role: 'admin');
   }
+});
+
+/// 异常提醒详细列表（用于异常页面展示）
+final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final service = AlertService(db);
+  return service.detectAll();
 });
 
 /// 异常提醒数量

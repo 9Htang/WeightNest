@@ -36,23 +36,31 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                 itemCount: rooms.length,
                 onReorder: (oldIndex, newIndex) async {
                   if (newIndex > oldIndex) newIndex--;
-                  final item = rooms.removeAt(oldIndex);
-                  rooms.insert(newIndex, item);
-                  setState(() {});
+                  final reordered = List<Room>.from(rooms);
+                  final item = reordered.removeAt(oldIndex);
+                  reordered.insert(newIndex, item);
+                  setState(() {
+                    rooms
+                      ..clear()
+                      ..addAll(reordered);
+                  });
                   final db = ref.read(databaseProvider);
                   final userId = ref.read(workerProvider).userId;
-                  for (int i = 0; i < rooms.length; i++) {
-                    final room = await db.updateRoom(rooms[i].id, sortOrder: i);
-                    if (userId != null) {
-                      await ref.read(syncQueueProvider).enqueue(
-                        userId: userId,
-                        action: 'update_room',
-                        entityType: 'room',
-                        entityUuid: room.uuid,
-                        payload: {'sortOrder': i},
-                      );
-                    }
+                  final futures = <Future>[];
+                  for (int i = 0; i < reordered.length; i++) {
+                    futures.add(db.updateRoom(reordered[i].id, sortOrder: i).then((room) async {
+                      if (userId != null) {
+                        await ref.read(syncQueueProvider).enqueue(
+                          userId: userId,
+                          action: 'update_room',
+                          entityType: 'room',
+                          entityUuid: room.uuid,
+                          payload: {'sortOrder': i},
+                        );
+                      }
+                    }));
                   }
+                  await Future.wait(futures);
                   ref.invalidate(allRoomsProvider);
                 },
                 itemBuilder: (context, i) {
@@ -132,7 +140,12 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                nameCtrl.dispose();
+                Navigator.pop(ctx);
+              },
+              child: const Text('取消')),
             FilledButton(onPressed: () async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
@@ -162,6 +175,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                   );
                 }
               }
+              nameCtrl.dispose();
               ref.invalidate(allRoomsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             }, child: const Text('保存')),
