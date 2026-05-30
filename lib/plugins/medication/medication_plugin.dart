@@ -36,6 +36,38 @@ class MedicationPlugin extends FeaturePlugin {
   @override
   shelf.Router? serverRoutes(AppDatabase db) => createMedicationRoutes(db);
 
+  // ── Pages (Singleton + Calendar) ──
+
+  @override
+  List<PluginPageDescriptor> get pages => [
+        PluginPageDescriptor(
+          key: 'drug-config',
+          title: '药品配置',
+          icon: Icons.medical_services,
+          uniqueness: PageUniqueness.singleton,
+          showInSidebar: true,
+          builder: (ctx) => const _DrugConfigPage(),
+        ),
+        PluginPageDescriptor(
+          key: 'calendar',
+          title: '喂药日历',
+          icon: Icons.calendar_month,
+          uniqueness: PageUniqueness.none,
+          showInSidebar: true,
+          builder: (ctx) => MedicationCalendarView(birdId: ctx.birdId),
+        ),
+      ];
+
+  @override
+  Map<String, Function> get dataQueries => {
+        // 其他插件可调用: registry.call('medication', 'getPlans', birdId)
+        'getPlans': (int birdId) async {
+          final db = pluginRegistry.db;
+          if (db == null) return <Medication>[];
+          return db.getMedicationsByBird(birdId);
+        },
+      };
+
   // ── Slot D: 日历视图 ──
 
   @override
@@ -182,5 +214,150 @@ class _MedicationDetailViewState extends State<_MedicationDetailView> {
         );
       }).toList(),
     );
+  }
+}
+
+// ── Drug Config Page (Singleton) ──
+
+class _DrugConfigPage extends StatefulWidget {
+  const _DrugConfigPage();
+
+  @override
+  State<_DrugConfigPage> createState() => _DrugConfigPageState();
+}
+
+class _DrugConfigPageState extends State<_DrugConfigPage> {
+  String _drugName = '';
+  String _dosage = '';
+  double _coefficient = 0.001;
+  String _drugType = '驱虫';
+  int _timesPerDay = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('药品配置'),
+        actions: [
+          Icon(Icons.info_outline, size: 18, color: Colors.grey.shade500),
+          const SizedBox(width: 12),
+          Text('剂量 = 体重(g) × 系数',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('添加药品', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(labelText: '药品名称', hintText: '伊维菌素', border: OutlineInputBorder()),
+                    onChanged: (v) => _drugName = v,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(labelText: '每次剂量', hintText: '0.1ml', border: OutlineInputBorder()),
+                        onChanged: (v) => _dosage = v,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(labelText: '系数 (mg/g)', hintText: '0.001', border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) => _coefficient = double.tryParse(v) ?? 0.001,
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _drugType,
+                        decoration: const InputDecoration(labelText: '类型', border: OutlineInputBorder()),
+                        items: ['抗生素', '驱虫', '维生素', '益生菌', '其他']
+                            .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        onChanged: (v) => setState(() => _drugType = v!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: _timesPerDay,
+                        decoration: const InputDecoration(labelText: '每天次数', border: OutlineInputBorder()),
+                        items: [1, 2, 3].map((n) => DropdownMenuItem(
+                            value: n,
+                            child: Text('$n 次/天  (${_hourLabel(n)})'))).toList(),
+                        onChanged: (v) => setState(() => _timesPerDay = v!),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _drugName.isEmpty || _dosage.isEmpty
+                        ? null
+                        : () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('$_drugName 已添加')),
+                            );
+                            setState(() {
+                              _drugName = '';
+                              _dosage = '';
+                            });
+                          },
+                    icon: const Icon(Icons.add),
+                    label: const Text('添加药品'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.auto_awesome, size: 16, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text('自动剂量计算', style: theme.textTheme.titleSmall),
+                ]),
+                const SizedBox(height: 8),
+                Text(
+                  '当从鹦鹉详情页添加喂药方案时，系统会自动读取该鸟的最新体重，'
+                  '按「体重(g) × 系数」计算建议剂量。',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '例: 100g × 0.001 = 0.1ml   |   150g × 0.001 = 0.15ml',
+                  style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.blue.shade700),
+                ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _hourLabel(int n) {
+    switch (n) {
+      case 1: return '8:00';
+      case 2: return '8:00, 20:00';
+      case 3: return '8:00, 14:00, 20:00';
+      default: return '8:00';
+    }
   }
 }

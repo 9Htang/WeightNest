@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show NetworkInterface, InternetAddressType;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../core/plugin_page_manager.dart';
 import 'package:qr/qr.dart';
 import '../services/auth_manager.dart';
 import '../services/audit_log_service.dart';
@@ -83,6 +84,7 @@ class _DesktopLayoutState extends State<DesktopLayout>
   final _refreshKey = ValueNotifier(0);
   Timer? _pollTimer;
   int _pollInterval = 3;
+  final PluginPageManager _pageMgr = PluginPageManager();
   int _idleCount = 0;
   static const int _pollFast = 3;
   static const int _pollSlow = 15;
@@ -594,6 +596,9 @@ class _DesktopLayoutState extends State<DesktopLayout>
             onToggle: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
             onQrLogin: _showQrLogin,
             onRefresh: _doRefresh,
+            onPluginPage: (plugin, page) {
+              _pageMgr.openPage(pluginId: plugin.id, descriptor: page);
+            },
           ),
           Expanded(
             child: split ? _buildSplitView(scheme, theme) : _buildSingleView(scheme),

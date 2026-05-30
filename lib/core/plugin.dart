@@ -49,15 +49,86 @@ abstract class FeaturePlugin {
 
   // ── Slot D: 日历视图 ──
 
-  /// Title shown in the calendar view selector. Return null to opt out.
   String? get calendarTitle => null;
-
-  /// Build a calendar day view for [day]. Optionally filtered to [birdId].
   Widget? buildDayView(DateTime day, {int? birdId}) => null;
 
+  // ── Pages ──
+
+  /// Pages this plugin can open (shown in sidebar as navigation entries).
+  List<PluginPageDescriptor> get pages => [];
+
+  /// Data queries exposed to other plugins via registry.call().
+  Map<String, Function> get dataQueries => const {};
+
   /// Register event handlers — subscribe to domain events from other plugins.
-  /// Called once at app startup.
   void registerEvents(EventBus bus) {}
+}
+
+// ── Page types ──
+
+/// How uniqueness is enforced when opening a plugin page.
+enum PageUniqueness {
+  /// Allow multiple instances.
+  none,
+
+  /// Only one instance globally (e.g., settings, drug config).
+  singleton,
+
+  /// One instance per bird ID (e.g., weigh entry per bird).
+  perBird,
+}
+
+/// Describes a page type that a plugin can open.
+class PluginPageDescriptor {
+  final String key;
+  final String title;
+  final IconData icon;
+  final PageUniqueness uniqueness;
+  final bool showInSidebar;
+  final Widget Function(PluginPageContext ctx) builder;
+
+  const PluginPageDescriptor({
+    required this.key,
+    required this.title,
+    required this.icon,
+    this.uniqueness = PageUniqueness.none,
+    this.showInSidebar = true,
+    required this.builder,
+  });
+}
+
+/// Context passed to a plugin page builder.
+class PluginPageContext {
+  final int? birdId;
+  final Map<String, dynamic> params;
+
+  const PluginPageContext({this.birdId, this.params = const {}});
+}
+
+/// A running page instance with uniqueness tracking.
+class PluginPage {
+  final String pluginId;
+  final String pageKey;
+  final int? birdId;
+  final PageUniqueness uniqueness;
+  final Widget widget;
+
+  PluginPage({
+    required this.pluginId,
+    required this.pageKey,
+    this.birdId,
+    required this.uniqueness,
+    required this.widget,
+  });
+
+  String get id => '$pluginId:$pageKey${birdId != null ? ":$birdId" : ""}';
+
+  bool matches(PluginPageDescriptor d, {int? birdId}) {
+    if (pluginId != '') return false; // placeholder check handled by caller
+    if (uniqueness == PageUniqueness.singleton) return true;
+    if (uniqueness == PageUniqueness.perBird) return this.birdId == birdId;
+    return false;
+  }
 }
 
 /// A content section contributed by a plugin to the bird detail page.

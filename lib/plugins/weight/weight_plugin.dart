@@ -28,7 +28,21 @@ class WeightPlugin extends FeaturePlugin {
   List<dynamic> get tables => const [];
 
   @override
-  Map<String, WidgetBuilder> routes(AppDatabase db) => const {};
+  Map<String, WidgetBuilder> routes(AppDatabase db) => const {
+        // Weigh screen is accessed via pages[] sidebar entry, not routes
+      };
+
+  @override
+  List<PluginPageDescriptor> get pages => [
+        PluginPageDescriptor(
+          key: 'weigh',
+          title: '称重录入',
+          icon: Icons.monitor_weight,
+          uniqueness: PageUniqueness.perBird,
+          showInSidebar: true,
+          builder: (ctx) => const Placeholder(), // TODO: wire weigh screen
+        ),
+      ];
 
   @override
   shelf.Router? serverRoutes(AppDatabase db) => createWeightRoutes(db);

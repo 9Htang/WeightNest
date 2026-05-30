@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/plugin.dart';
+import '../../plugins/plugins.dart';
 import 'widgets/plugin_settings_dialog.dart';
 
 class SidebarItem {
@@ -30,6 +32,7 @@ class CollapsibleSidebar extends StatelessWidget {
   final VoidCallback onQrLogin;
   final VoidCallback onRefresh;
   final VoidCallback? onToggleTheme;
+  final void Function(FeaturePlugin plugin, PluginPageDescriptor page)? onPluginPage;
 
   const CollapsibleSidebar({
     super.key,
@@ -40,6 +43,7 @@ class CollapsibleSidebar extends StatelessWidget {
     required this.onQrLogin,
     required this.onRefresh,
     this.onToggleTheme,
+    this.onPluginPage,
   });
 
   @override
@@ -84,6 +88,25 @@ class CollapsibleSidebar extends StatelessWidget {
               }),
             ),
           ),
+          // ── Plugin pages (dynamic) ──
+          if (onPluginPage != null) ...[
+            const SizedBox(height: 4),
+            Divider(height: 1, color: scheme.outlineVariant.withAlpha(40)),
+            if (!collapsed)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 0, 2),
+                child: Text('插件', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, letterSpacing: 1)),
+              ),
+            for (final plugin in pluginRegistry.enabledPlugins)
+              for (final page in plugin.pages.where((p) => p.showInSidebar))
+                _SidebarAction(
+                  icon: page.icon,
+                  label: page.title,
+                  collapsed: collapsed,
+                  onTap: () => onPluginPage!(plugin, page),
+                ),
+          ],
+
           // ── Bottom actions ──
           Divider(height: 1, color: scheme.outlineVariant.withAlpha(40)),
           Padding(

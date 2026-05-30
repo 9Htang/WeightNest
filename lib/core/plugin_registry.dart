@@ -30,6 +30,20 @@ class PluginRegistry {
     db = database;
   }
 
+  /// Get a plugin by ID.
+  FeaturePlugin? getPlugin(String id) {
+    for (final p in enabledPlugins) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// Call a data query exposed by a plugin.
+  /// Plugin A: `registry.call('weights', 'getLatestWeight', birdId)`
+  dynamic call(String pluginId, String query, [dynamic arg]) {
+    return getPlugin(pluginId)?.dataQueries[query]?.call(arg);
+  }
+
   /// Enable or disable a plugin by ID.
   void setEnabled(String id, bool enabled) {
     for (final p in _plugins) {
