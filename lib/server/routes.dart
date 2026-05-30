@@ -5,7 +5,6 @@ import '../repositories/species_repository.dart';
 import '../repositories/room_repository.dart';
 import '../repositories/user_repository.dart';
 import '../repositories/bird_repository.dart';
-import '../repositories/weight_repository.dart';
 import '../repositories/task_repository.dart';
 import '../core/plugin_registry.dart';
 import 'json_response.dart';
@@ -141,46 +140,6 @@ Router createApiRouter(AppDatabase db, {PluginRegistry? registry}) {
   router.delete('/birds/<id>', (req, String id) async {
     await db.removeBird(int.parse(id));
     return jsonResponse({'success': true});
-  });
-
-  // ====== 体重 ======
-  router.get('/weights/<birdId>', (req, String birdId) async {
-    final list = await db.getByBird(int.parse(birdId));
-    return jsonList(list
-        .map((w) => {
-              'id': w.id, 'birdId': w.birdId,
-              'weightG': w.weightG,
-              'recordedAt': w.recordedAt.toIso8601String(),
-              'recordedBy': w.recordedBy,
-              'isFasting': w.isFasting, 'notes': w.notes,
-            }).toList());
-  });
-
-  router.get('/weights/<birdId>/latest', (req, String birdId) async {
-    final w = await db.getLatestByBird(int.parse(birdId));
-    if (w == null) return jsonError('暂无记录', statusCode: 404);
-    return jsonItem({
-      'id': w.id, 'birdId': w.birdId, 'weightG': w.weightG,
-      'recordedAt': w.recordedAt.toIso8601String(),
-    });
-  });
-
-  router.post('/weights', (req) async {
-    final body = await parseBody(req);
-    final birdId = body['birdId'] as int?;
-    final weightG = (body['weightG'] as num?)?.toDouble();
-    final recordedAtStr = body['recordedAt'] as String?;
-    if (birdId == null) return jsonError('鹦鹉ID不能为空');
-    if (weightG == null) return jsonError('体重不能为空');
-    final w = await db.addWeight(
-      birdId: birdId, weightG: weightG,
-      recordedAt: recordedAtStr != null
-          ? DateTime.parse(recordedAtStr) : DateTime.now(),
-      recordedBy: body['recordedBy'] as int?,
-      isFasting: body['isFasting'] as bool? ?? false,
-      notes: body['notes'] as String?,
-    );
-    return jsonItem({'id': w.id, 'birdId': w.birdId, 'weightG': w.weightG});
   });
 
   // ====== 任务 ======
