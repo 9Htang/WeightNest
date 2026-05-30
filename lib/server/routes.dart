@@ -7,9 +7,10 @@ import '../repositories/user_repository.dart';
 import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../repositories/task_repository.dart';
+import '../core/plugin.dart';
 import 'json_response.dart';
 
-Router createApiRouter(AppDatabase db) {
+Router createApiRouter(AppDatabase db, {List<FeaturePlugin> plugins = const []}) {
   final router = Router();
 
   // ====== 品种 ======
@@ -228,6 +229,14 @@ Router createApiRouter(AppDatabase db) {
   // ====== 健康检查 ======
   router.get('/health', (req) =>
       jsonResponse({'status': 'ok', 'version': appVersion}));
+
+  // ====== 插件路由自动挂载 ======
+  for (final plugin in plugins) {
+    final pluginRouter = plugin.serverRoutes;
+    if (pluginRouter != null) {
+      router.mount('/api/${plugin.id}/', pluginRouter.call);
+    }
+  }
 
   return router;
 }
