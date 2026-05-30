@@ -14,6 +14,9 @@ class MedicationPlugin extends FeaturePlugin {
   String get displayName => '喂药';
 
   @override
+  String get description => '药品类型、剂量、频率管理，自动生成定时喂药任务';
+
+  @override
   IconData get icon => Icons.medication_outlined;
 
   @override

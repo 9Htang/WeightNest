@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'widgets/plugin_settings_dialog.dart';
 
 class SidebarItem {
   final String label;
@@ -102,6 +103,12 @@ class CollapsibleSidebar extends StatelessWidget {
                   label: '扫码登录',
                   collapsed: collapsed,
                   onTap: onQrLogin,
+                ),
+                _SidebarAction(
+                  icon: Icons.extension_outlined,
+                  label: '插件管理',
+                  collapsed: collapsed,
+                  onTap: () => PluginSettingsDialog.show(context),
                 ),
                 _SidebarAction(
                   icon: Icons.refresh,

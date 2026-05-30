@@ -20,22 +20,33 @@ class PluginRegistry {
     plugin.registerEvents(eventBus);
   }
 
-  /// All database tables from all plugins.
-  List<dynamic> get allTables =>
-      _plugins.expand((p) => p.tables).toList();
+  /// Enable or disable a plugin by ID.
+  void setEnabled(String id, bool enabled) {
+    for (final p in _plugins) {
+      if (p.id == id) { p.enabled = enabled; return; }
+    }
+  }
 
-  /// All client routes merged into a single map.
+  /// Only enabled plugins.
+  List<FeaturePlugin> get enabledPlugins =>
+      _plugins.where((p) => p.enabled).toList();
+
+  /// All database tables from enabled plugins.
+  List<dynamic> get allTables =>
+      enabledPlugins.expand((p) => p.tables).toList();
+
+  /// All client routes from enabled plugins.
   Map<String, WidgetBuilder> allRoutes(AppDatabase db) {
     final map = <String, WidgetBuilder>{};
-    for (final p in _plugins) {
+    for (final p in enabledPlugins) {
       map.addAll(p.routes(db));
     }
     return map;
   }
 
-  /// All server routes for plugins, mounted at /api/<plugin.id>/
+  /// All server routes for enabled plugins, mounted at /api/<plugin.id>/
   void mountServerRoutes(AppDatabase db, shelf.Router router) {
-    for (final p in _plugins) {
+    for (final p in enabledPlugins) {
       final pluginRouter = p.serverRoutes(db);
       if (pluginRouter != null) {
         router.mount('/api/${p.id}/', pluginRouter.call);

@@ -17,11 +17,18 @@ abstract class FeaturePlugin {
   /// Human-readable name shown in navigation.
   String get displayName;
 
+  /// Short description shown in plugin settings.
+  String get description => '';
+
   /// Icon for navigation (Material or Cupertino).
   IconData get icon;
 
   /// Filled variant for selected state.
   IconData? get selectedIcon;
+
+  /// Whether this plugin is currently enabled.
+  /// Disabled plugins are hidden from UI and their server routes are skipped.
+  bool enabled = true;
 
   /// Database tables declared by this plugin (for drift schema generation).
   List<dynamic> get tables;
