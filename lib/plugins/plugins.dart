@@ -1,9 +1,12 @@
 import '../core/plugin_registry.dart';
+export '../core/plugin_registry.dart' show pluginRegistry;
 import 'medication/medication_plugin.dart';
 import 'weight/weight_plugin.dart';
 
-/// Global plugin registry — the single place where all feature plugins
-/// are registered. Adding a new feature = importing its plugin + one line below.
-final pluginRegistry = PluginRegistry()
-  ..register(WeightPlugin())
-  ..register(MedicationPlugin());
+/// Register all plugins on the global registry.
+/// Adding a new feature = importing its plugin + one line below.
+void registerPlugins() {
+  pluginRegistry
+    ..register(WeightPlugin())
+    ..register(MedicationPlugin());
+}

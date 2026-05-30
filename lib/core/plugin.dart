@@ -42,7 +42,32 @@ abstract class FeaturePlugin {
   /// [db] is the app database instance.
   shelf.Router? serverRoutes(AppDatabase db);
 
+  // ── Slot B: 鹦鹉详情嵌入 ──
+
+  /// Sections this plugin contributes to the bird detail page.
+  /// Each section renders as a foldable card, ordered by [DetailSection.priority].
+  /// The plugin is responsible for fetching its own data internally
+  /// (via repository or service — not passed here to avoid coupling).
+  List<DetailSection> buildDetailSections(int birdId) => [];
+
   /// Register event handlers — subscribe to domain events from other plugins.
   /// Called once at app startup.
   void registerEvents(EventBus bus) {}
+}
+
+/// A content section contributed by a plugin to the bird detail page.
+class DetailSection {
+  final String title;
+  final IconData? icon;
+  final int priority;          // lower = higher up
+  final bool defaultExpanded;  // open by default?
+  final Widget child;
+
+  const DetailSection({
+    required this.title,
+    this.icon,
+    this.priority = 100,
+    this.defaultExpanded = true,
+    required this.child,
+  });
 }

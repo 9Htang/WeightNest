@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import '../../services/bird_archive_service.dart';
+import '../../database/database.dart';
 
 class _TrendSegment {
   final List<FlSpot> spots;
@@ -10,7 +10,7 @@ class _TrendSegment {
 }
 
 class WeightChartWidget extends StatefulWidget {
-  final List<WeightRecord> weights;
+  final List<Weight> weights;
   final double chartHeight;
 
   const WeightChartWidget({
@@ -33,7 +33,7 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     super.dispose();
   }
 
-  List<_TrendSegment> _splitTrendSegments(List<WeightRecord> sorted) {
+  List<_TrendSegment> _splitTrendSegments(List<Weight> sorted) {
     if (sorted.length < 2) {
       return [
         _TrendSegment(
@@ -158,7 +158,7 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     );
   }
 
-  Widget _buildChart(List<WeightRecord> sorted, double minWeight, double maxWeight,
+  Widget _buildChart(List<Weight> sorted, double minWeight, double maxWeight,
       List<_TrendSegment> segments, ThemeData theme) {
     return LayoutBuilder(builder: (_, constraints) {
       final baseWidth = constraints.maxWidth - 56;

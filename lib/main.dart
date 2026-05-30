@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'app.dart';
+import 'plugins/plugins.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  registerPlugins();
 
   runZonedGuarded(() {
     runApp(const WeightNestApp());

@@ -4,6 +4,10 @@ import '../database/database.dart';
 import 'plugin.dart';
 import 'event_bus.dart';
 
+/// Global plugin registry singleton — plugins access this to get the database.
+PluginRegistry get pluginRegistry => _instance;
+final _instance = PluginRegistry();
+
 /// Central registry for all feature plugins.
 ///
 /// Plugins declare their tables, routes, server APIs, and event handlers here.
@@ -11,6 +15,7 @@ import 'event_bus.dart';
 class PluginRegistry {
   final List<FeaturePlugin> _plugins = [];
   final EventBus eventBus = EventBus();
+  AppDatabase? db;
 
   List<FeaturePlugin> get plugins => List.unmodifiable(_plugins);
 
@@ -18,6 +23,11 @@ class PluginRegistry {
   void register(FeaturePlugin plugin) {
     _plugins.add(plugin);
     plugin.registerEvents(eventBus);
+  }
+
+  /// Set the database reference — call once after DB is initialized.
+  void setDatabase(AppDatabase database) {
+    db = database;
   }
 
   /// Enable or disable a plugin by ID.

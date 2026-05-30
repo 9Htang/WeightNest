@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/plugin.dart';
 import '../../services/bird_archive_service.dart';
-import 'widgets/weight_chart.dart';
+import '../plugins/plugins.dart';
 
 /// 鹦鹉全息档案页面
 class BirdArchiveScreen extends StatefulWidget {
@@ -392,34 +393,30 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── 基本信息卡片 ──
+          // ── 基本信息卡片 (主 App 负责) ──
           _buildInfoCard(theme, bird),
           const SizedBox(height: 20),
 
-          // ── 体重趋势图 (高度可拖拽调整) ──
-          if (_loadingWeights)
-            const Card(child: SizedBox(height: 250, child: Center(child: CircularProgressIndicator())))
-          else
-            WeightChartWidget(weights: _weights, chartHeight: _chartHeight),
-          // Horizontal splitter
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onVerticalDragUpdate: (d) {
-              setState(() { _chartHeight = (_chartHeight + d.delta.dy).clamp(180, 500); });
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: Container(
-                height: 6,
-                color: Colors.transparent,
-                child: Center(child: Container(height: 1, color: Colors.grey.shade300)),
-              ),
-            ),
-          ),
-
-          // ── 体重记录表 ──
-          _buildWeightTable(theme),
+          // ── 插件贡献的详情区块 (动态渲染) ──
+          for (final plugin in pluginRegistry.enabledPlugins)
+            for (final section in plugin.buildDetailSections(bird.id))
+              _buildPluginSection(section, theme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPluginSection(DetailSection s, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ExpansionTile(
+        initiallyExpanded: s.defaultExpanded,
+        title: Row(children: [
+          if (s.icon != null) Icon(s.icon, size: 18),
+          if (s.icon != null) const SizedBox(width: 8),
+          Text(s.title, style: theme.textTheme.titleSmall),
+        ]),
+        children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: s.child)],
       ),
     );
   }

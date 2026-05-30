@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/plugin_registry.dart';
 import 'database/database.dart';
 import 'repositories/bird_repository.dart';
 import 'repositories/weight_repository.dart';
@@ -15,6 +16,7 @@ import 'screens/worker/worker_screen.dart';
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(() => db.close());
+  pluginRegistry.setDatabase(db);
   return db;
 });
 
