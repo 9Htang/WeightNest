@@ -5,6 +5,7 @@ import '../../core/plugin_registry.dart';
 import '../../core/event_bus.dart';
 import '../../database/database.dart';
 import 'medication_screen.dart';
+import 'medication_calendar.dart';
 import 'medication_repository.dart';
 import 'medication_routes.dart';
 
@@ -35,6 +36,17 @@ class MedicationPlugin extends FeaturePlugin {
   @override
   shelf.Router? serverRoutes(AppDatabase db) => createMedicationRoutes(db);
 
+  // ── Slot D: 日历视图 ──
+
+  @override
+  String get calendarTitle => '喂药';
+
+  @override
+  Widget? buildDayView(DateTime day, {int? birdId}) =>
+      MedicationCalendarView(birdId: birdId, initialDay: day);
+
+  // ── Slot B: 详情嵌入 ──
+
   @override
   List<DetailSection> buildDetailSections(int birdId) => [
         DetailSection(
@@ -50,9 +62,17 @@ class MedicationPlugin extends FeaturePlugin {
   void registerEvents(EventBus bus) {}
 }
 
-class _MedicationDetailView extends StatelessWidget {
+class _MedicationDetailView extends StatefulWidget {
   final int birdId;
   const _MedicationDetailView({required this.birdId});
+  @override
+  State<_MedicationDetailView> createState() => _MedicationDetailViewState();
+}
+
+class _MedicationDetailViewState extends State<_MedicationDetailView> {
+  int _refreshKey = 0;
+
+  void _reload() => setState(() => _refreshKey++);
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +80,8 @@ class _MedicationDetailView extends StatelessWidget {
     if (db == null) return const SizedBox.shrink();
 
     return FutureBuilder<List<MedicationLogData>>(
-      future: db.getTodayLogs(birdId),
+      key: ValueKey(_refreshKey),
+      future: db.getTodayLogs(widget.birdId),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
@@ -69,7 +90,7 @@ class _MedicationDetailView extends StatelessWidget {
         if (logs.isEmpty) {
           return _buildEmpty(context);
         }
-        return _buildTimeline(context, logs, db);
+        return _buildTimeline(context, logs, db, _reload);
       },
     );
   }
@@ -85,7 +106,7 @@ class _MedicationDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeline(BuildContext context, List<MedicationLogData> logs, AppDatabase db) {
+  Widget _buildTimeline(BuildContext context, List<MedicationLogData> logs, AppDatabase db, VoidCallback reload) {
     final grouped = <String, List<MedicationLogData>>{};
     for (final l in logs) {
       grouped.putIfAbsent(l.medication.drugName, () => []).add(l);
@@ -128,7 +149,7 @@ class _MedicationDetailView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   onTap: l.isDone || l.isSkipped ? null : () async {
                     await db.giveMedication(l.log.id);
-                    // Refresh is handled by parent rebuild
+                    reload();
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

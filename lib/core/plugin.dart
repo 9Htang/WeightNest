@@ -45,10 +45,15 @@ abstract class FeaturePlugin {
   // ── Slot B: 鹦鹉详情嵌入 ──
 
   /// Sections this plugin contributes to the bird detail page.
-  /// Each section renders as a foldable card, ordered by [DetailSection.priority].
-  /// The plugin is responsible for fetching its own data internally
-  /// (via repository or service — not passed here to avoid coupling).
   List<DetailSection> buildDetailSections(int birdId) => [];
+
+  // ── Slot D: 日历视图 ──
+
+  /// Title shown in the calendar view selector. Return null to opt out.
+  String? get calendarTitle => null;
+
+  /// Build a calendar day view for [day]. Optionally filtered to [birdId].
+  Widget? buildDayView(DateTime day, {int? birdId}) => null;
 
   /// Register event handlers — subscribe to domain events from other plugins.
   /// Called once at app startup.
