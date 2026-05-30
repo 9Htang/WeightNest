@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_export_service.dart';
 import '../connect/connect_screen.dart';
 import '../../providers.dart';
+import '../../plugins/plugins.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -119,6 +120,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── 插件管理 ──
+          _PluginList(),
         ],
       ),
     );
@@ -160,5 +165,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       setState(() => _exportPath = '导出失败: $e');
     }
+  }
+}
+
+class _PluginList extends StatefulWidget {
+  const _PluginList();
+  @override
+  State<_PluginList> createState() => _PluginListState();
+}
+
+class _PluginListState extends State<_PluginList> {
+  @override
+  Widget build(BuildContext context) {
+    final plugins = pluginRegistry.plugins;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.extension_outlined, size: 22),
+              SizedBox(width: 8),
+              Text('插件管理', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ]),
+            const SizedBox(height: 12),
+            if (plugins.isEmpty)
+              const Text('暂无注册插件', style: TextStyle(color: Colors.grey))
+            else
+              ...plugins.map((p) => SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                secondary: Icon(p.icon, color: p.enabled ? Colors.teal : Colors.grey, size: 22),
+                title: Row(children: [
+                  Text(p.displayName, style: TextStyle(fontWeight: FontWeight.w600, color: p.enabled ? null : Colors.grey)),
+                  const SizedBox(width: 8),
+                  Text(p.id, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ]),
+                subtitle: p.description.isNotEmpty ? Text(p.description, style: const TextStyle(fontSize: 12)) : null,
+                value: p.enabled,
+                onChanged: (v) {
+                  pluginRegistry.setEnabled(p.id, v);
+                  setState(() {});
+                },
+              )),
+          ],
+        ),
+      ),
+    );
   }
 }
