@@ -6,7 +6,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Birds, Weights, Tasks, AlertRecords, SyncQueue],
+  tables: [Species, Users, Rooms, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, MedicationLogs],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -31,6 +31,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(birds, birds.weighIntervalDays);
           }
           if (from < 4) await _createIndexes(m);
+          if (from < 5) {
+            // v4 → v5: medication tracking tables
+            await m.createTable(medications);
+            await m.createTable(medicationLogs);
+          }
         },
       );
 

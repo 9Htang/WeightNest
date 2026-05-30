@@ -3,7 +3,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import '../database/database.dart';
-import '../core/plugin.dart';
+import '../core/plugin_registry.dart';
 import '../services/log/app_logger.dart';
 import 'routes.dart';
 
@@ -13,13 +13,12 @@ enum ServerState { stopped, starting, running, error }
 /// 嵌入式服务器服务
 class ServerService {
   final AppDatabase _db;
-  final List<FeaturePlugin> _plugins;
+  final PluginRegistry? _registry;
   HttpServer? _server;
   ServerState _state = ServerState.stopped;
   String? _errorMessage;
 
-  ServerService(this._db, {List<FeaturePlugin> plugins = const []})
-      : _plugins = plugins;
+  ServerService(this._db, {PluginRegistry? registry}) : _registry = registry;
 
   ServerState get state => _state;
   String? get errorMessage => _errorMessage;
@@ -32,7 +31,7 @@ class ServerService {
     _errorMessage = null;
 
     try {
-      final apiRouter = createApiRouter(_db, plugins: _plugins);
+      final apiRouter = createApiRouter(_db, registry: _registry);
       final router = Router()..mount('/api/', apiRouter.call);
 
       // 中间件：CORS + 日志

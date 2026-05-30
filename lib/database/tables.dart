@@ -210,3 +210,64 @@ class SyncQueue extends Table {
   /// 重试次数
   IntColumn get retryCount => integer().withDefault(const Constant(0))();
 }
+
+/// 喂药方案表
+class Medications extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+
+  /// 鹦鹉 ID
+  IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
+
+  /// 药品名称
+  TextColumn get drugName => text()();
+
+  /// 药品类型：抗生素/驱虫/维生素/其他
+  TextColumn get drugType => text().withDefault(const Constant('其他'))();
+
+  /// 剂量（如 "0.5ml", "1片", "2滴"）
+  TextColumn get dosage => text()();
+
+  /// 每天次数（1/2/3）
+  IntColumn get timesPerDay => integer().withDefault(const Constant(1))();
+
+  /// 开始日期
+  DateTimeColumn get startDate => dateTime()();
+
+  /// 结束日期（null=持续）
+  DateTimeColumn get endDate => dateTime().nullable()();
+
+  /// 备注
+  TextColumn get notes => text().nullable()();
+
+  /// 是否启用
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// 喂药执行记录表（自动生成 + 手动记录）
+class MedicationLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 关联喂药方案
+  IntColumn get medicationId => integer().references(Medications, #id, onDelete: KeyAction.cascade)();
+
+  /// 鹦鹉 ID（冗余，方便查询）
+  IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
+
+  /// 计划喂药时间
+  DateTimeColumn get scheduledTime => dateTime()();
+
+  /// 实际喂药时间（null=未执行）
+  DateTimeColumn get givenAt => dateTime().nullable()();
+
+  /// 执行人
+  IntColumn get givenBy => integer().nullable()();
+
+  /// 是否跳过
+  BoolColumn get skipped => boolean().withDefault(const Constant(false))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}

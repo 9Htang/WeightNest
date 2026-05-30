@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shelf_router/shelf_router.dart' as shelf;
+import '../database/database.dart';
 import 'event_bus.dart';
 
 /// A feature plugin that can add database tables, client UI, server API
@@ -23,16 +24,16 @@ abstract class FeaturePlugin {
   IconData? get selectedIcon;
 
   /// Database tables declared by this plugin (for drift schema generation).
-  /// Return empty if no custom tables.
   List<dynamic> get tables;
 
   /// Client-side Flutter routes for this plugin's screens.
   /// Each entry maps a path to a Widget builder.
-  Map<String, WidgetBuilder> get routes;
+  /// Use [db] to pass database to screens that need it.
+  Map<String, WidgetBuilder> routes(AppDatabase db);
 
   /// Server-side shelf Router for this plugin's API endpoints.
-  /// Return null if this plugin has no server API.
-  shelf.Router? get serverRoutes;
+  /// [db] is the app database instance.
+  shelf.Router? serverRoutes(AppDatabase db);
 
   /// Register event handlers — subscribe to domain events from other plugins.
   /// Called once at app startup.

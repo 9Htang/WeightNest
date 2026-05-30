@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shelf_router/shelf_router.dart' as shelf;
+import '../database/database.dart';
 import 'plugin.dart';
 import 'event_bus.dart';
 
@@ -23,11 +25,21 @@ class PluginRegistry {
       _plugins.expand((p) => p.tables).toList();
 
   /// All client routes merged into a single map.
-  Map<String, WidgetBuilder> get allRoutes {
+  Map<String, WidgetBuilder> allRoutes(AppDatabase db) {
     final map = <String, WidgetBuilder>{};
     for (final p in _plugins) {
-      map.addAll(p.routes);
+      map.addAll(p.routes(db));
     }
     return map;
+  }
+
+  /// All server routes for plugins, mounted at /api/<plugin.id>/
+  void mountServerRoutes(AppDatabase db, shelf.Router router) {
+    for (final p in _plugins) {
+      final pluginRouter = p.serverRoutes(db);
+      if (pluginRouter != null) {
+        router.mount('/api/${p.id}/', pluginRouter.call);
+      }
+    }
   }
 }
