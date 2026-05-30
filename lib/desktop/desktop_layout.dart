@@ -17,6 +17,7 @@ import 'species_config_screen.dart';
 import 'staff_screen.dart';
 import 'sidebar.dart';
 import '../theme/theme.dart';
+import '../utils/app_version.dart';
 
 class _QrCodePainter extends CustomPainter {
   final QrImage _qr;
@@ -67,7 +68,7 @@ class _TabData {
 }
 
 class _DesktopLayoutState extends State<DesktopLayout>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _sidebarCollapsed = false;
   bool _isDark = false;
@@ -81,6 +82,11 @@ class _DesktopLayoutState extends State<DesktopLayout>
   String? _connectError;
   final _refreshKey = ValueNotifier(0);
   Timer? _pollTimer;
+  int _pollInterval = 3;
+  int _idleCount = 0;
+  static const int _pollFast = 3;
+  static const int _pollSlow = 15;
+  static const int _pollIdle = 5; // idle intervals before backing off
   int _lastVersion = 0;
   String? _token;
   DiscoveryServer? _discovery;
@@ -100,8 +106,18 @@ class _DesktopLayoutState extends State<DesktopLayout>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _leftTabCtrl = TabController(length: 0, vsync: this);
     _autoConnect();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _pollInterval = _pollFast;
+      _idleCount = 0;
+      _checkVersion();
+    }
   }
 
   // ── Open tab — routes to active pane in split view ──
@@ -408,7 +424,17 @@ class _DesktopLayoutState extends State<DesktopLayout>
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _checkVersion());
+    _pollInterval = _pollFast;
+    _idleCount = 0;
+    _scheduleNextPoll();
+  }
+
+  void _scheduleNextPoll() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer(Duration(seconds: _pollInterval), () {
+      _checkVersion();
+      _scheduleNextPoll();
+    });
   }
 
   void _startDiscovery() async {
@@ -426,7 +452,19 @@ class _DesktopLayoutState extends State<DesktopLayout>
           .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final v = int.tryParse(res.body) ?? 0;
-        if (v > _lastVersion) { _lastVersion = v; _doRefresh(); }
+        if (v > _lastVersion) {
+          _lastVersion = v;
+          _doRefresh();
+          _pollInterval = _pollFast;
+          _idleCount = 0;
+        } else {
+          _idleCount++;
+          if (_idleCount >= _pollIdle * 2) {
+            _pollInterval = _pollSlow * 2;
+          } else if (_idleCount >= _pollIdle) {
+            _pollInterval = _pollSlow;
+          }
+        }
       }
     } catch (_) {}
   }
@@ -444,7 +482,7 @@ class _DesktopLayoutState extends State<DesktopLayout>
             name.contains('utun') || name.contains('clash') ||
             name.contains('mihomo') || name.contains('vpn') ||
             name.contains('ppp') || name.contains('pppoe') ||
-            name.contains('wintun')) continue;
+            name.contains('wintun')) { continue; }
         final isWireless = name.contains('wlan') ||
             name.contains('wi-fi') || name.contains('wireless');
         for (final addr in iface.addresses) {
@@ -517,6 +555,7 @@ class _DesktopLayoutState extends State<DesktopLayout>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _discovery?.stop();
     _pollTimer?.cancel();
     _refreshKey.dispose();
@@ -772,7 +811,7 @@ class _TopBar extends StatelessWidget {
           splashRadius: 16,
           color: scheme.onSurface.withAlpha(160),
         ),
-        Text('v1.7.8', style: TextStyle(fontSize: 11, color: scheme.onSurface.withAlpha(120))),
+        Text('v$appVersion', style: TextStyle(fontSize: 11, color: scheme.onSurface.withAlpha(120))),
       ]),
     );
   }
@@ -1047,7 +1086,7 @@ class _BottomStatusBar extends StatelessWidget {
         const SizedBox(width: 4),
         Text('数据实时同步', style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(120))),
         const Spacer(),
-        Text('v1.7.8', style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100))),
+        Text('v$appVersion', style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100))),
       ]),
     );
   }

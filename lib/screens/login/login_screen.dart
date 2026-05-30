@@ -82,9 +82,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final workerNotifier = ref.read(workerProvider.notifier);
       await workerNotifier.login(u.id, u.displayName, u.role, username: u.username);
-      if (mounted) Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MobileShell()),
-      );
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MobileShell()),
+        );
+      }
     } catch (e) {
       setState(() { _error = '登录失败: $e'; _loggingIn = false; });
     }

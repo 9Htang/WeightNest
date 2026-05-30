@@ -51,9 +51,7 @@ class ExcelExportService {
       speciesRow.add(b.species.name);
     }
     final dateHeaderRow = <String>['日期'];
-    for (final b in birds) {
-      dateHeaderRow.add(''); // 日期行对应鸟列留空，日期在第一列
-    }
+    dateHeaderRow.addAll(List.filled(birds.length, ''));
 
     _writeRow(sheet, 0, ringRow, bold: true);
     _writeRow(sheet, 1, speciesRow, bold: true);
@@ -80,7 +78,7 @@ class ExcelExportService {
 
     // 保存文件
     final dir = await _getExportDir();
-    final file = File('${dir.path}/${year}年${month}月体重记录.xlsx');
+    final file = File('${dir.path}/$year年$month月体重记录.xlsx');
     final bytes = excel.encode();
     if (bytes == null) throw Exception('编码失败');
     await file.writeAsBytes(bytes);

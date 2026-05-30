@@ -61,7 +61,7 @@ class NetworkNotifier extends StateNotifier<NetworkState> {
           // 跳过 VPN 接口
           if (name.contains('vpn') || name.contains('tun') ||
               name.contains('utun') || name.contains('tap') ||
-              name.contains('ppp') || name.contains('pppoe')) continue;
+              name.contains('ppp') || name.contains('pppoe')) { continue; }
           if (!name.contains(wifiName.toLowerCase())) continue;
           for (final addr in interface.addresses) {
             if (addr.type == InternetAddressType.IPv4) {

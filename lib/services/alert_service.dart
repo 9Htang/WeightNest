@@ -1,6 +1,5 @@
 ﻿import 'dart:math';
 import '../database/database.dart';
-import '../utils/uuid.dart';
 import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 

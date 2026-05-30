@@ -62,8 +62,8 @@ extension WeightRepository on AppDatabase {
           updatedAt: Value(DateTime.now()),
         ),
       );
-      return (await (select(weights)..where((w) => w.id.equals(existing.id)))
-          .getSingle())!;
+      return await (select(weights)..where((w) => w.id.equals(existing.id)))
+          .getSingle();
     } else {
       await into(weights).insert(WeightsCompanion.insert(
         uuid: genUuid(),
@@ -75,9 +75,9 @@ extension WeightRepository on AppDatabase {
         notes: Value(notes),
       ));
       final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-      return (await (select(weights)
+      return await (select(weights)
             ..where((w) => w.id.equals(rows.first.read<int>('id'))))
-          .getSingle())!;
+          .getSingle();
     }
   }
 
@@ -104,9 +104,32 @@ extension WeightRepository on AppDatabase {
 
   Future<Map<int, Weight?>> getLatestByBirds(List<int> birdIds) async {
     if (birdIds.isEmpty) return {};
-    final result = <int, Weight?>{};
-    for (final id in birdIds) {
-      result[id] = await getLatestByBird(id);
+    final placeholders = birdIds.map((_) => '?').join(',');
+    final rows = await customSelect(
+      'SELECT w.* FROM weights w '
+      'INNER JOIN ('
+      '  SELECT bird_id, MAX(recorded_at) AS max_ts '
+      '  FROM weights '
+      '  WHERE bird_id IN ($placeholders) '
+      '  GROUP BY bird_id'
+      ') l ON w.bird_id = l.bird_id AND w.recorded_at = l.max_ts '
+      'WHERE w.bird_id IN ($placeholders)',
+      variables: [...birdIds, ...birdIds].map((id) => Variable<int>(id)).toList(),
+    ).get();
+    final result = <int, Weight?>{for (final id in birdIds) id: null};
+    for (final row in rows) {
+      result[row.read<int>('bird_id')] = Weight(
+        id: row.read<int>('id'),
+        uuid: row.read<String>('uuid'),
+        birdId: row.read<int>('bird_id'),
+        weightG: row.read<double>('weight_g'),
+        recordedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('recorded_at') * 1000),
+        recordedBy: row.read<int?>('recorded_by'),
+        isFasting: row.read<bool>('is_fasting'),
+        notes: row.read<String?>('notes'),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('created_at') * 1000),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at') * 1000),
+      );
     }
     return result;
   }

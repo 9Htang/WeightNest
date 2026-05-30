@@ -54,9 +54,11 @@ class _SpeciesConfigScreenState extends State<SpeciesConfigScreen> {
       }
       _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败: $e'), behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
     }
   }
 
@@ -81,9 +83,11 @@ class _SpeciesConfigScreenState extends State<SpeciesConfigScreen> {
       );
       _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('创建失败: $e'), behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('创建失败: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
     }
   }
 

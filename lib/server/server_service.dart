@@ -3,6 +3,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import '../database/database.dart';
+import '../services/log/app_logger.dart';
 import 'routes.dart';
 
 /// 嵌入式服务器状态
@@ -29,7 +30,7 @@ class ServerService {
 
     try {
       final apiRouter = createApiRouter(_db);
-      final router = Router()..mount('/api/', apiRouter);
+      final router = Router()..mount('/api/', apiRouter.call);
 
       // 中间件：CORS + 日志
       final handler = Pipeline()
@@ -40,11 +41,11 @@ class ServerService {
       _state = ServerState.running;
 
       final ip = await _getLocalIp();
-      print('🦜 WeightNest 服务器已启动 → http://$ip:$port');
+      AppLogger.info('ServerService', '服务器已启动 → http://$ip:$port');
     } catch (e) {
       _state = ServerState.error;
       _errorMessage = e.toString();
-      print('❌ 服务器启动失败: $e');
+      AppLogger.error('ServerService', '服务器启动失败', e);
     }
   }
 
@@ -53,7 +54,7 @@ class ServerService {
     await _server?.close(force: true);
     _server = null;
     _state = ServerState.stopped;
-    print('🛑 WeightNest 服务器已停止');
+    AppLogger.info('ServerService', '服务器已停止');
   }
 
   /// 获取本机局域网 IP

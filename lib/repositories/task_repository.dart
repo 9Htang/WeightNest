@@ -78,8 +78,6 @@ extension TaskRepository on AppDatabase {
 
   /// Remove duplicate tasks (same bird + same dueDate) keeping only the first.
   Future<void> cleanupDuplicateTasks() async {
-    // Find (birdId, dueDate) pairs with more than one task
-    final today = DateTime.now();
     final allTasks = await (select(tasks)).get();
     final grouped = <String, List<Task>>{};
     for (final t in allTasks) {

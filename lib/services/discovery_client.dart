@@ -121,7 +121,7 @@ class DiscoveryClient {
             name.contains('utun') || name.contains('clash') ||
             name.contains('mihomo') || name.contains('vpn') ||
             name.contains('ppp') || name.contains('pppoe') ||
-            name.contains('wintun')) continue;
+            name.contains('wintun')) { continue; }
         for (final addr in iface.addresses) {
           if (addr.type == InternetAddressType.IPv4) {
             final a = addr.address;

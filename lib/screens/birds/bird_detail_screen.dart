@@ -685,7 +685,7 @@ class _ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 1) return;
+    if (points.isEmpty) return;
 
     // 逐段绘制，根据升降用不同颜色
     for (int i = 1; i < points.length; i++) {

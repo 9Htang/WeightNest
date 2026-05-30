@@ -201,7 +201,7 @@ class _StaffScreenState extends State<StaffScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('$action账号'),
-        content: Text('确定要${action}「${user.displayName}」的账号吗？${user.isActive ? "停用后该账号将无法登录。" : ""}'),
+        content: Text('确定要$action「$user.displayName」的账号吗？${user.isActive ? "停用后该账号将无法登录。" : ""}'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(

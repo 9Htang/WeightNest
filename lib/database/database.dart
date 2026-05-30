@@ -12,17 +12,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   /// 测试用构造器——内存数据库
-  AppDatabase.test() : super(DatabaseConnection.fromExecutor(
-    NativeDatabase.memory(),
-  ));
+  AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
           await m.createAll();
+          await _createIndexes(m);
         },
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 3) {
@@ -31,8 +30,16 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(species, species.juvenileWeighIntervalDays);
             await m.addColumn(birds, birds.weighIntervalDays);
           }
+          if (from < 4) await _createIndexes(m);
         },
       );
+
+  Future<void> _createIndexes(Migrator m) async {
+    await m.createIndex(Index('weights',
+        'CREATE INDEX IF NOT EXISTS idx_weights_bird_date ON weights(bird_id, recorded_at DESC)'));
+    await m.createIndex(Index('tasks',
+        'CREATE INDEX IF NOT EXISTS idx_tasks_due_status ON tasks(due_date, status)'));
+  }
 
   static QueryExecutor _openConnection() {
     return driftDatabase(name: 'weight_nest.db');

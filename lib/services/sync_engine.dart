@@ -9,6 +9,7 @@ import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../repositories/task_repository.dart';
 import 'sync_queue_service.dart';
+import 'log/app_logger.dart';
 
 /// 同步引擎 — 后台定时推送操作 + 拉取服务端变更
 class SyncEngine {
@@ -73,7 +74,7 @@ class SyncEngine {
           if (count == 0) await _db.removeSpecies(sp.id);
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   Future<void> _fullSyncRooms() async {
@@ -99,7 +100,7 @@ class SyncEngine {
       }
       // 保存服务端房间名集合，供后续清理用
       _serverRoomNames = serverNames;
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   Future<void> _cleanupRooms() async {
@@ -112,7 +113,7 @@ class SyncEngine {
           if (count == 0) await _db.removeRoom(room.id);
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   Set<String>? _serverRoomNames;
@@ -149,7 +150,7 @@ class SyncEngine {
           await _db.updateUser(user.id, isActive: false);
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   Future<void> _fullSyncBirds() async {
@@ -223,7 +224,7 @@ class SyncEngine {
           }
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   /// 设置服务端地址
@@ -273,7 +274,7 @@ class SyncEngine {
       if (res.statusCode == 200) {
         _token = jsonDecode(res.body)['token'];
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   /// SSE 长连接监听服务端推送
@@ -294,7 +295,6 @@ class SyncEngine {
       }
 
       String buffer = '';
-      String? lastEventId;
       await for (final chunk in response.stream.transform(utf8.decoder).timeout(const Duration(seconds: 120))) {
         buffer += chunk;
         // 防止缓冲区无限增长
@@ -317,10 +317,10 @@ class SyncEngine {
             final change = jsonDecode(data) as Map<String, dynamic>;
             await _applyChanges([change]);
             _lastPull = DateTime.now();
-          } catch (e) { print('同步 engine: $e'); }
+          } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
 
     _scheduleReconnect();
   }
@@ -355,7 +355,7 @@ class SyncEngine {
           });
         } catch (e) {
           // 损坏的 payload — 直接标记已同步避免无限重试
-          print('同步队列损坏 $o.opId: $e');
+          AppLogger.error('SyncEngine', '同步队列损坏 $o.opId', e);
           await _queue.markSynced([o.opId]);
         }
       }
@@ -392,7 +392,7 @@ class SyncEngine {
         }
       }
     } catch (e) {
-      print('同步推送失败: $e');
+      AppLogger.error('SyncEngine', '同步推送失败', e);
     } finally {
       _pushing = false;
     }
@@ -400,7 +400,6 @@ class SyncEngine {
 
   /// Auto-complete today's tasks when weight ops are confirmed by server
   Future<void> _autoCompleteTasksForWeights(List<SyncQueueData> ops, List<String> successOpIds) async {
-    final today = DateTime.now();
 
     for (final op in ops) {
       if (!successOpIds.contains(op.opId) || op.action != 'add_weight') continue;
@@ -417,7 +416,7 @@ class SyncEngine {
         if (task != null) {
           await _db.completeTask(task.task.id, op.userId);
         }
-      } catch (e) { print('同步 engine: $e'); }
+      } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
     }
   }
 
@@ -452,7 +451,7 @@ class SyncEngine {
           }
         }
       }
-    } catch (e) { print('同步 engine: $e'); }
+    } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
   }
 
   Future<void> _applyChanges(List changes) async {
@@ -488,7 +487,7 @@ class SyncEngine {
             await _applyTask(data);
             break;
         }
-      } catch (e) { print('同步 engine: $e'); }
+      } catch (e) { AppLogger.error('SyncEngine', '同步失败', e); }
     }
   }
 
@@ -656,7 +655,7 @@ class SyncEngine {
     await _db.publishTasksForBirds([birdId]);
   }
 
-  int _pendingCount = 0;
+  final int _pendingCount = 0;
   int get pendingCount => _pendingCount;
 
   String? get _baseUrl =>

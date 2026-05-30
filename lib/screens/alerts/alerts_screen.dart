@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../services/alert_service.dart';
 import '../birds/bird_detail_screen.dart';
+import '../../widgets/section_header.dart';
 
 
 class AlertsScreen extends ConsumerWidget {
@@ -22,7 +23,6 @@ class AlertsScreen extends ConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('已确认提醒（下次启动重新检测）'), behavior: SnackBarBehavior.floating),
               );
-              ref.invalidate(alertCountProvider);
               ref.invalidate(alertListProvider);
             },
             child: const Text('忽略全部', style: TextStyle(color: Colors.white70, fontSize: 13)),
@@ -58,33 +58,17 @@ class AlertsScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
               if (danger.isNotEmpty) ...[
-                _SectionHeader(title: '⚠️ 严重异常 (${danger.length})', color: Colors.red),
+                SectionHeader(title: '⚠️ 严重异常 (${danger.length})', color: Colors.red),
                 ...danger.map((a) => _AlertCard(alert: a, theme: theme)),
               ],
               if (warning.isNotEmpty) ...[
-                _SectionHeader(title: '⚡ 提示 (${warning.length})', color: Colors.orange),
+                SectionHeader(title: '⚡ 提示 (${warning.length})', color: Colors.orange),
                 ...warning.map((a) => _AlertCard(alert: a, theme: theme)),
               ],
             ],
           );
         },
       ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final Color color;
-  const _SectionHeader({required this.title, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Text(title, style: TextStyle(
-        fontWeight: FontWeight.bold, fontSize: 14, color: color,
-      )),
     );
   }
 }

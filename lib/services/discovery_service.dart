@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import '../utils/app_version.dart';
+import 'log/app_logger.dart';
 
 /// 局域网自动发现服务
 /// 服务端：监听 UDP 广播，回复本机 IP + 端口
@@ -44,9 +46,9 @@ class DiscoveryService {
     // 加入组播组 — 部分路由器阻断广播但放行组播
     try {
       _socket!.joinMulticast(InternetAddress(_multicastGroup));
-      print('📡 已加入组播组 $_multicastGroup');
+      AppLogger.info('DiscoveryService', '已加入组播组 $_multicastGroup');
     } catch (_) {
-      print('⚠️ 无法加入组播组，仅使用广播');
+      AppLogger.warn('DiscoveryService', '无法加入组播组，仅使用广播');
     }
 
     _subscription = _socket!.listen((event) {
@@ -60,7 +62,7 @@ class DiscoveryService {
           'type': 'WEIGHTNEST_SERVER',
           'ip': serverIp,
           'port': serverPort,
-          'version': '1.6.2',
+          'version': appVersion,
         });
         _socket!.send(
           utf8.encode(response),
@@ -70,7 +72,7 @@ class DiscoveryService {
       }
     });
 
-    print('🔄 局域网发现服务已启动 (UDP $_discoveryPort)');
+    AppLogger.info('DiscoveryService', '局域网发现服务已启动 (UDP $_discoveryPort)');
   }
 
   /// 客户端扫描局域网

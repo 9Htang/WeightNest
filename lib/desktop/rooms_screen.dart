@@ -49,13 +49,17 @@ class _DesktopRoomsScreenState extends State<DesktopRoomsScreen> {
         widget.roomService.fetchAll(),
         widget.staffService.fetchUsers(),
       ]);
-      if (mounted) setState(() {
-        _rooms = results[0] as List<RoomInfo>;
-        _users = (results[1] as List<UserInfo>).where((u) => u.isActive).toList();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _rooms = results[0] as List<RoomInfo>;
+          _users = (results[1] as List<UserInfo>).where((u) => u.isActive).toList();
+          _loading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) {
+        setState(() { _error = e.toString(); _loading = false; });
+      }
     }
   }
 
@@ -96,9 +100,11 @@ class _DesktopRoomsScreenState extends State<DesktopRoomsScreen> {
               }
               Navigator.pop(ctx, true);
             } catch (e) {
-              if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text('保存失败: $e'), behavior: SnackBarBehavior.floating),
-              );
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(content: Text('保存失败: $e'), behavior: SnackBarBehavior.floating),
+                );
+              }
             }
           }, child: const Text('保存')),
         ],
@@ -129,9 +135,11 @@ class _DesktopRoomsScreenState extends State<DesktopRoomsScreen> {
         await widget.roomService.update(room.id, assignedUserId: null);
         _load();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e'), behavior: SnackBarBehavior.floating),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e'), behavior: SnackBarBehavior.floating),
+          );
+        }
       }
     }
   }

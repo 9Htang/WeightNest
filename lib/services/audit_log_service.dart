@@ -1,6 +1,5 @@
-﻿import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'auth_manager.dart';
+import 'dart:convert';
+import 'http/authenticated_client.dart';
 
 class AuditLogEntry {
   final int id; final String entityType, entityUuid; final Map<String, dynamic> data;
@@ -35,21 +34,8 @@ class AuditLogPage {
     total: json['total'], page: json['page'], pageSize: json['pageSize'], totalPages: json['totalPages']);
 }
 
-class AuditLogService {
-  final String _baseUrl;
-  final AuthManager _auth;
-
-  AuditLogService({required String serverHost, required int serverPort, required AuthManager auth})
-      : _baseUrl = 'http://$serverHost:$serverPort',
-        _auth = auth;
-
-  Future<http.Response> _get(String path, {Map<String, String>? params}) async {
-    var uri = Uri.parse('$_baseUrl$path');
-    if (params != null && params.isNotEmpty) uri = uri.replace(queryParameters: params);
-    var res = await http.get(uri, headers: _auth.authHeaders()).timeout(const Duration(seconds: 10));
-    if (res.statusCode == 403) { await _auth.refresh(); res = await http.get(uri, headers: _auth.authHeaders()).timeout(const Duration(seconds: 10)); }
-    return res;
-  }
+class AuditLogService extends AuthenticatedHttpClient {
+  AuditLogService({required super.serverHost, required super.serverPort, required super.auth});
 
   Future<AuditLogPage> fetchLogs({int? userId, String? action, String? entityType,
     DateTime? startDate, DateTime? endDate, int page = 1, int pageSize = 50}) async {
@@ -59,8 +45,7 @@ class AuditLogService {
     if (entityType != null && entityType.isNotEmpty) params['entityType'] = entityType;
     if (startDate != null) params['startDate'] = startDate.toIso8601String();
     if (endDate != null) params['endDate'] = endDate.toIso8601String();
-    final res = await _get('/audit-log', params: params);
-    if (res.statusCode == 200) return AuditLogPage.fromJson(jsonDecode(res.body));
-    throw Exception('API 错误: ${res.statusCode}');
+    final res = await checkedGet('/audit-log', params: params);
+    return AuditLogPage.fromJson(jsonDecode(res.body));
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
 import '../weigh/weigh_screen.dart';
+import '../../widgets/section_header.dart';
 import '../worker/worker_screen.dart';
 /// 任务页面 — 今日任务 + 逾期任务
 class TasksScreen extends ConsumerStatefulWidget {
@@ -100,7 +101,7 @@ class _TodayTasks extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
               if (pending.isNotEmpty) ...[
-                _SectionHeader(title: '待完成 (${pending.length})'),
+                SectionHeader(title: '待完成 (${pending.length})'),
                 ...pending.map((t) => _TaskCard(
                   task: t,
                   onComplete: () => _completeTask(t.task.id, t.task.uuid, ref),
@@ -108,7 +109,7 @@ class _TodayTasks extends ConsumerWidget {
                 )),
               ],
               if (done.isNotEmpty) ...[
-                _SectionHeader(title: '已完成 (${done.length})'),
+                SectionHeader(title: '已完成 (${done.length})'),
                 ...done.map((t) => _TaskCard(task: t, done: true)),
               ],
             ],
@@ -169,7 +170,7 @@ class _OverdueTasks extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            _SectionHeader(title: '逾期未称重 (${tasks.length})', color: Colors.orange),
+            SectionHeader(title: '逾期未称重 (${tasks.length})', color: Colors.orange),
             ...tasks.map((t) => _TaskCard(
               task: t,
               urgent: true,
@@ -191,25 +192,6 @@ class _OverdueTasks extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final Color? color;
-
-  const _SectionHeader({required this.title, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Text(title, style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-        color: color ?? Theme.of(context).colorScheme.onSurface.withAlpha(160),
-      )),
     );
   }
 }

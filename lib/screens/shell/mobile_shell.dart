@@ -99,7 +99,6 @@ class _MobileShellState extends ConsumerState<MobileShell> {
         surfaceTintColor: Colors.transparent,
         destinations: List.generate(_tabs.length, (i) {
           final t = _tabs[i];
-          final selected = i == _currentIndex;
           return NavigationDestination(
             icon: Icon(t.outlinedIcon, size: 24),
             selectedIcon: Icon(t.filledIcon, size: 24),
@@ -165,7 +164,7 @@ class HomeScreenContent extends ConsumerWidget {
     ref.read(initDefaultsProvider);
     final theme = Theme.of(context);
     final tasksAsync = ref.watch(todayTasksProvider);
-    final alertsAsync = ref.watch(alertCountProvider);
+    final alertCount = ref.watch(alertCountProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
     final myRoomsAsync = ref.watch(myRoomsProvider);
     final worker = ref.watch(workerProvider);
@@ -174,7 +173,7 @@ class HomeScreenContent extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(todayTasksProvider);
-        ref.invalidate(alertCountProvider);
+        ref.invalidate(alertListProvider);
         ref.invalidate(allRoomsProvider);
       },
       child: ListView(
@@ -196,11 +195,7 @@ class HomeScreenContent extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // ── 异常提醒入口 ──
-          alertsAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (alertCount) => _AlertBannerWarm(count: alertCount),
-          ),
+          if (alertCount > 0) _AlertBannerWarm(count: alertCount),
 
           const SizedBox(height: 16),
 
@@ -434,7 +429,6 @@ class _AlertBannerWarm extends StatelessWidget {
   Widget build(BuildContext context) {
     if (count == 0) return const SizedBox.shrink();
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
 
     return Container(
       decoration: BoxDecoration(

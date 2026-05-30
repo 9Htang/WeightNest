@@ -103,12 +103,10 @@ final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   return service.detectAll();
 });
 
-/// 异常提醒数量
-final alertCountProvider = FutureProvider<int>((ref) async {
-  final db = ref.watch(databaseProvider);
-  final service = AlertService(db);
-  final alerts = await service.detectAll();
-  return alerts.length;
+/// 异常提醒数量 — 从 alertListProvider 派生，避免重复计算
+final alertCountProvider = Provider<int>((ref) {
+  final alerts = ref.watch(alertListProvider).valueOrNull;
+  return alerts?.length ?? 0;
 });
 
 /// 某房间的鹦鹉列表

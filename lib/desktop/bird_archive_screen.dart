@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../../services/bird_archive_service.dart';
+import 'widgets/weight_chart.dart';
 
 /// 鹦鹉全息档案页面
 class BirdArchiveScreen extends StatefulWidget {
@@ -38,10 +37,8 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   bool _loadingWeights = false;
   String? _error;
   final _searchCtrl = TextEditingController();
-  double _zoomLevel = 1.0;
   double _leftPanelWidth = 280;
   double _chartHeight = 260;
-  final _chartScrollController = ScrollController();
   // Filters
   int? _filterRoomId;
   int? _filterSpeciesId;
@@ -62,7 +59,6 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _chartScrollController.dispose();
     widget.refreshKey.removeListener(_onRefresh);
     super.dispose();
   }
@@ -401,7 +397,10 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
           const SizedBox(height: 20),
 
           // ── 体重趋势图 (高度可拖拽调整) ──
-          _buildWeightChart(theme),
+          if (_loadingWeights)
+            const Card(child: SizedBox(height: 250, child: Center(child: CircularProgressIndicator())))
+          else
+            WeightChartWidget(weights: _weights, chartHeight: _chartHeight),
           // Horizontal splitter
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -532,9 +531,11 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
         );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('设置失败: $e'), behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('设置失败: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
     }
   }
 
@@ -548,175 +549,6 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(fontSize: 14)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildWeightChart(ThemeData theme) {
-    if (_loadingWeights) {
-      return const Card(child: SizedBox(height: 250, child: Center(child: CircularProgressIndicator())));
-    }
-    if (_weights.isEmpty) {
-      return Card(
-        child: SizedBox(
-          height: 200,
-          child: Center(child: Text('暂无体重记录', style: TextStyle(color: Colors.grey.shade400))),
-        ),
-      );
-    }
-
-    // All data, ascending order
-    final sorted = _weights.reversed.toList();
-    final minWeight = sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 2;
-    final maxWeight = sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 2;
-    final segments = _splitTrendSegments(sorted);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 24, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Icon(Icons.show_chart, size: 18),
-                const SizedBox(width: 6),
-                Text('体重趋势 (${sorted.length} 条)', style: theme.textTheme.titleSmall),
-                const SizedBox(width: 12),
-                _buildLegend(theme),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Zoom level chips — change horizontal density, data stays complete
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [
-                _buildZoomChip('适应宽度', 0),
-                _buildZoomChip('2x', 2),
-                _buildZoomChip('4x', 4),
-                _buildZoomChip('8x', 8),
-              ]),
-            ),
-            const SizedBox(height: 10),
-            // Chart: uses available card width as base, then multiplies by zoom
-            LayoutBuilder(builder: (_, constraints) {
-              final baseWidth = constraints.maxWidth - 56; // minus left axis + padding
-              final chartWidth = _zoomLevel <= 0
-                  ? baseWidth
-                  : (sorted.length * 12.0 * _zoomLevel).clamp(baseWidth, 8000.0);
-              final showDots = _zoomLevel >= 4 || sorted.length <= 30;
-              final showScroll = chartWidth > baseWidth + 10;
-
-              return SizedBox(
-                height: _chartHeight,
-                child: Listener(
-                  onPointerSignal: (e) {
-                    if (e is PointerScrollEvent) {
-                      _chartScrollController.jumpTo(
-                        (_chartScrollController.offset + e.scrollDelta.dx).clamp(0, _chartScrollController.position.maxScrollExtent),
-                      );
-                    }
-                  },
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    controller: _chartScrollController,
-                    child: SizedBox(
-                    width: chartWidth,
-                    height: _chartHeight,
-                    child: LineChart(
-                      key: ValueKey(_selected?.id),
-                      duration: const Duration(milliseconds: 250),
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: ((maxWeight - minWeight) / 5).clamp(1, 50).ceilToDouble(),
-                        ),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 44,
-                              getTitlesWidget: (v, _) => Text('${v.toInt()}g', style: const TextStyle(fontSize: 10)),
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 28,
-                              interval: 1,
-                              getTitlesWidget: (v, _) {
-                                final i = v.toInt();
-                                if (i < 0 || i >= sorted.length) return const SizedBox.shrink();
-                                final step = (sorted.length / 10).ceil().clamp(1, 50);
-                                if (i % step != 0 && i != sorted.length - 1) return const SizedBox.shrink();
-                                return Transform.rotate(
-                                  angle: -0.5,
-                                  child: Text(
-                                    sorted[i].recordedAt.toString().substring(5, 10),
-                                    style: const TextStyle(fontSize: 9),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        minY: minWeight,
-                        maxY: maxWeight,
-                        lineBarsData: segments.map((seg) => LineChartBarData(
-                          spots: seg.spots,
-                          isCurved: true,
-                          curveSmoothness: 0.3,
-                          color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary,
-                          barWidth: _zoomLevel >= 4 ? 2.5 : 1.8,
-                          dotData: FlDotData(
-                            show: showDots,
-                            getDotPainter: (spot, _, __, ___) {
-                              final i = spot.x.toInt();
-                              if (i < 0 || i >= sorted.length) {
-                                return FlDotCirclePainter(radius: 2, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                              }
-                              final w = sorted[i];
-                              if (!w.isFasting) {
-                                return FlDotCirclePainter(radius: 3.5, color: Colors.white, strokeWidth: 1.5, strokeColor: Colors.orange.shade600);
-                              }
-                              return FlDotCirclePainter(radius: 2.5, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                            },
-                          ),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: (seg.isDown ? Colors.red : theme.colorScheme.primary).withAlpha(20),
-                          ),
-                        )).toList(),
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            getTooltipItems: (spots) => spots.map((s) {
-                              final i = s.x.toInt();
-                              final w = sorted[i];
-                              final prevW = i > 0 ? sorted[i - 1].weightG : w.weightG;
-                              final isDown = w.weightG < prevW;
-                              return LineTooltipItem(
-                                '${w.weightG.toStringAsFixed(1)}g${isDown ? " ↓" : ""}${w.isFasting ? "" : " (非空腹)"}  ${w.recordedAt.toString().substring(0, 16).replaceAll('T', ' ')}',
-                                TextStyle(color: Colors.white, fontSize: 11, fontWeight: isDown ? FontWeight.bold : FontWeight.normal),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ));
-            }),
-            const SizedBox(height: 4),
-            Text('← 左右拖动查看不同时间段 · 鼠标滚轮/拖动平移 · 橙色空心圆=非空腹',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          ],
-        ),
       ),
     );
   }
@@ -781,51 +613,6 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
   }
 
   // ─── Trend splitting for red/green chart segments ───
-
-  /// Split sorted weights into continuous trend segments
-  List<_TrendSegment> _splitTrendSegments(List<WeightRecord> sorted) {
-    if (sorted.length < 2) {
-      return [_TrendSegment(
-        spots: sorted.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weightG)).toList(),
-        isDown: false,
-      )];
-    }
-
-    final segments = <_TrendSegment>[];
-    var segStart = 0;
-    // A segment is "down" if the current-to-next trend is declining
-    var currentIsDown = sorted[1].weightG < sorted[0].weightG;
-
-    for (var i = 1; i < sorted.length; i++) {
-      final prevW = sorted[i - 1].weightG;
-      final currW = sorted[i].weightG;
-      final stepIsDown = currW < prevW;
-
-      if (stepIsDown != currentIsDown) {
-        // Trend changed: close current segment
-        segments.add(_TrendSegment(
-          spots: _buildSpots(sorted, segStart, i),
-          isDown: currentIsDown,
-        ));
-        segStart = i - 1; // overlap one point for continuity
-        currentIsDown = stepIsDown;
-      }
-    }
-    // Final segment
-    segments.add(_TrendSegment(
-      spots: _buildSpots(sorted, segStart, sorted.length - 1),
-      isDown: currentIsDown,
-    ));
-
-    return segments;
-  }
-
-  List<FlSpot> _buildSpots(List<WeightRecord> sorted, int from, int to) {
-    return List.generate(to - from + 1, (i) {
-      final idx = from + i;
-      return FlSpot(idx.toDouble(), sorted[idx].weightG);
-    });
-  }
 
   List<BirdInfo> get _filteredBirds {
     return _birds.where((b) {
@@ -1010,9 +797,11 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
         _batchMode = false;
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('网络错误: $e'), behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('网络错误: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
     }
   }
 
@@ -1046,9 +835,11 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
       for (final id in _selectedBirdIds) {
         await widget.service.updateBird(id, roomId: roomId);
       }
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新 ${_selectedBirdIds.length} 只鹦鹉'), behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已更新 ${_selectedBirdIds.length} 只鹦鹉'), behavior: SnackBarBehavior.floating),
+        );
+      }
       _selectedBirdIds.clear();
       _batchMode = false;
       _loadBirds();
@@ -1078,49 +869,6 @@ class _BirdArchiveScreenState extends State<BirdArchiveScreen> {
     );
   }
 
-  Widget _buildZoomChip(String label, double level) {
-    final selected = _zoomLevel == level;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        label: Text(label, style: const TextStyle(fontSize: 11)),
-        selected: selected,
-        onSelected: (_) => setState(() => _zoomLevel = level),
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        selectedColor: Theme.of(context).colorScheme.primaryContainer,
-      ),
-    );
-  }
 
-  Widget _buildLegend(ThemeData theme) {
-    return Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 4, children: [
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 3, color: theme.colorScheme.primary),
-        const SizedBox(width: 4),
-        const Text('稳定/上升', style: TextStyle(fontSize: 10)),
-      ]),
-      const SizedBox(width: 8),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 3, color: Colors.red.shade400),
-        const SizedBox(width: 4),
-        const Text('下降', style: TextStyle(fontSize: 10)),
-      ]),
-      const SizedBox(width: 8),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 8, height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: Colors.orange.shade600, width: 1.5)),
-        ),
-        const SizedBox(width: 4),
-        const Text('非空腹', style: TextStyle(fontSize: 10)),
-      ]),
-    ]);
-  }
 }
 
-class _TrendSegment {
-  final List<FlSpot> spots;
-  final bool isDown;
-  _TrendSegment({required this.spots, required this.isDown});
-}
