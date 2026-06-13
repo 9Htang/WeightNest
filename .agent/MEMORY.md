@@ -1,66 +1,38 @@
 # WeightNest 项目记忆
 
 ## 项目做什么
-鹦鹉体重记录 App。双端架构：手机端负责称重记录，Windows 桌面端负责管理与数据分析。
+鹦鹉体重记录 App。MVP 阶段：纯本地单用户，手机端独立运行。
 
-## 当前进度（2026-05-28）
+## 当前进度（2026-06-13）
 
-### 移动端 ✅
-- Phase 1-8 全部完成
-- 数据层：uuid, sync_queue, device_id, 软删除, updated_at
-- SyncQueueService + SyncEngine 5秒定时推送/拉取
-- 扫码连接 (mobile_scanner 5.2.3)
-- Excel 导出 (临时目录 + 分享按钮)
-- 首页强制员工登录拦截
-- LoginScreen：扫码登录入口始终显示 + 空密码直通
-- WorkerNotifier：admin 自动清除登录
+### 离线 MVP（feature/offline-mvp）✅
+- 移除全部后端依赖（Shelf 服务器、SyncEngine、SyncQueue、mDNS 发现、扫码连接）
+- 单用户模式：输入昵称即进入，无密码无登录
+- 移动端 5 tab：首页 / 任务 / 称重 / 鹦鹉 / 设置
+- 数据全部本地 SQLite（Drift），数据库名 `weight_nest_mvp.db`
+- 房间管理：首页「我的房间」区域可创建/管理房间
+- 物种管理：设置页可管理鸟类品种
+- 插件架构保留：WeightPlugin + MedicationPlugin
+- 桌面端代码未改动，`app.dart` 中 `isDesktop` 临时设为 `false` 用于测试
 
-### 桌面端 ✅
-- **操作日志审计** — 分页表格，按人/类型/时间筛选，变更明细汉化
-- **鹦鹉全息档案** — 搜索、体重趋势、病史时间轴
-- **人员管理** — 创建/编辑/启停账号（Admin/Keeper/Viewer）
-- 侧边栏导航，3秒轮询 data-version 自动刷新
-- QR 扫码登录弹窗（CustomPaint 手绘二维码，全平台通用）
-- LAN IP 自动检测（跳过虚拟网卡，优先 WLAN）
+### 分支
+- `feature/offline-mvp` — 当前 MVP 开发分支
+- `feature/plugin-architecture` — 插件架构基线（已完成）
+- `feature/sqlite-standalone` — 独立服务端（已完成）
+- `main` — 稳定版本
 
-### 服务端 ✅
-- Docker Compose 部署 (shelf + PostgreSQL) → **已改为 SQLite 单文件数据库（方案 A）**
-- `feature/sqlite-standalone` 分支：server.exe 独立可执行文件（6.9 MB），零依赖部署
-- API：/health, /auth/connect, /sync, /changes, /data-version
-- /birds, /birds/:id, /birds/:id/weights
-- /users, POST /users, PATCH /users/:id
-- /audit-log（分页+筛选+JOIN）
-- /auth/qr-session, /auth/qr-login（扫码免密）
-- /qr?session=XXX&host=XXX（浏览器二维码页）
-- 创建/更新用户时写入 change_log
-- SERVER_HOST 可选配置（桌面端自动检测传入）
+## 开发规范
 
-### APK
-- 版本 v1.7.8+25
-- 构建：`build.ps1 -Mobile`（读取 pubspec 版本号）
-- arm64 单一架构（全架构 OOM）
-
-### 一键部署
-- `deploy.ps1` — 防火墙放行 + Docker Compose + 桌面端启动
-- 防火墙规则：`netsh advfirewall firewall add rule name="WeightNest" dir=in action=allow protocol=TCP localport=8080`
+- [Development SOP](memory/development_sop.md) — 热重载、数据库变更、代码风格规范
+- [Auto-build after changes](memory/feedback_auto_build.md) — code changes trigger build.ps1 -Mobile + -Desktop + deploy.ps1
+- [Release workflow](memory/feedback_release_workflow.md) — bump version → build all artifacts + commit + push
 
 ## 待开发
-- [x] UDP 广播自动发现（手机端发广播 → 桌面端应答 IP）— discovery_client/server 已实现
-- [ ] 数据报表导出模块（桌面端第四模块）
-- [ ] 全架构 APK（x86 兼容）
-- [ ] 方案 A 合并到 main（`feature/sqlite-standalone` 分支）
+- [ ] 首页房间列表增加鸟类预览
+- [ ] 数据备份/恢复（SQLite 文件导出导入）
+- [ ] APK 构建验证
 
 ## 已知问题
-- Excel 导出 Android scoped storage → 改用临时目录 + 分享
-- AP 隔离 → 手机和电脑直连不通，需路由器设置
-- qr_flutter 在 Windows 上有渲染问题 → 手绘 CustomPaint 替代
-- Flutter Windows Authorization header 被拦截 → 改用 X-Token
-
-- [Auto-build after changes](memory/feedback_auto_build.md) — code changes trigger build.ps1 -Mobile + -Desktop + deploy.ps1
-
-## 修复记录
-- excel 4.0.6 delete() 在单 sheet 无效 → 改用 rename()
-- mobile_scanner ^6.0 需 SDK36 → 降至 ^5.2.3
-- PostgreSQL 需 WSL2/Docker → Docker 化部署
-- LAN IP 检测被 WSL/VMware 虚拟网卡抢占 → 跳过虚拟卡 + 优先 WLAN
-- qr_flutter Windows 界面变灰 → 移除，用 qr 包 CustomPaint 手绘
+- Windows 桌面端以移动 UI 模式运行（临时绕过），需恢复 `isDesktop` 判断
+- `lib/app.dart:40` 已修复 unnecessary `!` assertion
+- 桌面端代码中部分 unused field 警告（非本次修改引入，不影响移动端）

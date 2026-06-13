@@ -1,5 +1,7 @@
 ﻿import 'dart:math';
 import '../database/database.dart';
+import '../core/plugin.dart';
+import '../core/plugin_registry.dart';
 import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 
@@ -11,21 +13,60 @@ class AnomalyAlert {
   AnomalyAlert({required this.bird, required this.type, required this.description, required this.severity});
 }
 
-enum AlertSeverity { warning, danger }
-
 class AlertService {
   final AppDatabase _db;
   AlertService(this._db);
 
-  /// 检测所有异常——根据成长阶段自动分发
+  /// 检测所有异常——聚合插件告警 + 体重检测
   Future<List<AnomalyAlert>> detectAll() async {
     final alerts = <AnomalyAlert>[];
+
+    // 预加载所有鸟（插件告警 + 体重检测共用）
     final allBirds = await _db.getAllWithDetails();
+
+    // 1. 遍历插件告警（喂药漏喂等）
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      try {
+        final pluginAlerts = await plugin.detectAlerts(_db);
+        for (final pa in pluginAlerts) {
+          final bird = allBirds.cast<BirdWithDetails?>().firstWhere(
+            (b) => b?.bird.id == pa.birdId,
+            orElse: () => null,
+          );
+          if (bird != null) {
+            alerts.add(AnomalyAlert(
+              bird: bird,
+              type: pa.type,
+              description: pa.description,
+              severity: pa.severity,
+            ));
+          }
+        }
+      } catch (_) {
+        // 单个插件告警失败不影响整体
+      }
+    }
+
+    // 2. 体重异常检测（仅取最近90天数据，覆盖所有算法窗口）
+    final cutoff = DateTime.now().subtract(const Duration(days: 90));
     for (final bird in allBirds) {
-      final weights = await _db.getByBird(bird.bird.id);
-      if (weights.isEmpty) continue;
-      // 统一升序（旧→新）
-      weights.sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+      final weights = await _db.getByBirdInRange(
+        bird.bird.id,
+        from: cutoff,
+        to: DateTime.now(),
+      );
+
+      if (weights.isEmpty) {
+        // 90 天以上无记录 → 长期未称重
+        alerts.add(AnomalyAlert(
+          bird: bird,
+          type: '超期未称重',
+          description: '超过90天未记录体重',
+          severity: AlertSeverity.danger,
+        ));
+        continue;
+      }
+      // weights 已按 recorded_at ASC 排序（查询中 ORDER BY）
 
       switch (bird.growthStage) {
         case '雏鸟':

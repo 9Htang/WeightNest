@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shelf_router/shelf_router.dart' as shelf;
 import '../database/database.dart';
 import 'event_bus.dart';
 
@@ -38,10 +37,6 @@ abstract class FeaturePlugin {
   /// Use [db] to pass database to screens that need it.
   Map<String, WidgetBuilder> routes(AppDatabase db);
 
-  /// Server-side shelf Router for this plugin's API endpoints.
-  /// [db] is the app database instance.
-  shelf.Router? serverRoutes(AppDatabase db);
-
   // ── Slot B: 鹦鹉详情嵌入 ──
 
   /// Sections this plugin contributes to the bird detail page.
@@ -59,6 +54,33 @@ abstract class FeaturePlugin {
 
   /// Data queries exposed to other plugins via registry.call().
   Map<String, Function> get dataQueries => const {};
+
+  /// Optional settings page for this plugin.
+  /// When non-null, the plugin management UI shows a settings button.
+  WidgetBuilder? get settingsBuilder => null;
+
+  // ── Slot E: 首页快捷操作 ──
+
+  /// Quick-action buttons contributed to the home screen.
+  List<QuickAction> get quickActions => [];
+
+  // ── Slot G: 容器称重操作 ──
+
+  /// Quick weigh action shown on enclosure cards.
+  /// When non-null, enclosure cards show a weigh button (top-right).
+  EnclosureWeighAction? get enclosureWeighAction => null;
+
+  // ── Slot H: 房间称重操作 ──
+
+  /// Quick weigh action shown on room cards.
+  /// When non-null, room cards show a weigh button.
+  RoomWeighAction? get roomWeighAction => null;
+
+  // ── Slot F: 告警检测 ──
+
+  /// Detect anomalies contributed by this plugin.
+  /// Called by AlertService.detectAll() — aggregated across all enabled plugins.
+  Future<List<PluginAlert>> detectAlerts(AppDatabase db) async => [];
 
   /// Register event handlers — subscribe to domain events from other plugins.
   void registerEvents(EventBus bus) {}
@@ -145,5 +167,73 @@ class DetailSection {
     this.priority = 100,
     this.defaultExpanded = true,
     required this.child,
+  });
+}
+
+// ── Quick actions ──
+
+/// A quick-action button contributed by a plugin to the home screen.
+class QuickAction {
+  final String label;
+  final IconData icon;
+  final Widget Function() builder;
+
+  const QuickAction({
+    required this.label,
+    required this.icon,
+    required this.builder,
+  });
+}
+
+// ── Enclosure weigh action ──
+
+/// A weigh button shown on enclosure cards.
+/// Plugins that can weigh birds by enclosure implement this.
+class EnclosureWeighAction {
+  final IconData icon;
+  final String tooltip;
+  /// builder receives enclosureId, returns the weigh page widget.
+  final Widget Function(int enclosureId) builder;
+
+  const EnclosureWeighAction({
+    required this.icon,
+    required this.tooltip,
+    required this.builder,
+  });
+}
+
+// ── Room weigh action ──
+
+/// A weigh button shown on room cards.
+/// Plugins that can weigh birds by room implement this.
+class RoomWeighAction {
+  final IconData icon;
+  final String tooltip;
+  /// builder receives roomId, returns the weigh page widget.
+  final Widget Function(int roomId) builder;
+
+  const RoomWeighAction({
+    required this.icon,
+    required this.tooltip,
+    required this.builder,
+  });
+}
+
+// ── Alert severity ──
+
+enum AlertSeverity { warning, danger }
+
+/// An anomaly alert contributed by a plugin's [FeaturePlugin.detectAlerts].
+class PluginAlert {
+  final int birdId;
+  final String type;
+  final String description;
+  final AlertSeverity severity;
+
+  const PluginAlert({
+    required this.birdId,
+    required this.type,
+    required this.description,
+    this.severity = AlertSeverity.warning,
   });
 }

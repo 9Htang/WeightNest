@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
+import '../../core/plugin_registry.dart';
 import '../../repositories/bird_repository.dart';
+import '../../repositories/enclosure_repository.dart';
 import '../../database/database.dart';
 import 'bird_detail_screen.dart';
-import '../weigh/weigh_screen.dart';
-import '../worker/worker_screen.dart';
+import '../weigh/weigh_grid_screen.dart';
 
 /// 鹦鹉列表页 — 按房间分组、支持拖动排序
 class BirdsScreen extends ConsumerStatefulWidget {
@@ -144,7 +145,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   void _startWeighing(int? roomId, int birdId) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WeighScreen(roomId: roomId, birdId: birdId)),
+      MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)),
     );
   }
 
@@ -196,7 +197,10 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       showDialog(
         context: context,
         builder: (ctx) => _AddBirdDialog(spList: spList, roomList: roomList),
-      ).then((_) => ref.invalidate(allBirdsProvider));
+      ).then((_) {
+        ref.invalidate(allBirdsProvider);
+        ref.invalidate(allRoomsProvider);
+      });
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
@@ -224,6 +228,8 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
   final _ringCtrl = TextEditingController();
   int? _selectedSpeciesId;
   int? _selectedRoomId;
+  int? _selectedEnclosureId;
+  String? _selectedEnclosureName;
   String _gender = '未知';
   DateTime _birthDate = DateTime.now();
 
@@ -322,7 +328,11 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                           leading: const Icon(Icons.block),
                           selected: _selectedRoomId == null,
                           onTap: () {
-                            setState(() => _selectedRoomId = null);
+                            setState(() {
+                              _selectedRoomId = null;
+                              _selectedEnclosureId = null;
+                              _selectedEnclosureName = null;
+                            });
                             Navigator.pop(ctx);
                           },
                         ),
@@ -330,7 +340,11 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                           title: Text(r.name),
                           selected: _selectedRoomId == r.id,
                           onTap: () {
-                            setState(() => _selectedRoomId = r.id);
+                            setState(() {
+                              _selectedRoomId = r.id;
+                              _selectedEnclosureId = null;
+                              _selectedEnclosureName = null;
+                            });
                             Navigator.pop(ctx);
                           },
                         )),
@@ -353,6 +367,81 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                       : '不分配',
                   style: TextStyle(
                     color: _selectedRoomId != null ? null : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 容器选择 — 依赖房间
+            InkWell(
+              onTap: _selectedRoomId == null
+                  ? null
+                  : () async {
+                      final scope = ProviderScope.containerOf(context);
+                      final db = scope.read(databaseProvider);
+                      final enclosures =
+                          await db.getEnclosuresByRoom(_selectedRoomId!);
+                      if (!mounted) return;
+                      showModalBottomSheet(
+                        context: context,
+                        useRootNavigator: true,
+                        builder: (ctx) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text('选择容器',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
+                              ),
+                              ListTile(
+                                title: const Text('不放入容器'),
+                                leading: const Icon(Icons.block),
+                                selected: _selectedEnclosureId == null,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedEnclosureId = null;
+                                    _selectedEnclosureName = null;
+                                  });
+                                  Navigator.pop(ctx);
+                                },
+                              ),
+                              ...enclosures.map((e) => ListTile(
+                                    title: Text(e.name),
+                                    selected:
+                                        _selectedEnclosureId == e.id,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedEnclosureId = e.id;
+                                        _selectedEnclosureName = e.name;
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  )),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: '容器 (选填)',
+                  suffixIcon: Icon(Icons.arrow_drop_down,
+                      color: _selectedRoomId == null
+                          ? Colors.grey.shade400
+                          : null),
+                ),
+                child: Text(
+                  _selectedEnclosureName ?? '不分配',
+                  style: TextStyle(
+                    color: _selectedRoomId == null
+                        ? Colors.grey.shade400
+                        : _selectedEnclosureId != null
+                            ? null
+                            : Colors.grey,
                   ),
                 ),
               ),
@@ -413,31 +502,15 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               return;
             }
             final db = ProviderScope.containerOf(context).read(databaseProvider);
-            final bird = await db.createBird(
+            await db.createBird(
               name: name,
               speciesId: _selectedSpeciesId!,
               birthDate: _birthDate,
               roomId: _selectedRoomId,
+              enclosureId: _selectedEnclosureId,
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
-            final userId = ProviderScope.containerOf(context).read(workerProvider).userId;
-            if (userId != null) {
-              await ProviderScope.containerOf(context).read(syncQueueProvider).enqueue(
-                userId: userId,
-                action: 'create_bird',
-                entityType: 'bird',
-                entityUuid: bird.uuid,
-                payload: {
-                  'name': name,
-                  'speciesId': _selectedSpeciesId,
-                  'roomId': _selectedRoomId,
-                  'birthDate': _birthDate.toIso8601String(),
-                  'ringNumber': _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
-                  'gender': _gender,
-                },
-              );
-            }
             if (mounted) Navigator.pop(context);
           },
           child: const Text('创建'),
@@ -464,6 +537,7 @@ class _BirdListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(pluginToggleVersionProvider); // 插件开关时重建称重按钮
     final theme = Theme.of(context);
     final w = weight;
 
@@ -536,13 +610,16 @@ class _BirdListTile extends ConsumerWidget {
                 )
               else
                 const Text('-', style: TextStyle(color: Colors.grey)),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.monitor_weight_outlined, size: 20),
-                tooltip: '称重',
-                onPressed: onWeigh,
-                visualDensity: VisualDensity.compact,
-              ),
+              // 仅称重插件启用时显示称重按钮
+              if (pluginRegistry.enabledPlugins.any((p) => p.id == 'weights')) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.monitor_weight_outlined, size: 20),
+                  tooltip: '称重',
+                  onPressed: onWeigh,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ],
           ),
         ),

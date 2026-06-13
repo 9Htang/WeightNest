@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_export_service.dart';
-import '../connect/connect_screen.dart';
 import '../../providers.dart';
 import '../../plugins/plugins.dart';
 import 'package:share_plus/share_plus.dart';
@@ -28,37 +27,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 连接服务器 ──
-          Consumer(builder: (context, ref, _) {
-            final connected = ref.watch(syncConnectedProvider);
-            return Card(
-              child: connected
-                  ? ListTile(
-                      leading: const Icon(Icons.cloud_done, color: Colors.green),
-                      title: const Text('已连接', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green)),
-                      subtitle: const Text('正在自动同步数据'),
-                      onTap: null,
-                      trailing: TextButton.icon(
-                        onPressed: () {
-                          ref.read(syncEngineProvider).disconnect();
-                          ref.read(syncConnectedProvider.notifier).state = false;
-                        },
-                        icon: const Icon(Icons.link_off, size: 18),
-                        label: const Text('断开'),
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      ),
-                    )
-                  : ListTile(
-                      leading: const Icon(Icons.link, color: Colors.blue),
-                      title: const Text('连接服务器', style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('扫码或手动输入连接中央服务器'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectScreen())),
-                    ),
-            );
-          }),
-          const SizedBox(height: 16),
-
           // ── 数据导出 ──
           Card(
             child: Padding(
@@ -168,13 +136,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _PluginList extends StatefulWidget {
+class _PluginList extends ConsumerStatefulWidget {
   const _PluginList();
   @override
-  State<_PluginList> createState() => _PluginListState();
+  ConsumerState<_PluginList> createState() => _PluginListState();
 }
 
-class _PluginListState extends State<_PluginList> {
+class _PluginListState extends ConsumerState<_PluginList> {
   @override
   Widget build(BuildContext context) {
     final plugins = pluginRegistry.plugins;
@@ -206,8 +174,21 @@ class _PluginListState extends State<_PluginList> {
                 value: p.enabled,
                 onChanged: (v) {
                   pluginRegistry.setEnabled(p.id, v);
+                  ref.read(pluginToggleVersionProvider.notifier).update((s) => s + 1);
                   setState(() {});
                 },
+              )),
+              // 设置按钮 — 仅可配置的插件显示
+              ...pluginRegistry.configurablePlugins.map((p) => Padding(
+                padding: const EdgeInsets.only(left: 48, bottom: 8),
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: const Text('插件设置', style: TextStyle(fontSize: 13)),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: p.settingsBuilder!),
+                  ),
+                ),
               )),
           ],
         ),

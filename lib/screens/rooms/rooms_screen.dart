@@ -5,8 +5,6 @@ import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
 import '../birds/birds_screen.dart';
 
-import '../worker/worker_screen.dart';
-
 /// 房间管理页面
 class RoomsScreen extends ConsumerStatefulWidget {
   const RoomsScreen({super.key});
@@ -45,40 +43,22 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                       ..addAll(reordered);
                   });
                   final db = ref.read(databaseProvider);
-                  final userId = ref.read(workerProvider).userId;
                   final futures = <Future>[];
                   for (int i = 0; i < reordered.length; i++) {
-                    futures.add(db.updateRoom(reordered[i].id, sortOrder: i).then((room) async {
-                      if (userId != null) {
-                        await ref.read(syncQueueProvider).enqueue(
-                          userId: userId,
-                          action: 'update_room',
-                          entityType: 'room',
-                          entityUuid: room.uuid,
-                          payload: {'sortOrder': i},
-                        );
-                      }
-                    }));
+                    futures.add(db.updateRoom(reordered[i].id, sortOrder: i));
                   }
                   await Future.wait(futures);
                   ref.invalidate(allRoomsProvider);
                 },
                 itemBuilder: (context, i) {
                   final r = rooms[i];
-                  final usersAsync = ref.watch(allUsersProvider);
-                  final assignedName = usersAsync.when(
-                    data: (users) => r.assignedUserId != null
-                        ? users.where((u) => u.id == r.assignedUserId).map((u) => u.displayName).firstOrNull ?? '未知'
-                        : null,
-                    loading: () => null, error: (_, __) => null,
-                  );
                   return Card(
                     key: ValueKey(r.id),
                     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                     child: ListTile(
                       leading: const Icon(Icons.meeting_room),
                       title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(assignedName != null ? '负责人: $assignedName' : '点击查看鹦鹉'),
+                      subtitle: const Text('点击查看鹦鹉'),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
@@ -103,79 +83,30 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
 
   void _showEditDialog(BuildContext context, Room? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final usersAsync = ref.read(allUsersProvider);
 
     showDialog(
       context: context,
       builder: (ctx) {
-        int? assignedId = existing?.assignedUserId;
         return AlertDialog(
           title: Text(existing != null ? '编辑房间' : '新增房间'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: '房间名称'),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-                usersAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (users) => DropdownButtonFormField<int?>(
-                    value: assignedId,
-                    decoration: const InputDecoration(labelText: '负责人'),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('未分配')),
-                      ...users.map((u) => DropdownMenuItem(
-                        value: u.id, child: Text(u.displayName),
-                      )),
-                    ],
-                    onChanged: (v) => assignedId = v,
-                  ),
-                ),
-              ],
-            ),
+          content: TextField(
+            controller: nameCtrl,
+            decoration: const InputDecoration(labelText: '房间名称'),
+            autofocus: true,
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                nameCtrl.dispose();
-                Navigator.pop(ctx);
-              },
+              onPressed: () => Navigator.pop(ctx),
               child: const Text('取消')),
             FilledButton(onPressed: () async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
               final db = ref.read(databaseProvider);
               if (existing != null) {
-                final room = await db.updateRoom(existing.id, name: name, assignedUserId: assignedId);
-                final userId = ref.read(workerProvider).userId;
-                if (userId != null) {
-                  await ref.read(syncQueueProvider).enqueue(
-                    userId: userId,
-                    action: 'update_room',
-                    entityType: 'room',
-                    entityUuid: room.uuid,
-                    payload: {'name': name, 'assignedUserId': assignedId},
-                  );
-                }
+                await db.updateRoom(existing.id, name: name);
               } else {
-                final room = await db.createRoom(name, assignedUserId: assignedId);
-                final userId = ref.read(workerProvider).userId;
-                if (userId != null) {
-                  await ref.read(syncQueueProvider).enqueue(
-                    userId: userId,
-                    action: 'create_room',
-                    entityType: 'room',
-                    entityUuid: room.uuid,
-                    payload: {'name': name, 'assignedUserId': assignedId},
-                  );
-                }
+                await db.createRoom(name);
               }
-              nameCtrl.dispose();
               ref.invalidate(allRoomsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             }, child: const Text('保存')),
@@ -197,16 +128,6 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await ref.read(databaseProvider).removeRoom(r.id);
-              final userId = ref.read(workerProvider).userId;
-              if (userId != null) {
-                await ref.read(syncQueueProvider).enqueue(
-                  userId: userId,
-                  action: 'delete_room',
-                  entityType: 'room',
-                  entityUuid: r.uuid,
-                  payload: {'id': r.id, 'name': r.name},
-                );
-              }
               ref.invalidate(allRoomsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             },

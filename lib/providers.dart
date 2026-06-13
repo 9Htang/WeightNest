@@ -4,12 +4,12 @@ import 'database/database.dart';
 import 'repositories/bird_repository.dart';
 import 'repositories/weight_repository.dart';
 import 'repositories/room_repository.dart';
+import 'repositories/enclosure_repository.dart';
 import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
 import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
-import 'services/sync_queue_service.dart';
-import 'services/sync_engine.dart';
+import 'plugins/medication/medication_repository.dart';
 import 'screens/worker/worker_screen.dart';
 
 /// 数据库单例
@@ -27,10 +27,11 @@ final allBirdsProvider = FutureProvider<List<BirdWithDetails>>((ref) async {
 });
 
 /// 所有鹦鹉的最新体重（批量查询，避免 N+1）
+/// 复用 allBirdsProvider 结果，避免重复 JOIN 查询
 final allLatestWeightsProvider = FutureProvider<Map<int, Weight?>>((ref) async {
   ref.watch(weightSavedProvider);
   final db = ref.watch(databaseProvider);
-  final birds = await db.getAllWithDetails();
+  final birds = await ref.watch(allBirdsProvider.future);
   if (birds.isEmpty) return {};
   return db.getLatestByBirds(birds.map((b) => b.bird.id).toList());
 });
@@ -63,7 +64,7 @@ final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
   return db.getAllSpecies();
 });
 
-/// 今日任务（仅显示当前登录员工的任务）
+/// 今日任务（仅显示当前用户的任务）
 final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
   await db.generateTodayTasks();
@@ -77,24 +78,30 @@ final overdueTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   return db.getOverdueTasks();
 });
 
-/// 首次启动预置默认品种 + 管理员账号
+/// 首次启动预置默认品种
 final initDefaultsProvider = FutureProvider<void>((ref) async {
   final db = ref.watch(databaseProvider);
 
-  // 品种（默认值与服务端保持一致，连接后会被服务端数据覆盖）
-  final existing = await db.getAllSpecies();
-  if (existing.isEmpty) {
-    await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-    await db.createSpecies('金太阳', nestlingEndDays: 45, juvenileEndDays: 120);
-    await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-    await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-    await db.createSpecies('金刚鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+  try {
+    final existing = await db.getAllSpecies();
+    if (existing.isEmpty) {
+      await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+      await db.createSpecies('金太阳', nestlingEndDays: 45, juvenileEndDays: 120);
+      await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+      await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+      await db.createSpecies('金刚鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+    }
+  } catch (_) {
+    // 旧数据库 schema 可能不兼容，忽略
   }
 
-  // 默认管理员
-  final users = await db.getAllUsers();
-  if (users.isEmpty) {
-    await db.createUser('admin', '管理员', '', role: 'admin');
+  try {
+    final users = await db.getAllUsers();
+    if (users.isEmpty) {
+      await db.createUser('admin', '管理员', '', role: 'admin');
+    }
+  } catch (_) {
+    // 旧数据库 schema 可能不兼容，忽略
   }
 });
 
@@ -117,8 +124,59 @@ final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref
   return db.getByRoom(roomId);
 });
 
+// ── 容器（Enclosure）相关提供者 ──
+
+/// 某房间的所有容器
+final roomEnclosuresProvider =
+    FutureProvider.family<List<Enclosure>, int>((ref, roomId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getEnclosuresByRoom(roomId);
+});
+
+/// 某房间的所有容器及鸟数
+final roomEnclosuresWithCountsProvider = FutureProvider.family<
+    List<EnclosureWithCount>, int>((ref, roomId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getByRoomWithCounts(roomId);
+});
+
+/// 某容器的鹦鹉列表
+final enclosureBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>(
+    (ref, enclosureId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getByEnclosure(enclosureId);
+});
+
+/// 某房间是否有容器（用于决定点击房间后的行为）
+final roomHasEnclosuresProvider =
+    FutureProvider.family<bool, int>((ref, roomId) async {
+  final enclosures = ref.watch(roomEnclosuresProvider(roomId));
+  return enclosures.valueOrNull?.isNotEmpty ?? false;
+});
+
+/// 某只鹦鹉的活跃喂药方案
+final medicationPlansProvider = FutureProvider.family<List<Medication>, int>((ref, birdId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getMedicationsByBird(birdId);
+});
+
+/// 某只鹦鹉的今日喂药日志
+final todayMedicationLogsProvider = FutureProvider.family<List<MedicationLogData>, int>((ref, birdId) async {
+  final db = ref.watch(databaseProvider);
+  return db.getTodayLogs(birdId);
+});
+
+/// 今日所有鸟的喂药日志（用于任务列表）
+final todayAllMedicationLogsProvider = FutureProvider<List<MedicationLogData>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return db.getAllTodayLogs();
+});
+
 /// 体重保存通知——用于触发图表刷新
 final weightSavedProvider = StateProvider<int>((ref) => 0);
+
+/// 插件开关通知——用于触发 UI 刷新（快捷操作、称重按钮等）
+final pluginToggleVersionProvider = StateProvider<int>((ref) => 0);
 
 /// 当前员工的房间（多房间支持）
 final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
@@ -128,22 +186,3 @@ final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
   return db.getByUser(worker.userId!);
 });
 
-/// 同步队列服务
-final syncQueueProvider = Provider<SyncQueueService>((ref) {
-  final db = ref.watch(databaseProvider);
-  return SyncQueueService(db);
-});
-
-/// 同步引擎
-final syncEngineProvider = Provider<SyncEngine>((ref) {
-  final db = ref.watch(databaseProvider);
-  final queue = ref.watch(syncQueueProvider);
-  final engine = SyncEngine(db, queue);
-  engine.onWeightChanged = () {
-    ref.read(weightSavedProvider.notifier).state++;
-  };
-  return engine;
-});
-
-/// 同步连接状态
-final syncConnectedProvider = StateProvider<bool>((ref) => false);

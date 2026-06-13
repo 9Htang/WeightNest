@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/plugin.dart';
 import '../../providers.dart';
 import '../../services/alert_service.dart';
 import '../birds/bird_detail_screen.dart';

@@ -2,9 +2,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
-import '../weigh/weigh_screen.dart';
+import '../../plugins/medication/medication_repository.dart';
+import '../weigh/weigh_grid_screen.dart';
 import '../../widgets/section_header.dart';
-import '../worker/worker_screen.dart';
 /// 任务页面 — 今日任务 + 逾期任务
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
@@ -31,10 +31,11 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(todayTasksProvider);
+    final medLogsAsync = ref.watch(todayAllMedicationLogsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('称重任务'),
+        title: const Text('任务'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -45,15 +46,18 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '重新生成',
-            onPressed: () => ref.invalidate(todayTasksProvider),
+            tooltip: '刷新',
+            onPressed: () {
+              ref.invalidate(todayTasksProvider);
+              ref.invalidate(todayAllMedicationLogsProvider);
+            },
           ),
         ],
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _TodayTasks(tasksAsync: tasksAsync, ref: ref),
+          _TodayTasks(tasksAsync: tasksAsync, medLogsAsync: medLogsAsync, ref: ref),
           _OverdueTasks(ref: ref),
         ],
       ),
@@ -63,80 +67,102 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
 
 class _TodayTasks extends ConsumerWidget {
   final AsyncValue<List<TaskWithBird>> tasksAsync;
+  final AsyncValue<List<MedicationLogData>> medLogsAsync;
   final WidgetRef ref;
 
-  const _TodayTasks({required this.tasksAsync, required this.ref});
+  const _TodayTasks({required this.tasksAsync, required this.medLogsAsync, required this.ref});
 
   @override
   Widget build(BuildContext context, WidgetRef localRef) {
-    return tasksAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
-      data: (tasks) {
-        final pending = tasks.where((t) => t.task.status == '待完成').toList();
-        final done = tasks.where((t) => t.task.status == '已完成').toList();
+    final tasks = tasksAsync.valueOrNull ?? [];
+    final medLogs = medLogsAsync.valueOrNull ?? [];
+    final isLoading = tasksAsync.isLoading || medLogsAsync.isLoading;
 
-        if (tasks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.check_circle_outline, size: 64,
-                    color: Theme.of(context).colorScheme.primary.withAlpha(80)),
-                const SizedBox(height: 12),
-                const Text('今天没有称重任务'),
-                const SizedBox(height: 16),
-                FilledButton.tonal(
-                  onPressed: () => ref.invalidate(todayTasksProvider),
-                  child: const Text('生成任务'),
-                ),
-              ],
+    if (isLoading && tasks.isEmpty && medLogs.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final pendingWeigh = tasks.where((t) => t.task.status == '待完成').toList();
+    final doneWeigh = tasks.where((t) => t.task.status == '已完成').toList();
+    final pendingMeds = medLogs.where((l) => !l.isDone && !l.isSkipped).toList();
+    final doneMeds = medLogs.where((l) => l.isDone || l.isSkipped).toList();
+
+    final allPendingCount = pendingWeigh.length + pendingMeds.length;
+    final allDoneCount = doneWeigh.length + doneMeds.length;
+
+    if (tasks.isEmpty && medLogs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_outline, size: 64,
+                color: Theme.of(context).colorScheme.primary.withAlpha(80)),
+            const SizedBox(height: 12),
+            const Text('今天没有任务'),
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              onPressed: () {
+                ref.invalidate(todayTasksProvider);
+                ref.invalidate(todayAllMedicationLogsProvider);
+              },
+              child: const Text('刷新'),
             ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(todayTasksProvider),
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            children: [
-              if (pending.isNotEmpty) ...[
-                SectionHeader(title: '待完成 (${pending.length})'),
-                ...pending.map((t) => _TaskCard(
-                  task: t,
-                  onComplete: () => _completeTask(t.task.id, t.task.uuid, ref),
-                  onWeigh: () => _startWeighing(context, t.bird.roomId),
-                )),
-              ],
-              if (done.isNotEmpty) ...[
-                SectionHeader(title: '已完成 (${done.length})'),
-                ...done.map((t) => _TaskCard(task: t, done: true)),
-              ],
-            ],
-          ),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(todayTasksProvider);
+        ref.invalidate(todayAllMedicationLogsProvider);
       },
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          if (allPendingCount > 0) ...[
+            SectionHeader(title: '待完成 ($allPendingCount)'),
+            // 称重任务
+            ...pendingWeigh.map((t) => _TaskCard(
+              task: t,
+              onComplete: () => _completeWeighTask(t.task.id, ref),
+              onWeigh: () => _startWeighing(context, t.bird.roomId),
+            )),
+            // 喂药任务
+            ...pendingMeds.map((l) => _MedTaskCard(
+              logData: l,
+              onGive: () => _giveMed(l.log.id, ref),
+              onSkip: () => _skipMed(l.log.id, ref),
+            )),
+          ],
+          if (allDoneCount > 0) ...[
+            SectionHeader(title: '已完成 ($allDoneCount)'),
+            ...doneWeigh.map((t) => _TaskCard(task: t, done: true)),
+            ...doneMeds.map((l) => _MedTaskCard(logData: l, done: true)),
+          ],
+        ],
+      ),
     );
   }
 
-  Future<void> _completeTask(int taskId, String taskUuid, WidgetRef ref) async {
+  Future<void> _completeWeighTask(int taskId, WidgetRef ref) async {
     await ref.read(databaseProvider).completeTask(taskId, 1);
-    final userId = ref.read(workerProvider).userId;
-    if (userId != null) {
-      await ref.read(syncQueueProvider).enqueue(
-        userId: userId,
-        action: 'complete_task',
-        entityType: 'task',
-        entityUuid: taskUuid,
-        payload: {'taskId': taskId, 'status': '已完成', 'completedBy': 1},
-      );
-    }
     ref.invalidate(todayTasksProvider);
+  }
+
+  Future<void> _giveMed(int logId, WidgetRef ref) async {
+    await ref.read(databaseProvider).giveMedication(logId);
+    ref.invalidate(todayAllMedicationLogsProvider);
+  }
+
+  Future<void> _skipMed(int logId, WidgetRef ref) async {
+    await ref.read(databaseProvider).skipMedication(logId);
+    ref.invalidate(todayAllMedicationLogsProvider);
   }
 
   void _startWeighing(BuildContext context, int? roomId) {
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => WeighScreen(roomId: roomId)));
+        MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId)));
   }
 }
 
@@ -176,16 +202,6 @@ class _OverdueTasks extends ConsumerWidget {
               urgent: true,
               onComplete: () async {
                 await ref.read(databaseProvider).completeTask(t.task.id, 1);
-                final userId = ref.read(workerProvider).userId;
-                if (userId != null) {
-                  await ref.read(syncQueueProvider).enqueue(
-                    userId: userId,
-                    action: 'complete_task',
-                    entityType: 'task',
-                    entityUuid: t.task.uuid,
-                    payload: {'taskId': t.task.id, 'status': '已完成', 'completedBy': 1},
-                  );
-                }
                 ref.invalidate(overdueTasksProvider);
               },
             )),
@@ -262,6 +278,94 @@ class _TaskCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 child: const Text('完成', style: TextStyle(fontSize: 13)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 喂药任务卡片
+class _MedTaskCard extends StatelessWidget {
+  final MedicationLogData logData;
+  final bool done;
+  final VoidCallback? onGive;
+  final VoidCallback? onSkip;
+
+  const _MedTaskCard({
+    required this.logData,
+    this.done = false,
+    this.onGive,
+    this.onSkip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLate = !done && logData.log.scheduledTime.isBefore(DateTime.now());
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      color: done ? Colors.grey.shade50 : (isLate ? Colors.red.shade50 : null),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: done ? Colors.green.shade100 : (isLate ? Colors.red.shade100 : Colors.blue.shade100),
+              ),
+              child: Icon(
+                done ? Icons.check_circle : Icons.medication,
+                size: 20,
+                color: done ? Colors.green : (isLate ? Colors.red : Colors.blue),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Text(logData.medication.drugName,
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    Text(logData.medication.dosage,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ]),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${logData.birdName ?? ''} · ${logData.timeLabel}${isLate && !done ? " (已逾期)" : ""}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isLate && !done ? Colors.red : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!done) ...[
+              TextButton(
+                onPressed: onSkip,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  minimumSize: const Size(44, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('跳过', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 4),
+              FilledButton(
+                onPressed: onGive,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(56, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+                child: const Text('已喂'),
               ),
             ],
           ],

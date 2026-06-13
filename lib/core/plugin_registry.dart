@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shelf_router/shelf_router.dart' as shelf;
 import '../database/database.dart';
 import 'plugin.dart';
 import 'event_bus.dart';
@@ -55,6 +54,10 @@ class PluginRegistry {
   List<FeaturePlugin> get enabledPlugins =>
       _plugins.where((p) => p.enabled).toList();
 
+  /// Plugins that have a settings page.
+  Iterable<FeaturePlugin> get configurablePlugins =>
+      _plugins.where((p) => p.enabled && p.settingsBuilder != null);
+
   /// All database tables from enabled plugins.
   List<dynamic> get allTables =>
       enabledPlugins.expand((p) => p.tables).toList();
@@ -68,13 +71,4 @@ class PluginRegistry {
     return map;
   }
 
-  /// All server routes for enabled plugins, mounted at /api/<plugin.id>/
-  void mountServerRoutes(AppDatabase db, shelf.Router router) {
-    for (final p in enabledPlugins) {
-      final pluginRouter = p.serverRoutes(db);
-      if (pluginRouter != null) {
-        router.mount('/api/${p.id}/', pluginRouter.call);
-      }
-    }
-  }
 }

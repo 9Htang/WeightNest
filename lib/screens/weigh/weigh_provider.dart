@@ -5,7 +5,8 @@ import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../repositories/task_repository.dart';
-import '../../services/sync_queue_service.dart';
+import '../../repositories/enclosure_repository.dart';
+import '../../repositories/room_repository.dart';
 
 /// 称重流程状态
 class WeighState {
@@ -18,6 +19,14 @@ class WeighState {
   final Map<int, Weight?> latestWeights;
   final int todayCompleted;
 
+  // Navigation breadcrumbs (for UI display)
+  final String? roomName;
+  final String? enclosureName;
+  final bool hasPrevRoom;
+  final bool hasNextRoom;
+  final bool hasPrevEnclosure;
+  final bool hasNextEnclosure;
+
   WeighState({
     required this.birds,
     this.currentIndex = 0,
@@ -27,6 +36,12 @@ class WeighState {
     this.message,
     this.latestWeights = const {},
     this.todayCompleted = 0,
+    this.roomName,
+    this.enclosureName,
+    this.hasPrevRoom = false,
+    this.hasNextRoom = false,
+    this.hasPrevEnclosure = false,
+    this.hasNextEnclosure = false,
   });
 
   BirdWithDetails? get currentBird =>
@@ -44,6 +59,12 @@ class WeighState {
     String? message,
     Map<int, Weight?>? latestWeights,
     int? todayCompleted,
+    String? roomName,
+    String? enclosureName,
+    bool? hasPrevRoom,
+    bool? hasNextRoom,
+    bool? hasPrevEnclosure,
+    bool? hasNextEnclosure,
   }) =>
       WeighState(
         birds: birds ?? this.birds,
@@ -54,42 +75,157 @@ class WeighState {
         message: message,
         latestWeights: latestWeights ?? this.latestWeights,
         todayCompleted: todayCompleted ?? this.todayCompleted,
+        roomName: roomName ?? this.roomName,
+        enclosureName: enclosureName ?? this.enclosureName,
+        hasPrevRoom: hasPrevRoom ?? this.hasPrevRoom,
+        hasNextRoom: hasNextRoom ?? this.hasNextRoom,
+        hasPrevEnclosure: hasPrevEnclosure ?? this.hasPrevEnclosure,
+        hasNextEnclosure: hasNextEnclosure ?? this.hasNextEnclosure,
       );
 }
 
-/// 称重流程控制器
+/// 称重流程控制器 — 支持三层导航（房间 / 容器 / 鸟）
 class WeighNotifier extends StateNotifier<WeighState> {
   final AppDatabase _db;
-  final SyncQueueService _syncQueue;
   int? _userId;
   final VoidCallback? _onWeightSaved;
 
-  WeighNotifier(this._db, this._syncQueue, {VoidCallback? onWeightSaved})
+  // ── 层级上下文（不在 state 中，内部使用） ──
+  List<Room> _rooms = [];
+  Map<int, List<EnclosureWithCount>> _enclosuresByRoom = {};
+  int _roomIdx = 0;
+  int _enclosureIdx = -1; // -1 = 无容器筛选（该房间全部鸟）
+
+  // ── 搜索状态 ──
+  String _searchQuery = '';
+  List<int> _filteredIndices = [];
+
+  WeighNotifier(this._db, {VoidCallback? onWeightSaved})
       : _onWeightSaved = onWeightSaved,
         super(WeighState(birds: []));
 
   void setUserId(int? id) => _userId = id;
 
-  /// 加载鹦鹉列表（按房间或全部）
-  Future<void> loadBirds({int? roomId}) async {
-    List<BirdWithDetails> birds;
-    if (roomId != null) {
-      birds = await _db.getByRoom(roomId);
-    } else {
-      birds = await _db.getAllWithDetails();
+  // ═══════════════════════════════════════════════
+  // 初始化加载
+  // ═══════════════════════════════════════════════
+
+  /// 加载完整层级结构 + 当前鸟列表
+  Future<void> loadBirds({
+    int? roomId,
+    int? enclosureId,
+    int? birdId,
+  }) async {
+    // 1. 加载所有房间（含空房间，确保空房间/空容器称重不跳转）
+    _rooms = await _db.getAllRooms();
+    _rooms.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    // 2. 批量加载所有房间的容器（单条 SQL，含空容器）
+    _enclosuresByRoom = await _db.getAllEnclosureCounts();
+    for (final r in _rooms) {
+      _enclosuresByRoom.putIfAbsent(r.id, () => []);
     }
+
+    // 3. 确定初始位置并加载鸟列表
+    if (enclosureId != null) {
+      final enc = await _db.getEnclosureById(enclosureId);
+      if (enc != null) {
+        _roomIdx = _rooms.indexWhere((r) => r.id == enc.roomId);
+        if (_roomIdx < 0) _roomIdx = 0;
+        final encs = _enclosuresByRoom[_rooms[_roomIdx].id] ?? [];
+        _enclosureIdx = encs.indexWhere((e) => e.enclosure.id == enclosureId);
+        if (_enclosureIdx < 0) _enclosureIdx = -1;
+      } else {
+        _roomIdx = 0;
+        _enclosureIdx = -1;
+      }
+    } else if (roomId != null) {
+      _roomIdx = _rooms.indexWhere((r) => r.id == roomId);
+      if (_roomIdx < 0) _roomIdx = 0;
+      _enclosureIdx = -1;
+    } else {
+      _roomIdx = 0;
+      _enclosureIdx = -1;
+    }
+
+    await _loadCurrentBirds(birdId: birdId);
+  }
+
+  /// 加载当前房间/容器下的鸟列表
+  Future<void> _loadCurrentBirds({int? birdId}) async {
+    if (_rooms.isEmpty) {
+      state = state.copyWith(birds: [], roomName: null, enclosureName: null,
+        hasPrevRoom: false, hasNextRoom: false,
+        hasPrevEnclosure: false, hasNextEnclosure: false);
+      return;
+    }
+
+    final room = _rooms[_roomIdx];
+    List<BirdWithDetails> birds;
+
+    if (_enclosureIdx >= 0) {
+      // 有容器：加载该容器的鸟
+      final encs = _enclosuresByRoom[room.id] ?? [];
+      if (encs.isNotEmpty && _enclosureIdx < encs.length) {
+        final enc = encs[_enclosureIdx];
+        birds = await _db.getByEnclosure(enc.enclosure.id);
+      } else {
+        birds = await _db.getByRoom(room.id);
+      }
+    } else {
+      // 无容器：加载该房间全部鸟
+      birds = await _db.getByRoom(room.id);
+    }
+
+    // 获取最新体重
     final weights = await _db.getLatestByBirds(
         birds.map((b) => b.bird.id).toList());
-    // 自动填入第一只鸟的上次体重
+
+    final enclosureName = _currentEnclosureName();
+    final encs = _enclosuresByRoom[room.id] ?? [];
+    final hasEncs = encs.isNotEmpty;
+
+    // 搜索过滤
+    _searchQuery = '';
+    _filteredIndices = [];
+
     final firstWeight = birds.isNotEmpty ? weights[birds.first.bird.id] : null;
+
+    // 目标鸟索引
+    int idx = 0;
+    if (birdId != null) {
+      final bi = birds.indexWhere((b) => b.bird.id == birdId);
+      if (bi >= 0) idx = bi;
+    }
+
     state = state.copyWith(
       birds: birds,
+      currentIndex: idx,
       latestWeights: weights,
       weightText: firstWeight != null ? firstWeight.weightG.toStringAsFixed(1) : '',
+      isFasting: true,
+      message: null,
+      roomName: room.name,
+      enclosureName: enclosureName,
+      hasPrevRoom: _roomIdx > 0,
+      hasNextRoom: _roomIdx < _rooms.length - 1,
+      hasPrevEnclosure: hasEncs && (_enclosureIdx > 0 || _roomIdx > 0),
+      hasNextEnclosure: hasEncs && (_enclosureIdx < encs.length - 1 || _roomIdx < _rooms.length - 1),
     );
   }
 
-  /// 跳转到指定鸟
+  String? _currentEnclosureName() {
+    if (_rooms.isEmpty || _enclosureIdx < 0) return null;
+    final room = _rooms[_roomIdx];
+    final encs = _enclosuresByRoom[room.id] ?? [];
+    if (_enclosureIdx < encs.length) return encs[_enclosureIdx].enclosure.name;
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════
+  // 导航
+  // ═══════════════════════════════════════════════
+
   void goToBird(int index) {
     if (index < 0 || index >= state.birds.length) return;
     final bird = state.birds[index];
@@ -103,18 +239,116 @@ class WeighNotifier extends StateNotifier<WeighState> {
   }
 
   void nextBird() {
+    if (_searchQuery.isNotEmpty && _filteredIndices.isNotEmpty) {
+      final curInFiltered = _filteredIndices.indexOf(state.currentIndex);
+      if (curInFiltered >= 0 && curInFiltered < _filteredIndices.length - 1) {
+        goToBird(_filteredIndices[curInFiltered + 1]);
+        return;
+      }
+    }
     if (state.hasNext) {
       goToBird(state.currentIndex + 1);
+    } else {
+      // 自动尝试下一容器
+      if (_advanceEnclosure(1)) return;
+      _advanceRoom(1);
     }
   }
 
   void prevBird() {
+    if (_searchQuery.isNotEmpty && _filteredIndices.isNotEmpty) {
+      final curInFiltered = _filteredIndices.indexOf(state.currentIndex);
+      if (curInFiltered > 0) {
+        goToBird(_filteredIndices[curInFiltered - 1]);
+        return;
+      }
+    }
     if (state.hasPrev) {
       goToBird(state.currentIndex - 1);
+    } else {
+      if (_advanceEnclosure(-1)) {
+        // 跳转到该容器最后一只鸟
+        Future.microtask(() {
+          if (state.birds.isNotEmpty) goToBird(state.birds.length - 1);
+        });
+        return;
+      }
+      _advanceRoom(-1);
     }
   }
 
-  /// 输入数字
+  /// 切换到下一个/上一个容器
+  Future<void> nextEnclosure() async {
+    if (_advanceEnclosure(1)) return;
+    await _advanceRoom(1);
+  }
+
+  Future<void> prevEnclosure() async {
+    if (_advanceEnclosure(-1)) return;
+    await _advanceRoom(-1);
+  }
+
+  /// 切换到下一个/上一个房间
+  Future<void> nextRoom() async => _advanceRoom(1);
+  Future<void> prevRoom() async => _advanceRoom(-1);
+
+  bool _advanceEnclosure(int delta) {
+    if (_rooms.isEmpty) return false;
+    final room = _rooms[_roomIdx];
+    final encs = _enclosuresByRoom[room.id] ?? [];
+    if (encs.isEmpty) return false;
+    final newIdx = _enclosureIdx + delta;
+    if (newIdx >= 0 && newIdx < encs.length) {
+      _enclosureIdx = newIdx;
+      _loadCurrentBirds();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _advanceRoom(int delta) async {
+    if (_rooms.isEmpty) return;
+    final newRoomIdx = _roomIdx + delta;
+    if (newRoomIdx < 0 || newRoomIdx >= _rooms.length) return;
+    _roomIdx = newRoomIdx;
+    // 新房间：定位到第一个容器，或无容器状态
+    final room = _rooms[_roomIdx];
+    final encs = _enclosuresByRoom[room.id] ?? [];
+    _enclosureIdx = encs.isNotEmpty ? 0 : -1;
+    await _loadCurrentBirds();
+  }
+
+  // ═══════════════════════════════════════════════
+  // 脚环搜索
+  // ═══════════════════════════════════════════════
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    if (query.isEmpty) {
+      _filteredIndices = [];
+      return;
+    }
+    _filteredIndices = [];
+    for (int i = 0; i < state.birds.length; i++) {
+      final ring = state.birds[i].bird.ringNumber;
+      if (ring != null && ring.toLowerCase().startsWith(query.toLowerCase())) {
+        _filteredIndices.add(i);
+      }
+    }
+    if (_filteredIndices.isNotEmpty) {
+      goToBird(_filteredIndices.first);
+    }
+  }
+
+  List<BirdWithDetails> get filteredBirds {
+    if (_searchQuery.isEmpty) return state.birds;
+    return _filteredIndices.map((i) => state.birds[i]).toList();
+  }
+
+  // ═══════════════════════════════════════════════
+  // 输入
+  // ═══════════════════════════════════════════════
+
   void appendDigit(String digit) {
     if (digit == '.' && state.weightText.contains('.')) return;
     if (state.weightText.length >= 6) return;
@@ -137,14 +371,16 @@ class WeighNotifier extends StateNotifier<WeighState> {
   void setFasting(bool v) =>
       state = state.copyWith(isFasting: v);
 
-  /// 快速调整（+1g / -1g）
   void adjustWeight(double delta) {
     final current = double.tryParse(state.weightText) ?? 0;
     final newVal = (current + delta).toStringAsFixed(1);
     state = state.copyWith(weightText: newVal, message: null);
   }
 
-  /// 保存体重 → 自动切换到下一只鸟
+  // ═══════════════════════════════════════════════
+  // 保存
+  // ═══════════════════════════════════════════════
+
   Future<void> saveWeight() async {
     final bird = state.currentBird;
     if (bird == null) return;
@@ -165,36 +401,16 @@ class WeighNotifier extends StateNotifier<WeighState> {
       isFasting: state.isFasting,
     );
 
-    // 更新最新体重缓存
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedWeights[bird.bird.id] = savedWeight;
 
-    // 通知外部刷新
     _onWeightSaved?.call();
 
-    // 自动完成今日任务
     final allTodayTasks = await _db.getTodayTasks(null);
     final pendingTask = allTodayTasks.where((t) =>
         t.bird.id == bird.bird.id && t.task.status == '待完成').firstOrNull;
     if (pendingTask != null) {
       await _db.completeTask(pendingTask.task.id, _userId ?? 1);
-    }
-
-    // 离线同步：入队待推送
-    if (_userId != null) {
-      await _syncQueue.enqueue(
-        userId: _userId!,
-        action: 'add_weight',
-        entityType: 'weight',
-        entityUuid: savedWeight.uuid,
-        payload: {
-          'birdUuid': bird.bird.uuid,
-          'birdId': bird.bird.id,
-          'weightG': w,
-          'recordedAt': savedWeight.recordedAt.toIso8601String(),
-          'isFasting': state.isFasting,
-        },
-      );
     }
 
     final done = allTodayTasks.where((t) => t.task.status == '已完成').length
@@ -206,7 +422,15 @@ class WeighNotifier extends StateNotifier<WeighState> {
       todayCompleted: done,
     );
 
-    // 自动切换到下一只鸟
+    // 自动切换到下一只鸟（搜索状态下在过滤结果内导航）
+    if (_searchQuery.isNotEmpty && _filteredIndices.isNotEmpty) {
+      final curInFiltered = _filteredIndices.indexOf(state.currentIndex);
+      if (curInFiltered >= 0 && curInFiltered < _filteredIndices.length - 1) {
+        goToBird(_filteredIndices[curInFiltered + 1]);
+        return;
+      }
+    }
+
     if (state.hasNext) {
       nextBird();
     } else {
@@ -223,8 +447,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
 final weighProvider =
     StateNotifierProvider<WeighNotifier, WeighState>((ref) {
   final db = ref.watch(databaseProvider);
-  final syncQueue = ref.watch(syncQueueProvider);
-  return WeighNotifier(db, syncQueue, onWeightSaved: () {
+  return WeighNotifier(db, onWeightSaved: () {
     ref.read(weightSavedProvider.notifier).state++;
   });
 });

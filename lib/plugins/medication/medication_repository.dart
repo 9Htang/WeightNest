@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../utils/uuid.dart';
 
@@ -14,6 +15,7 @@ extension MedicationRepository on AppDatabase {
     DateTime? startDate,
     DateTime? endDate,
     String? notes,
+    List<TimeOfDay>? customTimes,
   }) async {
     final start = startDate ?? DateTime.now();
     final med = await into(medications).insertReturning(
@@ -29,8 +31,8 @@ extension MedicationRepository on AppDatabase {
         notes: Value(notes),
       ),
     );
-    // 自动生成未来 7 天的喂药任务
-    await _generateLogs(med.id, birdId, start, endDate, timesPerDay);
+    // 自动生成喂药日志
+    await _generateLogs(med.id, birdId, start, endDate, timesPerDay, customTimes: customTimes);
     return med;
   }
 
@@ -67,6 +69,26 @@ extension MedicationRepository on AppDatabase {
     )).toList();
   }
 
+  /// 获取今天所有的喂药日志（跨所有鸟）
+  Future<List<MedicationLogData>> getAllTodayLogs() async {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    final rows = await (select(medicationLogs).join([
+      innerJoin(medications, medications.id.equalsExp(medicationLogs.medicationId)),
+      innerJoin(birds, birds.id.equalsExp(medicationLogs.birdId)),
+    ])
+      ..where(medicationLogs.scheduledTime.isBiggerOrEqualValue(dayStart) &
+          medicationLogs.scheduledTime.isSmallerThanValue(dayEnd))
+      ..orderBy([OrderingTerm.asc(medicationLogs.scheduledTime)])).get();
+
+    return rows.map((r) => MedicationLogData(
+      log: r.readTable(medicationLogs),
+      medication: r.readTable(medications),
+    )..birdName = r.readTable(birds).name).toList();
+  }
+
   /// 标记喂药完成
   Future<void> giveMedication(int logId, {int? userId}) async {
     await (update(medicationLogs)..where((t) => t.id.equals(logId)))
@@ -85,16 +107,18 @@ extension MedicationRepository on AppDatabase {
   // ── 自动调度 ──
 
   /// 根据每天次数返回固定时间点
-  static List<int> _timeSlots(int timesPerDay) {
+  static List<_TimeSlot> _timeSlots(int timesPerDay) {
     switch (timesPerDay) {
       case 1:
-        return [8];
+        return [_TimeSlot(8, 0)];
       case 2:
-        return [8, 20];
+        return [_TimeSlot(8, 0), _TimeSlot(20, 0)];
       case 3:
-        return [8, 14, 20];
+        return [_TimeSlot(8, 0), _TimeSlot(14, 0), _TimeSlot(20, 0)];
+      case 4:
+        return [_TimeSlot(8, 0), _TimeSlot(12, 0), _TimeSlot(16, 0), _TimeSlot(20, 0)];
       default:
-        return [8];
+        return [_TimeSlot(8, 0)];
     }
   }
 
@@ -104,19 +128,22 @@ extension MedicationRepository on AppDatabase {
     int birdId,
     DateTime start,
     DateTime? end,
-    int timesPerDay,
-  ) async {
+    int timesPerDay, {
+    List<TimeOfDay>? customTimes,
+  }) async {
     final endDate = end ?? start.add(const Duration(days: 7)); // 默认 7 天
-    final hours = _timeSlots(timesPerDay);
+    // 使用自定义时间点，或根据 timesPerDay 使用默认分布
+    final timeSlots = customTimes?.map((t) => _TimeSlot(t.hour, t.minute)).toList()
+        ?? _timeSlots(timesPerDay);
 
     for (var day = start; day.isBefore(endDate) || day == start; day = day.add(const Duration(days: 1))) {
       if (day.isAfter(endDate)) break;
-      for (final hour in hours) {
+      for (final slot in timeSlots) {
         await into(medicationLogs).insert(
           MedicationLogsCompanion.insert(
             medicationId: medicationId,
             birdId: birdId,
-            scheduledTime: DateTime(day.year, day.month, day.day, hour),
+            scheduledTime: DateTime(day.year, day.month, day.day, slot.hour, slot.minute),
           ),
           mode: InsertMode.insertOrIgnore,
         );
@@ -125,11 +152,18 @@ extension MedicationRepository on AppDatabase {
   }
 }
 
+class _TimeSlot {
+  final int hour;
+  final int minute;
+  const _TimeSlot(this.hour, this.minute);
+}
+
 class MedicationLogData {
   final MedicationLog log;
   final Medication medication;
+  String? birdName;
 
-  MedicationLogData({required this.log, required this.medication});
+  MedicationLogData({required this.log, required this.medication, this.birdName});
 
   String get timeLabel =>
       '${log.scheduledTime.hour.toString().padLeft(2, '0')}:${log.scheduledTime.minute.toString().padLeft(2, '0')}';

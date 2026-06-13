@@ -1493,6 +1493,420 @@ class RoomsCompanion extends UpdateCompanion<Room> {
   }
 }
 
+class $EnclosuresTable extends Enclosures
+    with TableInfo<$EnclosuresTable, Enclosure> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EnclosuresTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _roomIdMeta = const VerificationMeta('roomId');
+  @override
+  late final GeneratedColumn<int> roomId = GeneratedColumn<int>(
+      'room_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES rooms (id) ON DELETE CASCADE'));
+  static const VerificationMeta _sortOrderMeta =
+      const VerificationMeta('sortOrder');
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+      'sort_order', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, name, roomId, sortOrder, createdAt, updatedAt, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'enclosures';
+  @override
+  VerificationContext validateIntegrity(Insertable<Enclosure> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('room_id')) {
+      context.handle(_roomIdMeta,
+          roomId.isAcceptableOrUnknown(data['room_id']!, _roomIdMeta));
+    } else if (isInserting) {
+      context.missing(_roomIdMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(_sortOrderMeta,
+          sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Enclosure map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Enclosure(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      roomId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}room_id'])!,
+      sortOrder: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $EnclosuresTable createAlias(String alias) {
+    return $EnclosuresTable(attachedDatabase, alias);
+  }
+}
+
+class Enclosure extends DataClass implements Insertable<Enclosure> {
+  final int id;
+  final String uuid;
+  final String name;
+  final int roomId;
+  final int sortOrder;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Enclosure(
+      {required this.id,
+      required this.uuid,
+      required this.name,
+      required this.roomId,
+      required this.sortOrder,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['name'] = Variable<String>(name);
+    map['room_id'] = Variable<int>(roomId);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  EnclosuresCompanion toCompanion(bool nullToAbsent) {
+    return EnclosuresCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      name: Value(name),
+      roomId: Value(roomId),
+      sortOrder: Value(sortOrder),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Enclosure.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Enclosure(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      name: serializer.fromJson<String>(json['name']),
+      roomId: serializer.fromJson<int>(json['roomId']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'name': serializer.toJson<String>(name),
+      'roomId': serializer.toJson<int>(roomId),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Enclosure copyWith(
+          {int? id,
+          String? uuid,
+          String? name,
+          int? roomId,
+          int? sortOrder,
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      Enclosure(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        name: name ?? this.name,
+        roomId: roomId ?? this.roomId,
+        sortOrder: sortOrder ?? this.sortOrder,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  Enclosure copyWithCompanion(EnclosuresCompanion data) {
+    return Enclosure(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      name: data.name.present ? data.name.value : this.name,
+      roomId: data.roomId.present ? data.roomId.value : this.roomId,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Enclosure(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('roomId: $roomId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, uuid, name, roomId, sortOrder, createdAt, updatedAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Enclosure &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.name == this.name &&
+          other.roomId == this.roomId &&
+          other.sortOrder == this.sortOrder &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class EnclosuresCompanion extends UpdateCompanion<Enclosure> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<String> name;
+  final Value<int> roomId;
+  final Value<int> sortOrder;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  const EnclosuresCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.name = const Value.absent(),
+    this.roomId = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  EnclosuresCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required String name,
+    required int roomId,
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        name = Value(name),
+        roomId = Value(roomId);
+  static Insertable<Enclosure> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<String>? name,
+    Expression<int>? roomId,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (name != null) 'name': name,
+      if (roomId != null) 'room_id': roomId,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  EnclosuresCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<String>? name,
+      Value<int>? roomId,
+      Value<int>? sortOrder,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt}) {
+    return EnclosuresCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      name: name ?? this.name,
+      roomId: roomId ?? this.roomId,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (roomId.present) {
+      map['room_id'] = Variable<int>(roomId.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EnclosuresCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('roomId: $roomId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -1547,6 +1961,15 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
       requiredDuringInsert: false,
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('REFERENCES rooms (id)'));
+  static const VerificationMeta _enclosureIdMeta =
+      const VerificationMeta('enclosureId');
+  @override
+  late final GeneratedColumn<int> enclosureId = GeneratedColumn<int>(
+      'enclosure_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES enclosures (id) ON DELETE SET NULL'));
   static const VerificationMeta _birthDateMeta =
       const VerificationMeta('birthDate');
   @override
@@ -1620,6 +2043,7 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
         ringNumber,
         speciesId,
         roomId,
+        enclosureId,
         birthDate,
         gender,
         sortOrder,
@@ -1670,6 +2094,12 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
     if (data.containsKey('room_id')) {
       context.handle(_roomIdMeta,
           roomId.isAcceptableOrUnknown(data['room_id']!, _roomIdMeta));
+    }
+    if (data.containsKey('enclosure_id')) {
+      context.handle(
+          _enclosureIdMeta,
+          enclosureId.isAcceptableOrUnknown(
+              data['enclosure_id']!, _enclosureIdMeta));
     }
     if (data.containsKey('birth_date')) {
       context.handle(_birthDateMeta,
@@ -1732,6 +2162,8 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           .read(DriftSqlType.int, data['${effectivePrefix}species_id'])!,
       roomId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}room_id']),
+      enclosureId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}enclosure_id']),
       birthDate: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}birth_date'])!,
       gender: attachedDatabase.typeMapping
@@ -1773,6 +2205,9 @@ class Bird extends DataClass implements Insertable<Bird> {
   /// 所在房间 ID
   final int? roomId;
 
+  /// 所在容器 ID（保温箱、飞行笼等）
+  final int? enclosureId;
+
   /// 出生日期
   final DateTime birthDate;
 
@@ -1800,6 +2235,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       this.ringNumber,
       required this.speciesId,
       this.roomId,
+      this.enclosureId,
       required this.birthDate,
       required this.gender,
       required this.sortOrder,
@@ -1821,6 +2257,9 @@ class Bird extends DataClass implements Insertable<Bird> {
     map['species_id'] = Variable<int>(speciesId);
     if (!nullToAbsent || roomId != null) {
       map['room_id'] = Variable<int>(roomId);
+    }
+    if (!nullToAbsent || enclosureId != null) {
+      map['enclosure_id'] = Variable<int>(enclosureId);
     }
     map['birth_date'] = Variable<DateTime>(birthDate);
     map['gender'] = Variable<String>(gender);
@@ -1851,6 +2290,9 @@ class Bird extends DataClass implements Insertable<Bird> {
       speciesId: Value(speciesId),
       roomId:
           roomId == null && nullToAbsent ? const Value.absent() : Value(roomId),
+      enclosureId: enclosureId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(enclosureId),
       birthDate: Value(birthDate),
       gender: Value(gender),
       sortOrder: Value(sortOrder),
@@ -1878,6 +2320,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       ringNumber: serializer.fromJson<String?>(json['ringNumber']),
       speciesId: serializer.fromJson<int>(json['speciesId']),
       roomId: serializer.fromJson<int?>(json['roomId']),
+      enclosureId: serializer.fromJson<int?>(json['enclosureId']),
       birthDate: serializer.fromJson<DateTime>(json['birthDate']),
       gender: serializer.fromJson<String>(json['gender']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
@@ -1899,6 +2342,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       'ringNumber': serializer.toJson<String?>(ringNumber),
       'speciesId': serializer.toJson<int>(speciesId),
       'roomId': serializer.toJson<int?>(roomId),
+      'enclosureId': serializer.toJson<int?>(enclosureId),
       'birthDate': serializer.toJson<DateTime>(birthDate),
       'gender': serializer.toJson<String>(gender),
       'sortOrder': serializer.toJson<int>(sortOrder),
@@ -1918,6 +2362,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           Value<String?> ringNumber = const Value.absent(),
           int? speciesId,
           Value<int?> roomId = const Value.absent(),
+          Value<int?> enclosureId = const Value.absent(),
           DateTime? birthDate,
           String? gender,
           int? sortOrder,
@@ -1934,6 +2379,7 @@ class Bird extends DataClass implements Insertable<Bird> {
         ringNumber: ringNumber.present ? ringNumber.value : this.ringNumber,
         speciesId: speciesId ?? this.speciesId,
         roomId: roomId.present ? roomId.value : this.roomId,
+        enclosureId: enclosureId.present ? enclosureId.value : this.enclosureId,
         birthDate: birthDate ?? this.birthDate,
         gender: gender ?? this.gender,
         sortOrder: sortOrder ?? this.sortOrder,
@@ -1955,6 +2401,8 @@ class Bird extends DataClass implements Insertable<Bird> {
           data.ringNumber.present ? data.ringNumber.value : this.ringNumber,
       speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
       roomId: data.roomId.present ? data.roomId.value : this.roomId,
+      enclosureId:
+          data.enclosureId.present ? data.enclosureId.value : this.enclosureId,
       birthDate: data.birthDate.present ? data.birthDate.value : this.birthDate,
       gender: data.gender.present ? data.gender.value : this.gender,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
@@ -1978,6 +2426,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           ..write('ringNumber: $ringNumber, ')
           ..write('speciesId: $speciesId, ')
           ..write('roomId: $roomId, ')
+          ..write('enclosureId: $enclosureId, ')
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
@@ -1999,6 +2448,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       ringNumber,
       speciesId,
       roomId,
+      enclosureId,
       birthDate,
       gender,
       sortOrder,
@@ -2018,6 +2468,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           other.ringNumber == this.ringNumber &&
           other.speciesId == this.speciesId &&
           other.roomId == this.roomId &&
+          other.enclosureId == this.enclosureId &&
           other.birthDate == this.birthDate &&
           other.gender == this.gender &&
           other.sortOrder == this.sortOrder &&
@@ -2036,6 +2487,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
   final Value<String?> ringNumber;
   final Value<int> speciesId;
   final Value<int?> roomId;
+  final Value<int?> enclosureId;
   final Value<DateTime> birthDate;
   final Value<String> gender;
   final Value<int> sortOrder;
@@ -2052,6 +2504,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.ringNumber = const Value.absent(),
     this.speciesId = const Value.absent(),
     this.roomId = const Value.absent(),
+    this.enclosureId = const Value.absent(),
     this.birthDate = const Value.absent(),
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -2069,6 +2522,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.ringNumber = const Value.absent(),
     required int speciesId,
     this.roomId = const Value.absent(),
+    this.enclosureId = const Value.absent(),
     required DateTime birthDate,
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -2089,6 +2543,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     Expression<String>? ringNumber,
     Expression<int>? speciesId,
     Expression<int>? roomId,
+    Expression<int>? enclosureId,
     Expression<DateTime>? birthDate,
     Expression<String>? gender,
     Expression<int>? sortOrder,
@@ -2106,6 +2561,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       if (ringNumber != null) 'ring_number': ringNumber,
       if (speciesId != null) 'species_id': speciesId,
       if (roomId != null) 'room_id': roomId,
+      if (enclosureId != null) 'enclosure_id': enclosureId,
       if (birthDate != null) 'birth_date': birthDate,
       if (gender != null) 'gender': gender,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -2125,6 +2581,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       Value<String?>? ringNumber,
       Value<int>? speciesId,
       Value<int?>? roomId,
+      Value<int?>? enclosureId,
       Value<DateTime>? birthDate,
       Value<String>? gender,
       Value<int>? sortOrder,
@@ -2141,6 +2598,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       ringNumber: ringNumber ?? this.ringNumber,
       speciesId: speciesId ?? this.speciesId,
       roomId: roomId ?? this.roomId,
+      enclosureId: enclosureId ?? this.enclosureId,
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -2173,6 +2631,9 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     }
     if (roomId.present) {
       map['room_id'] = Variable<int>(roomId.value);
+    }
+    if (enclosureId.present) {
+      map['enclosure_id'] = Variable<int>(enclosureId.value);
     }
     if (birthDate.present) {
       map['birth_date'] = Variable<DateTime>(birthDate.value);
@@ -2213,6 +2674,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
           ..write('ringNumber: $ringNumber, ')
           ..write('speciesId: $speciesId, ')
           ..write('roomId: $roomId, ')
+          ..write('enclosureId: $enclosureId, ')
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
@@ -4042,35 +4504,15 @@ class $SyncQueueTable extends SyncQueue
 
 class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   final int id;
-
-  /// 全局唯一操作 ID（幂等去重用）
   final String opId;
-
-  /// 设备 ID（哪台设备产生的操作）
   final String deviceId;
-
-  /// 操作人 ID（FK → Users.id）
   final int userId;
-
-  /// 操作类型：add_weight / update_bird / create_room / ...
   final String action;
-
-  /// 实体类型：weight / bird / room / species / user / task
   final String entityType;
-
-  /// 被操作记录的 UUID
   final String entityUuid;
-
-  /// 操作内容（JSON）
   final String payload;
-
-  /// 操作时间
   final DateTime createdAt;
-
-  /// 是否已同步到服务端
   final bool synced;
-
-  /// 重试次数
   final int retryCount;
   const SyncQueueData(
       {required this.id,
@@ -5472,6 +5914,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SpeciesTable species = $SpeciesTable(this);
   late final $UsersTable users = $UsersTable(this);
   late final $RoomsTable rooms = $RoomsTable(this);
+  late final $EnclosuresTable enclosures = $EnclosuresTable(this);
   late final $BirdsTable birds = $BirdsTable(this);
   late final $WeightsTable weights = $WeightsTable(this);
   late final $TasksTable tasks = $TasksTable(this);
@@ -5487,6 +5930,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         species,
         users,
         rooms,
+        enclosures,
         birds,
         weights,
         tasks,
@@ -5498,6 +5942,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('rooms',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('enclosures', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('enclosures',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('birds', kind: UpdateKind.update),
+            ],
+          ),
           WritePropagation(
             on: TableUpdateQuery.onTableName('birds',
                 limitUpdateKind: UpdateKind.delete),
@@ -6284,6 +6742,20 @@ final class $$RoomsTableReferences
     extends BaseReferences<_$AppDatabase, $RoomsTable, Room> {
   $$RoomsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
+  static MultiTypedResultKey<$EnclosuresTable, List<Enclosure>>
+      _enclosuresRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.enclosures,
+          aliasName: $_aliasNameGenerator(db.rooms.id, db.enclosures.roomId));
+
+  $$EnclosuresTableProcessedTableManager get enclosuresRefs {
+    final manager = $$EnclosuresTableTableManager($_db, $_db.enclosures)
+        .filter((f) => f.roomId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_enclosuresRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
   static MultiTypedResultKey<$BirdsTable, List<Bird>> _birdsRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.birds,
@@ -6345,6 +6817,27 @@ class $$RoomsTableFilterComposer extends Composer<_$AppDatabase, $RoomsTable> {
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
       column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  Expression<bool> enclosuresRefs(
+      Expression<bool> Function($$EnclosuresTableFilterComposer f) f) {
+    final $$EnclosuresTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.enclosures,
+        getReferencedColumn: (t) => t.roomId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EnclosuresTableFilterComposer(
+              $db: $db,
+              $table: $db.enclosures,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 
   Expression<bool> birdsRefs(
       Expression<bool> Function($$BirdsTableFilterComposer f) f) {
@@ -6457,6 +6950,27 @@ class $$RoomsTableAnnotationComposer
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
+  Expression<T> enclosuresRefs<T extends Object>(
+      Expression<T> Function($$EnclosuresTableAnnotationComposer a) f) {
+    final $$EnclosuresTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.enclosures,
+        getReferencedColumn: (t) => t.roomId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EnclosuresTableAnnotationComposer(
+              $db: $db,
+              $table: $db.enclosures,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
   Expression<T> birdsRefs<T extends Object>(
       Expression<T> Function($$BirdsTableAnnotationComposer a) f) {
     final $$BirdsTableAnnotationComposer composer = $composerBuilder(
@@ -6511,7 +7025,8 @@ class $$RoomsTableTableManager extends RootTableManager<
     $$RoomsTableUpdateCompanionBuilder,
     (Room, $$RoomsTableReferences),
     Room,
-    PrefetchHooks Function({bool birdsRefs, bool tasksRefs})> {
+    PrefetchHooks Function(
+        {bool enclosuresRefs, bool birdsRefs, bool tasksRefs})> {
   $$RoomsTableTableManager(_$AppDatabase db, $RoomsTable table)
       : super(TableManagerState(
           db: db,
@@ -6566,16 +7081,30 @@ class $$RoomsTableTableManager extends RootTableManager<
               .map((e) =>
                   (e.readTable(table), $$RoomsTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({birdsRefs = false, tasksRefs = false}) {
+          prefetchHooksCallback: (
+              {enclosuresRefs = false, birdsRefs = false, tasksRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
+                if (enclosuresRefs) db.enclosures,
                 if (birdsRefs) db.birds,
                 if (tasksRefs) db.tasks
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
+                  if (enclosuresRefs)
+                    await $_getPrefetchedData<Room, $RoomsTable, Enclosure>(
+                        currentTable: table,
+                        referencedTable:
+                            $$RoomsTableReferences._enclosuresRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$RoomsTableReferences(db, table, p0)
+                                .enclosuresRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.roomId == item.id),
+                        typedResults: items),
                   if (birdsRefs)
                     await $_getPrefetchedData<Room, $RoomsTable, Bird>(
                         currentTable: table,
@@ -6616,7 +7145,390 @@ typedef $$RoomsTableProcessedTableManager = ProcessedTableManager<
     $$RoomsTableUpdateCompanionBuilder,
     (Room, $$RoomsTableReferences),
     Room,
-    PrefetchHooks Function({bool birdsRefs, bool tasksRefs})>;
+    PrefetchHooks Function(
+        {bool enclosuresRefs, bool birdsRefs, bool tasksRefs})>;
+typedef $$EnclosuresTableCreateCompanionBuilder = EnclosuresCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required String name,
+  required int roomId,
+  Value<int> sortOrder,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+typedef $$EnclosuresTableUpdateCompanionBuilder = EnclosuresCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<String> name,
+  Value<int> roomId,
+  Value<int> sortOrder,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+
+final class $$EnclosuresTableReferences
+    extends BaseReferences<_$AppDatabase, $EnclosuresTable, Enclosure> {
+  $$EnclosuresTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $RoomsTable _roomIdTable(_$AppDatabase db) => db.rooms
+      .createAlias($_aliasNameGenerator(db.enclosures.roomId, db.rooms.id));
+
+  $$RoomsTableProcessedTableManager get roomId {
+    final $_column = $_itemColumn<int>('room_id')!;
+
+    final manager = $$RoomsTableTableManager($_db, $_db.rooms)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_roomIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$BirdsTable, List<Bird>> _birdsRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.birds,
+          aliasName:
+              $_aliasNameGenerator(db.enclosures.id, db.birds.enclosureId));
+
+  $$BirdsTableProcessedTableManager get birdsRefs {
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.enclosureId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_birdsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$EnclosuresTableFilterComposer
+    extends Composer<_$AppDatabase, $EnclosuresTable> {
+  $$EnclosuresTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  $$RoomsTableFilterComposer get roomId {
+    final $$RoomsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.roomId,
+        referencedTable: $db.rooms,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$RoomsTableFilterComposer(
+              $db: $db,
+              $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> birdsRefs(
+      Expression<bool> Function($$BirdsTableFilterComposer f) f) {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.enclosureId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$EnclosuresTableOrderingComposer
+    extends Composer<_$AppDatabase, $EnclosuresTable> {
+  $$EnclosuresTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  $$RoomsTableOrderingComposer get roomId {
+    final $$RoomsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.roomId,
+        referencedTable: $db.rooms,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$RoomsTableOrderingComposer(
+              $db: $db,
+              $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$EnclosuresTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EnclosuresTable> {
+  $$EnclosuresTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$RoomsTableAnnotationComposer get roomId {
+    final $$RoomsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.roomId,
+        referencedTable: $db.rooms,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$RoomsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> birdsRefs<T extends Object>(
+      Expression<T> Function($$BirdsTableAnnotationComposer a) f) {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.enclosureId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$EnclosuresTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $EnclosuresTable,
+    Enclosure,
+    $$EnclosuresTableFilterComposer,
+    $$EnclosuresTableOrderingComposer,
+    $$EnclosuresTableAnnotationComposer,
+    $$EnclosuresTableCreateCompanionBuilder,
+    $$EnclosuresTableUpdateCompanionBuilder,
+    (Enclosure, $$EnclosuresTableReferences),
+    Enclosure,
+    PrefetchHooks Function({bool roomId, bool birdsRefs})> {
+  $$EnclosuresTableTableManager(_$AppDatabase db, $EnclosuresTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EnclosuresTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EnclosuresTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EnclosuresTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<int> roomId = const Value.absent(),
+            Value<int> sortOrder = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              EnclosuresCompanion(
+            id: id,
+            uuid: uuid,
+            name: name,
+            roomId: roomId,
+            sortOrder: sortOrder,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required String name,
+            required int roomId,
+            Value<int> sortOrder = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              EnclosuresCompanion.insert(
+            id: id,
+            uuid: uuid,
+            name: name,
+            roomId: roomId,
+            sortOrder: sortOrder,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$EnclosuresTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({roomId = false, birdsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (birdsRefs) db.birds],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (roomId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.roomId,
+                    referencedTable:
+                        $$EnclosuresTableReferences._roomIdTable(db),
+                    referencedColumn:
+                        $$EnclosuresTableReferences._roomIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (birdsRefs)
+                    await $_getPrefetchedData<Enclosure, $EnclosuresTable,
+                            Bird>(
+                        currentTable: table,
+                        referencedTable:
+                            $$EnclosuresTableReferences._birdsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$EnclosuresTableReferences(db, table, p0)
+                                .birdsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.enclosureId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$EnclosuresTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $EnclosuresTable,
+    Enclosure,
+    $$EnclosuresTableFilterComposer,
+    $$EnclosuresTableOrderingComposer,
+    $$EnclosuresTableAnnotationComposer,
+    $$EnclosuresTableCreateCompanionBuilder,
+    $$EnclosuresTableUpdateCompanionBuilder,
+    (Enclosure, $$EnclosuresTableReferences),
+    Enclosure,
+    PrefetchHooks Function({bool roomId, bool birdsRefs})>;
 typedef $$BirdsTableCreateCompanionBuilder = BirdsCompanion Function({
   Value<int> id,
   required String uuid,
@@ -6624,6 +7536,7 @@ typedef $$BirdsTableCreateCompanionBuilder = BirdsCompanion Function({
   Value<String?> ringNumber,
   required int speciesId,
   Value<int?> roomId,
+  Value<int?> enclosureId,
   required DateTime birthDate,
   Value<String> gender,
   Value<int> sortOrder,
@@ -6641,6 +7554,7 @@ typedef $$BirdsTableUpdateCompanionBuilder = BirdsCompanion Function({
   Value<String?> ringNumber,
   Value<int> speciesId,
   Value<int?> roomId,
+  Value<int?> enclosureId,
   Value<DateTime> birthDate,
   Value<String> gender,
   Value<int> sortOrder,
@@ -6679,6 +7593,21 @@ final class $$BirdsTableReferences
     final manager = $$RoomsTableTableManager($_db, $_db.rooms)
         .filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_roomIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $EnclosuresTable _enclosureIdTable(_$AppDatabase db) =>
+      db.enclosures.createAlias(
+          $_aliasNameGenerator(db.birds.enclosureId, db.enclosures.id));
+
+  $$EnclosuresTableProcessedTableManager? get enclosureId {
+    final $_column = $_itemColumn<int>('enclosure_id');
+    if ($_column == null) return null;
+    final manager = $$EnclosuresTableTableManager($_db, $_db.enclosures)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_enclosureIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
@@ -6836,6 +7765,26 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
             $$RoomsTableFilterComposer(
               $db: $db,
               $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$EnclosuresTableFilterComposer get enclosureId {
+    final $$EnclosuresTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.enclosureId,
+        referencedTable: $db.enclosures,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EnclosuresTableFilterComposer(
+              $db: $db,
+              $table: $db.enclosures,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -7038,6 +7987,26 @@ class $$BirdsTableOrderingComposer
             ));
     return composer;
   }
+
+  $$EnclosuresTableOrderingComposer get enclosureId {
+    final $$EnclosuresTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.enclosureId,
+        referencedTable: $db.enclosures,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EnclosuresTableOrderingComposer(
+              $db: $db,
+              $table: $db.enclosures,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
 }
 
 class $$BirdsTableAnnotationComposer
@@ -7120,6 +8089,26 @@ class $$BirdsTableAnnotationComposer
             $$RoomsTableAnnotationComposer(
               $db: $db,
               $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$EnclosuresTableAnnotationComposer get enclosureId {
+    final $$EnclosuresTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.enclosureId,
+        referencedTable: $db.enclosures,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EnclosuresTableAnnotationComposer(
+              $db: $db,
+              $table: $db.enclosures,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -7248,6 +8237,7 @@ class $$BirdsTableTableManager extends RootTableManager<
     PrefetchHooks Function(
         {bool speciesId,
         bool roomId,
+        bool enclosureId,
         bool weightsRefs,
         bool tasksRefs,
         bool alertRecordsRefs,
@@ -7270,6 +8260,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<String?> ringNumber = const Value.absent(),
             Value<int> speciesId = const Value.absent(),
             Value<int?> roomId = const Value.absent(),
+            Value<int?> enclosureId = const Value.absent(),
             Value<DateTime> birthDate = const Value.absent(),
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
@@ -7287,6 +8278,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             ringNumber: ringNumber,
             speciesId: speciesId,
             roomId: roomId,
+            enclosureId: enclosureId,
             birthDate: birthDate,
             gender: gender,
             sortOrder: sortOrder,
@@ -7304,6 +8296,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<String?> ringNumber = const Value.absent(),
             required int speciesId,
             Value<int?> roomId = const Value.absent(),
+            Value<int?> enclosureId = const Value.absent(),
             required DateTime birthDate,
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
@@ -7321,6 +8314,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             ringNumber: ringNumber,
             speciesId: speciesId,
             roomId: roomId,
+            enclosureId: enclosureId,
             birthDate: birthDate,
             gender: gender,
             sortOrder: sortOrder,
@@ -7338,6 +8332,7 @@ class $$BirdsTableTableManager extends RootTableManager<
           prefetchHooksCallback: (
               {speciesId = false,
               roomId = false,
+              enclosureId = false,
               weightsRefs = false,
               tasksRefs = false,
               alertRecordsRefs = false,
@@ -7381,6 +8376,16 @@ class $$BirdsTableTableManager extends RootTableManager<
                     referencedTable: $$BirdsTableReferences._roomIdTable(db),
                     referencedColumn:
                         $$BirdsTableReferences._roomIdTable(db).id,
+                  ) as T;
+                }
+                if (enclosureId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.enclosureId,
+                    referencedTable:
+                        $$BirdsTableReferences._enclosureIdTable(db),
+                    referencedColumn:
+                        $$BirdsTableReferences._enclosureIdTable(db).id,
                   ) as T;
                 }
 
@@ -7467,6 +8472,7 @@ typedef $$BirdsTableProcessedTableManager = ProcessedTableManager<
     PrefetchHooks Function(
         {bool speciesId,
         bool roomId,
+        bool enclosureId,
         bool weightsRefs,
         bool tasksRefs,
         bool alertRecordsRefs,
@@ -9877,6 +10883,8 @@ class $AppDatabaseManager {
       $$UsersTableTableManager(_db, _db.users);
   $$RoomsTableTableManager get rooms =>
       $$RoomsTableTableManager(_db, _db.rooms);
+  $$EnclosuresTableTableManager get enclosures =>
+      $$EnclosuresTableTableManager(_db, _db.enclosures);
   $$BirdsTableTableManager get birds =>
       $$BirdsTableTableManager(_db, _db.birds);
   $$WeightsTableTableManager get weights =>

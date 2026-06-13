@@ -7,11 +7,13 @@ extension BirdRepository on AppDatabase {
     final rows = await (select(birds).join([
       innerJoin(species, species.id.equalsExp(birds.speciesId)),
       leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      leftOuterJoin(enclosures, enclosures.id.equalsExp(birds.enclosureId)),
     ])..orderBy([OrderingTerm.asc(birds.sortOrder)])).get();
     return rows.map((row) => BirdWithDetails(
           bird: row.readTable(birds),
           species: row.readTable(species),
           room: row.readTableOrNull(rooms),
+          enclosure: row.readTableOrNull(enclosures),
         )).toList();
   }
 
@@ -35,6 +37,7 @@ extension BirdRepository on AppDatabase {
     required int speciesId,
     required DateTime birthDate,
     int? roomId,
+    int? enclosureId,
     String? ringNumber,
     String gender = '未知',
     String? notes,
@@ -50,6 +53,7 @@ extension BirdRepository on AppDatabase {
       speciesId: speciesId,
       birthDate: birthDate,
       roomId: Value(roomId),
+      enclosureId: Value(enclosureId),
       ringNumber: Value(ringNumber),
       gender: Value(gender),
       notes: Value(notes),
@@ -62,7 +66,7 @@ extension BirdRepository on AppDatabase {
   Future<Bird> updateBird(int id, {
     String? name, int? speciesId, int? roomId, DateTime? birthDate,
     String? gender, int? sortOrder, String? status, String? notes,
-    String? ringNumber, int? weighIntervalDays,
+    String? ringNumber, int? weighIntervalDays, int? enclosureId,
   }) async {
     final list = await (update(birds)..where((t) => t.id.equals(id)))
         .writeReturning(BirdsCompanion(
@@ -76,6 +80,7 @@ extension BirdRepository on AppDatabase {
       notes: notes != null ? Value(notes) : const Value.absent(),
       ringNumber: ringNumber != null ? Value(ringNumber) : const Value.absent(),
       weighIntervalDays: weighIntervalDays != null ? Value(weighIntervalDays) : const Value.absent(),
+      enclosureId: enclosureId != null ? Value(enclosureId) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;
@@ -84,6 +89,12 @@ extension BirdRepository on AppDatabase {
   Future<void> updateBirdUuid(int id, String uuid) async {
     await (update(birds)..where((t) => t.id.equals(id)))
         .write(BirdsCompanion(uuid: Value(uuid)));
+  }
+
+  /// 单独设置鸟的容器（支持设为 null 以移出容器）
+  Future<void> setBirdEnclosure(int birdId, int? enclosureId) async {
+    await (update(birds)..where((t) => t.id.equals(birdId)))
+        .write(BirdsCompanion(enclosureId: Value(enclosureId), updatedAt: Value(DateTime.now())));
   }
 
   Future<void> updateWeighInterval(int birdId, int? days) async {
@@ -114,16 +125,37 @@ extension BirdRepository on AppDatabase {
   Future<void> removeBird(int id) =>
       (delete(birds)..where((t) => t.id.equals(id))).go();
 
+  Future<List<BirdWithDetails>> getByEnclosure(int enclosureId) async {
+    final rows = await (select(birds).join([
+      innerJoin(species, species.id.equalsExp(birds.speciesId)),
+      leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      leftOuterJoin(enclosures, enclosures.id.equalsExp(birds.enclosureId)),
+    ])
+      ..where(birds.enclosureId.equals(enclosureId))
+      ..orderBy([OrderingTerm.asc(birds.sortOrder)])).get();
+    return rows
+        .map((row) => BirdWithDetails(
+              bird: row.readTable(birds),
+              species: row.readTable(species),
+              room: row.readTableOrNull(rooms),
+              enclosure: row.readTableOrNull(enclosures),
+            ))
+        .toList();
+  }
+
   Future<List<BirdWithDetails>> getByRoom(int roomId) async {
     final rows = await (select(birds).join([
       innerJoin(species, species.id.equalsExp(birds.speciesId)),
+      leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      leftOuterJoin(enclosures, enclosures.id.equalsExp(birds.enclosureId)),
     ])
       ..where(birds.roomId.equals(roomId))
       ..orderBy([OrderingTerm.asc(birds.sortOrder)])).get();
     return rows.map((row) => BirdWithDetails(
           bird: row.readTable(birds),
           species: row.readTable(species),
-          room: null,
+          room: row.readTableOrNull(rooms),
+          enclosure: row.readTableOrNull(enclosures),
         )).toList();
   }
 
@@ -132,6 +164,7 @@ extension BirdRepository on AppDatabase {
     final rows = await (select(birds).join([
       innerJoin(species, species.id.equalsExp(birds.speciesId)),
       leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      leftOuterJoin(enclosures, enclosures.id.equalsExp(birds.enclosureId)),
     ])
       ..where(birds.name.like(q) | birds.ringNumber.like(q))
       ..orderBy([OrderingTerm.asc(birds.sortOrder)])).get();
@@ -139,6 +172,7 @@ extension BirdRepository on AppDatabase {
           bird: row.readTable(birds),
           species: row.readTable(species),
           room: row.readTableOrNull(rooms),
+          enclosure: row.readTableOrNull(enclosures),
         )).toList();
   }
 }
@@ -147,8 +181,9 @@ class BirdWithDetails {
   final Bird bird;
   final Specy species;
   final Room? room;
+  final Enclosure? enclosure;
 
-  BirdWithDetails({required this.bird, required this.species, this.room});
+  BirdWithDetails({required this.bird, required this.species, this.room, this.enclosure});
 
   int get ageDays => DateTime.now().difference(bird.birthDate).inDays;
 

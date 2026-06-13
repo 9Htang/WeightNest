@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:shelf_router/shelf_router.dart' as shelf;
 import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
 import '../../database/database.dart';
-import '../../desktop/widgets/weight_chart.dart';
+import '../../widgets/weight_chart.dart';
 import '../../repositories/weight_repository.dart';
+import '../../screens/weigh/weigh_grid_screen.dart';
 import 'weight_table.dart';
-import 'weight_routes.dart';
 
 class WeightPlugin extends FeaturePlugin {
   @override
@@ -38,14 +37,43 @@ class WeightPlugin extends FeaturePlugin {
           key: 'weigh',
           title: '称重录入',
           icon: Icons.monitor_weight,
-          uniqueness: PageUniqueness.perBird,
+          uniqueness: PageUniqueness.none,
           showInSidebar: true,
-          builder: (ctx) => const Placeholder(), // TODO: wire weigh screen
+          builder: (ctx) => WeighGridScreen(
+            initialRoomId: ctx.params['roomId'] as int?,
+            initialBirdId: ctx.birdId,
+          ),
         ),
       ];
 
+  // ── Slot E: 首页快捷操作 ──
+
   @override
-  shelf.Router? serverRoutes(AppDatabase db) => createWeightRoutes(db);
+  List<QuickAction> get quickActions => [
+        QuickAction(
+          label: '快速称重',
+          icon: Icons.monitor_weight,
+          builder: () => const WeighGridScreen(),
+        ),
+      ];
+
+  // ── Slot G: 容器称重 ──
+
+  @override
+  EnclosureWeighAction? get enclosureWeighAction => EnclosureWeighAction(
+        icon: Icons.monitor_weight,
+        tooltip: '称重',
+        builder: (enclosureId) => WeighGridScreen(initialEnclosureId: enclosureId),
+      );
+
+  // ── Slot H: 房间称重 ──
+
+  @override
+  RoomWeighAction? get roomWeighAction => RoomWeighAction(
+        icon: Icons.monitor_weight,
+        tooltip: '称重',
+        builder: (roomId) => WeighGridScreen(initialRoomId: roomId),
+      );
 
   @override
   List<DetailSection> buildDetailSections(int birdId) => [

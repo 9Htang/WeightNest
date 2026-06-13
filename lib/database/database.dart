@@ -6,7 +6,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, MedicationLogs],
+  tables: [Species, Users, Rooms, Enclosures, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, MedicationLogs],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -36,6 +36,11 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(medications);
             await m.createTable(medicationLogs);
           }
+          if (from < 6) {
+            // v5 → v6: enclosures (containers within rooms)
+            await m.createTable(enclosures);
+            await m.addColumn(birds, birds.enclosureId);
+          }
         },
       );
 
@@ -47,6 +52,6 @@ class AppDatabase extends _$AppDatabase {
   }
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'weight_nest.db');
+    return driftDatabase(name: 'weight_nest_mvp.db');
   }
 }

@@ -4,8 +4,6 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
 
-import '../worker/worker_screen.dart';
-
 /// 品种管理页面
 class SpeciesScreen extends ConsumerStatefulWidget {
   const SpeciesScreen({super.key});
@@ -116,53 +114,19 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             if (name.isEmpty) return;
             final db = ref.read(databaseProvider);
             if (existing != null) {
-              final sp = await db.updateSpecies(existing.id, name: name,
+              await db.updateSpecies(existing.id, name: name,
                   nestlingEndDays: int.tryParse(nestlingEndCtrl.text),
                   juvenileEndDays: int.tryParse(juvenileEndCtrl.text),
                   nestlingWeighIntervalDays: int.tryParse(nestlingWICtrl.text),
                   juvenileWeighIntervalDays: int.tryParse(juvenileWICtrl.text),
                   adultWeighIntervalDays: int.tryParse(adultWICtrl.text));
-              final userId = ref.read(workerProvider).userId;
-              if (userId != null) {
-                await ref.read(syncQueueProvider).enqueue(
-                  userId: userId,
-                  action: 'update_species',
-                  entityType: 'species',
-                  entityUuid: sp.uuid,
-                  payload: {
-                    'name': name,
-                    'nestlingEndDays': sp.nestlingEndDays,
-                    'juvenileEndDays': sp.juvenileEndDays,
-                    'nestlingWeighIntervalDays': sp.nestlingWeighIntervalDays,
-                    'juvenileWeighIntervalDays': sp.juvenileWeighIntervalDays,
-                    'adultWeighIntervalDays': sp.adultWeighIntervalDays,
-                  },
-                );
-              }
             } else {
-              final sp = await db.createSpecies(name,
+              await db.createSpecies(name,
                   nestlingEndDays: int.tryParse(nestlingEndCtrl.text) ?? 45,
                   juvenileEndDays: int.tryParse(juvenileEndCtrl.text) ?? 120,
                   nestlingWeighIntervalDays: int.tryParse(nestlingWICtrl.text) ?? 1,
                   juvenileWeighIntervalDays: int.tryParse(juvenileWICtrl.text) ?? 3,
                   adultWeighIntervalDays: int.tryParse(adultWICtrl.text) ?? 7);
-              final userId = ref.read(workerProvider).userId;
-              if (userId != null) {
-                await ref.read(syncQueueProvider).enqueue(
-                  userId: userId,
-                  action: 'create_species',
-                  entityType: 'species',
-                  entityUuid: sp.uuid,
-                  payload: {
-                    'name': name,
-                    'nestlingEndDays': sp.nestlingEndDays,
-                    'juvenileEndDays': sp.juvenileEndDays,
-                    'nestlingWeighIntervalDays': sp.nestlingWeighIntervalDays,
-                    'juvenileWeighIntervalDays': sp.juvenileWeighIntervalDays,
-                    'adultWeighIntervalDays': sp.adultWeighIntervalDays,
-                  },
-                );
-              }
             }
             _disposeControllers([nameCtrl, nestlingEndCtrl, juvenileEndCtrl, nestlingWICtrl, juvenileWICtrl, adultWICtrl]);
             ref.invalidate(allSpeciesProvider);
@@ -185,16 +149,6 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await ref.read(databaseProvider).removeSpecies(s.id);
-              final userId = ref.read(workerProvider).userId;
-              if (userId != null) {
-                await ref.read(syncQueueProvider).enqueue(
-                  userId: userId,
-                  action: 'delete_species',
-                  entityType: 'species',
-                  entityUuid: s.uuid,
-                  payload: {'id': s.id, 'name': s.name},
-                );
-              }
               ref.invalidate(allSpeciesProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             },

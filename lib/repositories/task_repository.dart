@@ -75,6 +75,7 @@ extension TaskRepository on AppDatabase {
   }
 
   static bool _generating = false;
+  static DateTime? _lastGeneratedDay;
 
   /// Remove duplicate tasks (same bird + same dueDate) keeping only the first.
   Future<void> cleanupDuplicateTasks() async {
@@ -104,9 +105,15 @@ extension TaskRepository on AppDatabase {
     if (_generating) return 0;
     _generating = true;
     try {
-    await cleanupDuplicateTasks();
     final today = DateTime.now();
     final dayStart = DateTime(today.year, today.month, today.day);
+
+    // 同一天已生成过任务则跳过（force=true 或跨天时重新生成）
+    if (!force && _lastGeneratedDay != null && _lastGeneratedDay!.isAtSameMomentAs(dayStart)) {
+      return 0;
+    }
+
+    await cleanupDuplicateTasks();
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     // If not forced, check existing tasks and patch missing assignments
@@ -129,6 +136,7 @@ extension TaskRepository on AppDatabase {
             patched++;
           }
         }
+        _lastGeneratedDay = dayStart;
         if (patched > 0) return patched;
         return 0;
       }
@@ -203,6 +211,7 @@ extension TaskRepository on AppDatabase {
               t.status.equals('待完成')))
         .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
 
+    _lastGeneratedDay = dayStart;
     return generated;
     } finally {
       _generating = false;

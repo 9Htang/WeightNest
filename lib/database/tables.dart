@@ -39,6 +39,18 @@ class Users extends Table {
   DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
+/// 房间内容器（保温箱、飞行笼等）
+class Enclosures extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+  TextColumn get name => text().withLength(min: 1, max: 50)();
+  IntColumn get roomId => integer().references(Rooms, #id, onDelete: KeyAction.cascade)();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+}
+
 /// 房间表
 class Rooms extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -70,6 +82,9 @@ class Birds extends Table {
 
   /// 所在房间 ID
   IntColumn get roomId => integer().nullable().references(Rooms, #id)();
+
+  /// 所在容器 ID（保温箱、飞行笼等）
+  IntColumn get enclosureId => integer().nullable().references(Enclosures, #id, onDelete: KeyAction.setNull)();
 
   /// 出生日期
   DateTimeColumn get birthDate => dateTime()();
@@ -176,38 +191,18 @@ class AlertRecords extends Table {
   DateTimeColumn get resolvedAt => dateTime().nullable()();
 }
 
-/// 同步操作日志（核心：离线优先）
+/// 同步操作日志表（离线 MVP 中不再使用，保留以兼容旧数据库）
 class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
-
-  /// 全局唯一操作 ID（幂等去重用）
   TextColumn get opId => text().unique()();
-
-  /// 设备 ID（哪台设备产生的操作）
   TextColumn get deviceId => text()();
-
-  /// 操作人 ID（FK → Users.id）
   IntColumn get userId => integer().references(Users, #id)();
-
-  /// 操作类型：add_weight / update_bird / create_room / ...
   TextColumn get action => text()();
-
-  /// 实体类型：weight / bird / room / species / user / task
   TextColumn get entityType => text()();
-
-  /// 被操作记录的 UUID
   TextColumn get entityUuid => text()();
-
-  /// 操作内容（JSON）
   TextColumn get payload => text()();
-
-  /// 操作时间
   DateTimeColumn get createdAt => dateTime()();
-
-  /// 是否已同步到服务端
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
-
-  /// 重试次数
   IntColumn get retryCount => integer().withDefault(const Constant(0))();
 }
 

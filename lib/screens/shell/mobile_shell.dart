@@ -2,39 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
-import '../worker/worker_screen.dart';
+import '../../core/plugin_registry.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
+import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
-import '../weigh/weigh_screen.dart';
-import '../login/login_screen.dart';
 import '../alerts/alerts_screen.dart';
-
-Future<void> _showLogoutConfirm(BuildContext context, WidgetRef ref) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('退出登录'),
-      content: const Text('确定要退出当前账号吗？'),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('退出')),
-      ],
-    ),
-  );
-  if (ok == true) {
-    await ref.read(workerProvider.notifier).clear();
-    if (context.mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-  }
-}
+import '../enclosures/enclosure_management_screen.dart';
 
 class MobileShell extends ConsumerStatefulWidget {
   const MobileShell({super.key});
@@ -49,32 +23,12 @@ class _MobileShellState extends ConsumerState<MobileShell> {
   static const _tabs = [
     _TabData(Icons.home_outlined, Icons.home_rounded, '首页'),
     _TabData(Icons.assignment_outlined, Icons.assignment, '任务'),
-    _TabData(Icons.monitor_weight_outlined, Icons.monitor_weight, '称重'),
     _TabData(Icons.pets_outlined, Icons.pets, '鹦鹉'),
     _TabData(Icons.settings_outlined, Icons.settings, '设置'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final worker = ref.watch(workerProvider);
-
-    if (worker.isInitializing) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (!worker.isSelected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -84,7 +38,6 @@ class _MobileShellState extends ConsumerState<MobileShell> {
         children: const [
           HomeShell(),
           TasksScreen(),
-          WeighScreen(roomId: null),
           BirdsScreen(),
           SettingsScreen(),
         ],
@@ -124,31 +77,10 @@ class HomeShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final worker = ref.watch(workerProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('WeightNest'),
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: CircleAvatar(
-            radius: 14,
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            child: Text(
-              worker.displayName.isNotEmpty
-                  ? worker.displayName[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
-            onPressed: () => _showLogoutConfirm(context, ref),
-          ),
-        ],
+        actions: const [],
       ),
       body: const HomeScreenContent(),
     );
@@ -162,13 +94,11 @@ class HomeScreenContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.read(initDefaultsProvider);
+    ref.watch(pluginToggleVersionProvider); // 插件开关时重建快捷操作/称重按钮
     final theme = Theme.of(context);
     final tasksAsync = ref.watch(todayTasksProvider);
     final alertCount = ref.watch(alertCountProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
-    final myRoomsAsync = ref.watch(myRoomsProvider);
-    final worker = ref.watch(workerProvider);
-    final isAdmin = worker.isAdmin;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -199,40 +129,7 @@ class HomeScreenContent extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
-          // ── 房间列表 ──
-          Text(
-              worker.isSelected && !isAdmin ? '我的房间' : '房间',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          (worker.isSelected && !isAdmin ? myRoomsAsync : roomsAsync).when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
-            data: (rooms) => rooms.isEmpty
-                ? Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text('暂无房间，请先创建房间',
-                            style: TextStyle(
-                                color: theme.colorScheme.onSurface
-                                    .withAlpha(140))),
-                      ),
-                    ),
-                  )
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: rooms
-                        .map((r) => _RoomCardWarm(room: r))
-                        .toList(),
-                  ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── 快捷操作 ──
+          // ── 快捷操作（在房间列表上方）──
           Text('快捷操作',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.bold)),
@@ -251,7 +148,7 @@ class HomeScreenContent extends ConsumerWidget {
               ),
               _QuickChip(
                 icon: Icons.assignment_turned_in,
-                label: '称重任务',
+                label: '任务',
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -265,16 +162,74 @@ class HomeScreenContent extends ConsumerWidget {
                     MaterialPageRoute(
                         builder: (_) => const AlertsScreen())),
               ),
-              _QuickChip(
-                icon: Icons.scale,
-                label: '快速称重',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            WeighScreen(roomId: null))),
+              // 插件贡献的快捷操作
+              ...pluginRegistry.enabledPlugins.expand((p) => p.quickActions).map(
+                (a) => _QuickChip(
+                  icon: a.icon,
+                  label: a.label,
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => a.builder())),
+                ),
               ),
             ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── 房间列表 ──
+          Row(
+            children: [
+              Expanded(
+                child: Text('房间',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_note, size: 22),
+                tooltip: '管理房间',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RoomsScreen()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          roomsAsync.when(
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('$e')),
+            data: (rooms) => rooms.isEmpty
+                ? Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Text('暂无房间，请先创建房间',
+                              style: TextStyle(
+                                  color: theme.colorScheme.onSurface
+                                      .withAlpha(140))),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const RoomsScreen()),
+                            ),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('创建房间'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: rooms
+                        .map((r) => _RoomCardWarm(room: r))
+                        .toList(),
+                  ),
           ),
 
           const SizedBox(height: 40),
@@ -493,10 +448,7 @@ class _RoomCardWarm extends ConsumerWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => WeighScreen(roomId: room.id))),
+          onTap: () => _onRoomTap(context, ref, room),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -523,6 +475,29 @@ class _RoomCardWarm extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // 插件提供的房间称重按钮
+                    ...(() {
+                      final action = pluginRegistry.enabledPlugins
+                          .map((p) => p.roomWeighAction)
+                          .firstWhere((a) => a != null, orElse: () => null);
+                      if (action == null) return const <Widget>[];
+                      return <Widget>[
+                        IconButton(
+                          icon: Icon(action.icon, size: 20),
+                          tooltip: action.tooltip,
+                          color: scheme.primary,
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => action.builder(room.id),
+                              ),
+                            );
+                          },
+                        ),
+                      ];
+                    })(),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -549,6 +524,19 @@ class _RoomCardWarm extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 房间卡片点击处理：进入容器管理页面
+void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => EnclosureManagementScreen(
+        roomId: room.id,
+        roomName: room.name,
+      ),
+    ),
+  );
 }
 
 class _QuickChip extends StatelessWidget {
@@ -603,5 +591,3 @@ class _QuickChip extends StatelessWidget {
     );
   }
 }
-
-
