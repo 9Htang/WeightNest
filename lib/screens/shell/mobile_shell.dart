@@ -223,12 +223,12 @@ class HomeScreenContent extends ConsumerWidget {
                       ),
                     ),
                   )
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: rooms
-                        .map((r) => _RoomCardWarm(room: r))
-                        .toList(),
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rooms.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) => _RoomCardWarm(room: rooms[i]),
                   ),
           ),
 
@@ -437,7 +437,7 @@ class _RoomCardWarm extends ConsumerWidget {
     final birdsAsync = ref.watch(roomBirdsProvider(room.id));
 
     return SizedBox(
-      width: (MediaQuery.of(context).size.width - 40) / 2 - 4,
+      width: double.infinity,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
