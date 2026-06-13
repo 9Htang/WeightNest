@@ -118,10 +118,10 @@ final alertCountProvider = Provider<int>((ref) {
   return alerts?.length ?? 0;
 });
 
-/// 某房间的鹦鹉列表
+/// 某房间的鹦鹉列表 — 依赖 allBirdsProvider，鸟变更时自动刷新
 final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref, roomId) async {
-  final db = ref.watch(databaseProvider);
-  return db.getByRoom(roomId);
+  final birds = await ref.watch(allBirdsProvider.future);
+  return birds.where((b) => b.bird.roomId == roomId).toList();
 });
 
 // ── 容器（Enclosure）相关提供者 ──

@@ -448,7 +448,8 @@ class _RoomCardWarm extends ConsumerWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _onRoomTap(context, ref, room),
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => BirdsScreen(roomId: room.id))),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -474,6 +475,14 @@ class _RoomCardWarm extends ConsumerWidget {
                             fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    // 房间设置按钮
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined, size: 18),
+                      tooltip: '房间设置',
+                      color: scheme.onSurface.withAlpha(120),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _onRoomTap(context, ref, room),
                     ),
                     // 插件提供的房间称重按钮
                     ...(() {
@@ -526,7 +535,7 @@ class _RoomCardWarm extends ConsumerWidget {
   }
 }
 
-/// 房间卡片点击处理：进入容器管理页面
+/// 房间设置按钮：进入容器管理页面
 void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
   Navigator.push(
     context,
