@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/theme.dart';
-import 'screens/splash/splash_screen.dart';
+import 'screens/shell/mobile_shell.dart';
 
 class WeightNestApp extends StatelessWidget {
   const WeightNestApp({super.key});
@@ -36,7 +36,7 @@ class WeightNestApp extends StatelessWidget {
             ),
           );
         },
-        home: const SplashScreen(),
+        home: const MobileShell(),
       ),
     );
   }

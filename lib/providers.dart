@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart';
 import 'core/plugin_registry.dart';
 import 'database/database.dart';
 import 'repositories/bird_repository.dart';
@@ -9,6 +10,7 @@ import 'repositories/species_repository.dart';
 import 'repositories/task_repository.dart';
 import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
+import 'services/work_hours_config.dart';
 import 'plugins/medication/medication_repository.dart';
 import 'screens/worker/worker_screen.dart';
 
@@ -67,7 +69,6 @@ final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
 /// 今日任务（仅显示当前用户的任务）
 final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
-  await db.generateTodayTasks();
   final worker = ref.watch(workerProvider);
   return db.getTodayTasks(worker.userId);
 });
@@ -105,17 +106,35 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
   }
 });
 
+/// 异常提醒确认版本号 — 确认后 +1 触发 alertListProvider 刷新
+final alertConfirmedVersionProvider = StateProvider<int>((ref) => 0);
+
 /// 异常提醒详细列表（用于异常页面展示）
 final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
+  ref.watch(weightSavedProvider); // 体重保存后自动刷新
+  ref.watch(alertConfirmedVersionProvider); // 确认后刷新
   final db = ref.watch(databaseProvider);
   final service = AlertService(db);
-  return service.detectAll();
+  final alerts = await service.detectAll();
+  // 过滤已确认：同鸟 + 同类型当天已确认的不再显示
+  final confirmed = await db.getConfirmedAlertKeys();
+  return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}')).toList();
 });
 
 /// 异常提醒数量 — 从 alertListProvider 派生，避免重复计算
 final alertCountProvider = Provider<int>((ref) {
   final alerts = ref.watch(alertListProvider).valueOrNull;
   return alerts?.length ?? 0;
+});
+
+/// 首页轻量检查：最近 3 天是否有已检测但未确认的异常（不触发 detectAll）
+final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final cutoff = DateTime.now().subtract(const Duration(days: 3));
+  final rows = await (db.select(db.alertRecords)
+    ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff)))
+    .get();
+  return rows.isNotEmpty;
 });
 
 /// 某房间的鹦鹉列表 — 依赖 allBirdsProvider，鸟变更时自动刷新
@@ -170,6 +189,11 @@ final todayMedicationLogsProvider = FutureProvider.family<List<MedicationLogData
 final todayAllMedicationLogsProvider = FutureProvider<List<MedicationLogData>>((ref) async {
   final db = ref.watch(databaseProvider);
   return db.getAllTodayLogs();
+});
+
+/// 用户工作时间配置（多插件共享）
+final workHoursProvider = FutureProvider<WorkHoursConfig>((ref) async {
+  return WorkHoursConfig.load();
 });
 
 /// 体重保存通知——用于触发图表刷新

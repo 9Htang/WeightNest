@@ -6,7 +6,6 @@ import '../../services/alert_service.dart';
 import '../birds/bird_detail_screen.dart';
 import '../../widgets/section_header.dart';
 
-
 class AlertsScreen extends ConsumerWidget {
   const AlertsScreen({super.key});
 
@@ -20,17 +19,17 @@ class AlertsScreen extends ConsumerWidget {
         title: const Text('异常提醒'),
         actions: [
           TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已确认提醒（下次启动重新检测）'), behavior: SnackBarBehavior.floating),
-              );
-              ref.invalidate(alertListProvider);
+            onPressed: () async {
+              final db = ref.read(databaseProvider);
+              final alerts = alertsAsync.valueOrNull ?? [];
+              if (alerts.isEmpty) return;
+              await db.confirmAllAlerts(alerts);
+              ref.read(alertConfirmedVersionProvider.notifier).update((s) => s + 1);
             },
-            child: const Text('忽略全部', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            child: const Text('全部确认', style: TextStyle(color: Colors.white, fontSize: 14)),
           ),
         ],
       ),
-
       body: alertsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
@@ -46,7 +45,7 @@ class AlertsScreen extends ConsumerWidget {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 4),
                   Text('没有发现异常情况',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(120))),
+                      style: TextStyle(color: Colors.black54, fontSize: 14)),
                 ],
               ),
             );
@@ -74,14 +73,14 @@ class AlertsScreen extends ConsumerWidget {
   }
 }
 
-class _AlertCard extends StatelessWidget {
+class _AlertCard extends ConsumerWidget {
   final AnomalyAlert alert;
   final ThemeData theme;
 
   const _AlertCard({required this.alert, required this.theme});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDanger = alert.severity == AlertSeverity.danger;
     final bgColor = isDanger ? Colors.red.shade50 : Colors.orange.shade50;
     final iconColor = isDanger ? Colors.red : Colors.orange;
@@ -118,7 +117,7 @@ class _AlertCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(alert.bird.bird.name,
-                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: Colors.black87)),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -127,20 +126,30 @@ class _AlertCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(alert.type,
-                              style: TextStyle(fontSize: 11, color: iconColor, fontWeight: FontWeight.w500)),
+                              style: TextStyle(fontSize: 13, color: iconColor, fontWeight: FontWeight.w500)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(alert.description,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withAlpha(160),
-                          fontSize: 12,
+                          color: Colors.black87,
+                          fontSize: 13,
                         )),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              // 确认按钮
+              IconButton(
+                icon: const Icon(Icons.check_circle_outline, size: 22),
+                tooltip: '确认',
+                color: Colors.grey,
+                onPressed: () async {
+                  final db = ref.read(databaseProvider);
+                  await db.confirmAlert(alert.bird.bird.id, alert.type, alert.description);
+                  ref.read(alertConfirmedVersionProvider.notifier).update((s) => s + 1);
+                },
+              ),
             ],
           ),
         ),

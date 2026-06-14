@@ -42,6 +42,8 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
         initialEnclosureId: widget.initialEnclosureId,
         initialBirdId: widget.initialBirdId,
       );
+      // After init completes and state is built, scroll to the selected bird
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedBird());
     });
   }
 
@@ -49,6 +51,34 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Scroll horizontally to the column containing the selected bird.
+  void _scrollToSelectedBird() {
+    final state = ref.read(weighGridProvider);
+    final birdId = state.selectedBirdId;
+    if (birdId == null) return;
+    if (!_scrollController.hasClients) return;
+
+    // Find which non-empty column contains the target bird
+    int nonEmptyIdx = -1;
+    for (final col in state.columns) {
+      if (col.isEmpty) continue;
+      nonEmptyIdx++;
+      for (final group in col.groups) {
+        if (group.birds.any((b) => b.bird.id == birdId)) {
+          final viewport = _scrollController.position.viewportDimension;
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final targetOffset = (nonEmptyIdx * _colWidth) - (viewport / 2) + (_colWidth / 2);
+          _scrollController.animateTo(
+            targetOffset.clamp(0.0, maxScroll),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          return;
+        }
+      }
+    }
   }
 
   @override

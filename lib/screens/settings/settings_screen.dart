@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/excel_export_service.dart';
+import '../../core/plugin.dart';
+import '../../services/work_hours_config.dart';
 import '../../providers.dart';
 import '../../plugins/plugins.dart';
-import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -13,79 +13,26 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String? _exportPath;
-  int? _selectedYear;
-  int? _selectedMonth;
-  String? _exportLabel;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final workHoursAsync = ref.watch(workHoursProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 数据导出 ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.table_chart, size: 22),
-                      const SizedBox(width: 8),
-                      Text('数据导出', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('按月份导出所有鹦鹉体重记录为 Excel', style: TextStyle(color: Color(0xFF555555), fontSize: 13)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _pickMonth(),
-                          child: Text(_exportLabel ?? '选择月份'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      FilledButton.tonalIcon(
-                        onPressed: (_selectedYear != null && _selectedMonth != null)
-                            ? () => _exportData()
-                            : null,
-                        icon: const Icon(Icons.download),
-                        label: const Text('导出 Excel'),
-                      ),
-                    ],
-                  ),
-                  if (_exportPath != null && _exportPath != '正在导出...' && !_exportPath!.startsWith('导出失败')) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => Share.shareXFiles([XFile(_exportPath!)]),
-                        icon: const Icon(Icons.share, size: 18),
-                        label: const Text('分享文件'),
-                      ),
-                    ),
-                  ],
-                  if (_exportPath != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _exportPath!.startsWith('导出失败') ? Colors.orange.shade50 : Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(_exportPath!, style: const TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ],
-              ),
+          // ── 工作时间 ──
+          workHoursAsync.when(
+            loading: () => const Card(
+              child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+            ),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (wh) => _WorkHoursCard(
+              config: wh,
+              onStartPick: () => _pickWorkTime(wh, true),
+              onEndPick: () => _pickWorkTime(wh, false),
             ),
           ),
           const SizedBox(height: 16),
@@ -97,42 +44,157 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _pickMonth() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
+  Future<void> _pickWorkTime(WorkHoursConfig current, bool isStart) async {
+    final picked = await showTimePicker(
       context: context,
-      initialDate: DateTime(_selectedYear ?? now.year, _selectedMonth ?? now.month),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(now.year, now.month),
-      helpText: '选择导出月份',
+      initialTime: isStart ? current.workStart : current.workEnd,
       cancelText: '取消',
       confirmText: '确定',
+      helpText: isStart ? '工作起始时间' : '工作结束时间',
     );
     if (picked != null) {
-      setState(() {
-        _selectedYear = picked.year;
-        _selectedMonth = picked.month;
-        _exportLabel = '${picked.year}年${picked.month}月';
-        _exportPath = null;
-      });
+      final updated = isStart
+          ? current.copyWith(workStart: picked)
+          : current.copyWith(workEnd: picked);
+      await updated.save();
+      ref.invalidate(workHoursProvider);
     }
   }
 
-  Future<void> _exportData() async {
-    if (_selectedYear == null || _selectedMonth == null) return;
-    setState(() => _exportPath = '正在导出...');
-    try {
-      final db = ref.read(databaseProvider);
-      final service = ExcelExportService(db);
-      final file = await service.exportMonthly(_selectedYear!, _selectedMonth!);
-      if (file != null) {
-        setState(() => _exportPath = file.path);
-      } else {
-        setState(() => _exportPath = '导出失败：无数据');
-      }
-    } catch (e) {
-      setState(() => _exportPath = '导出失败: $e');
-    }
+}
+
+/// 工作时间卡片
+class _WorkHoursCard extends StatelessWidget {
+  final WorkHoursConfig config;
+  final VoidCallback onStartPick;
+  final VoidCallback onEndPick;
+
+  const _WorkHoursCard({
+    required this.config,
+    required this.onStartPick,
+    required this.onEndPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.schedule, size: 22),
+              SizedBox(width: 8),
+              Text('工作时间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ]),
+            const SizedBox(height: 4),
+            Text('设定每日工作时段，各插件将基于此安排任务',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 16),
+            // 时间选择器
+            Row(
+              children: [
+                Expanded(
+                  child: _TimeCard(
+                    label: '起始时间',
+                    time: config.formatTime(config.workStart),
+                    onTap: onStartPick,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('~', style: TextStyle(fontSize: 20, color: Colors.grey)),
+                ),
+                Expanded(
+                  child: _TimeCard(
+                    label: '结束时间',
+                    time: config.formatTime(config.workEnd),
+                    onTap: onEndPick,
+                  ),
+                ),
+              ],
+            ),
+            if (config.crossesMidnight) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.nightlight_round, size: 16, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('跨午夜模式，凌晨时间归入次日', style: TextStyle(fontSize: 12, color: Colors.blue))),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // 说明
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline, size: 18, color: Colors.grey),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '称重任务将于起始时间前 30 分钟自动生成',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 时间选择卡片（复用模式）
+class _TimeCard extends StatelessWidget {
+  final String label;
+  final String time;
+  final VoidCallback onTap;
+  const _TimeCard({required this.label, required this.time, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          color: theme.colorScheme.surfaceContainerLow,
+        ),
+        child: Column(
+          children: [
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(time, style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                )),
+                const SizedBox(width: 4),
+                Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -146,52 +208,205 @@ class _PluginListState extends ConsumerState<_PluginList> {
   @override
   Widget build(BuildContext context) {
     final plugins = pluginRegistry.plugins;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(children: [
-              Icon(Icons.extension_outlined, size: 22),
-              SizedBox(width: 8),
-              Text('插件管理', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ]),
-            const SizedBox(height: 12),
-            if (plugins.isEmpty)
-              const Text('暂无注册插件', style: TextStyle(color: Colors.grey))
-            else
-              ...plugins.map((p) => SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                secondary: Icon(p.icon, color: p.enabled ? Colors.teal : Colors.grey, size: 22),
-                title: Row(children: [
-                  Text(p.displayName, style: TextStyle(fontWeight: FontWeight.w600, color: p.enabled ? null : Colors.grey)),
-                  const SizedBox(width: 8),
-                  Text(p.id, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                ]),
-                subtitle: p.description.isNotEmpty ? Text(p.description, style: const TextStyle(fontSize: 12)) : null,
-                value: p.enabled,
-                onChanged: (v) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(children: [
+          Icon(Icons.extension_outlined, size: 22, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text('插件管理', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 4),
+        Text('管理各功能模块的启用状态和设置',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        const SizedBox(height: 12),
+        if (plugins.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text('暂无注册插件',
+                    style: TextStyle(color: Colors.grey.shade500)),
+              ),
+            ),
+          )
+        else
+          ...plugins.map((p) => _PluginCard(
+                plugin: p,
+                onToggle: (v) {
                   pluginRegistry.setEnabled(p.id, v);
                   ref.read(pluginToggleVersionProvider.notifier).update((s) => s + 1);
                   setState(() {});
                 },
               )),
-              // 设置按钮 — 仅可配置的插件显示
-              ...pluginRegistry.configurablePlugins.map((p) => Padding(
-                padding: const EdgeInsets.only(left: 48, bottom: 8),
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('插件设置', style: TextStyle(fontSize: 13)),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: p.settingsBuilder!),
+      ],
+    );
+  }
+}
+
+class _PluginCard extends StatelessWidget {
+  final FeaturePlugin plugin;
+  final ValueChanged<bool> onToggle;
+
+  const _PluginCard({required this.plugin, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final enabled = plugin.enabled;
+    final hasSettings = plugin.settingsBuilder != null;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 头部行 ──
+            Row(
+              children: [
+                // 图标容器
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: enabled ? scheme.primaryContainer.withAlpha(120) : Colors.grey.shade100,
+                  ),
+                  child: Icon(
+                    plugin.icon,
+                    size: 22,
+                    color: enabled ? scheme.primary : Colors.grey.shade400,
                   ),
                 ),
-              )),
+                const SizedBox(width: 12),
+                // 名称 + ID
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Flexible(
+                          child: Text(
+                            plugin.displayName,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: enabled ? null : Colors.grey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.grey.shade200,
+                          ),
+                          child: Text(plugin.id,
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+                // 设置齿轮
+                if (hasSettings)
+                  IconButton(
+                    icon: Icon(Icons.settings,
+                        size: 20,
+                        color: enabled ? scheme.primary.withAlpha(180) : Colors.grey.shade400),
+                    tooltip: '${plugin.displayName}设置',
+                    onPressed: enabled
+                        ? () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: plugin.settingsBuilder!),
+                            )
+                        : null,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                // 开关
+                Switch(
+                  value: enabled,
+                  onChanged: onToggle,
+                ),
+              ],
+            ),
+            // ── 描述 ──
+            if (plugin.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 52),
+                child: Text(plugin.description,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.3)),
+              ),
+            ],
+            // ── 功能标签 ──
+            if (plugin.pages.isNotEmpty || plugin.quickActions.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.only(left: 52),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ...plugin.pages.where((p) => p.showInSidebar).map((p) => _FeatureChip(
+                          icon: p.icon, label: p.title, enabled: enabled,
+                        )),
+                    ...plugin.quickActions.map((a) => _FeatureChip(
+                          icon: a.icon, label: a.label, enabled: enabled, isAction: true,
+                        )),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FeatureChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final bool isAction;
+
+  const _FeatureChip({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    this.isAction = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = enabled
+        ? (isAction ? scheme.tertiary : scheme.primary)
+        : Colors.grey.shade400;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: color.withAlpha(enabled ? 25 : 15),
+        border: Border.all(color: color.withAlpha(enabled ? 80 : 40), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }

@@ -84,6 +84,13 @@ abstract class FeaturePlugin {
 
   /// Register event handlers — subscribe to domain events from other plugins.
   void registerEvents(EventBus bus) {}
+
+  // ── Task card navigation ──
+
+  /// Called when a task card owned by this plugin is tapped.
+  /// Return a widget to navigate to (typically [BirdDetailScreen]), or null
+  /// to prevent navigation. Default returns null (no navigation).
+  Widget? onTaskCardTap(BuildContext context, int birdId) => null;
 }
 
 // ── Page types ──

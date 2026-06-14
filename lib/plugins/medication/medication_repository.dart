@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/database.dart';
 import '../../utils/uuid.dart';
 
@@ -57,6 +58,7 @@ extension MedicationRepository on AppDatabase {
 
     final rows = await (select(medicationLogs).join([
       innerJoin(medications, medications.id.equalsExp(medicationLogs.medicationId)),
+      innerJoin(birds, birds.id.equalsExp(medicationLogs.birdId)),
     ])
       ..where(medicationLogs.birdId.equals(birdId) &
           medicationLogs.scheduledTime.isBiggerOrEqualValue(dayStart) &
@@ -66,6 +68,8 @@ extension MedicationRepository on AppDatabase {
     return rows.map((r) => MedicationLogData(
       log: r.readTable(medicationLogs),
       medication: r.readTable(medications),
+      birdName: r.readTable(birds).name,
+      birdRingNumber: r.readTable(birds).ringNumber,
     )).toList();
   }
 
@@ -83,10 +87,17 @@ extension MedicationRepository on AppDatabase {
           medicationLogs.scheduledTime.isSmallerThanValue(dayEnd))
       ..orderBy([OrderingTerm.asc(medicationLogs.scheduledTime)])).get();
 
-    return rows.map((r) => MedicationLogData(
-      log: r.readTable(medicationLogs),
-      medication: r.readTable(medications),
-    )..birdName = r.readTable(birds).name).toList();
+    final birdRecords = rows.map((r) => r.readTable(birds)).toList();
+    return rows.asMap().entries.map((e) {
+      final r = e.value;
+      final bird = birdRecords[e.key];
+      return MedicationLogData(
+        log: r.readTable(medicationLogs),
+        medication: r.readTable(medications),
+        birdName: bird.name,
+        birdRingNumber: bird.ringNumber,
+      );
+    }).toList();
   }
 
   /// 标记喂药完成
@@ -106,20 +117,45 @@ extension MedicationRepository on AppDatabase {
 
   // ── 自动调度 ──
 
-  /// 根据每天次数返回固定时间点
-  static List<_TimeSlot> _timeSlots(int timesPerDay) {
-    switch (timesPerDay) {
-      case 1:
-        return [_TimeSlot(8, 0)];
-      case 2:
-        return [_TimeSlot(8, 0), _TimeSlot(20, 0)];
-      case 3:
-        return [_TimeSlot(8, 0), _TimeSlot(14, 0), _TimeSlot(20, 0)];
-      case 4:
-        return [_TimeSlot(8, 0), _TimeSlot(12, 0), _TimeSlot(16, 0), _TimeSlot(20, 0)];
-      default:
-        return [_TimeSlot(8, 0)];
+  /// 从 SharedPreferences 读取时间窗口并计算均分时间点。
+  /// 优先使用喂药插件自己的设置，未设时回退到全局工作时间。
+  static Future<List<_TimeSlot>> _distributedTimeSlots(int timesPerDay) async {
+    if (timesPerDay <= 0) return [_TimeSlot(8, 0)];
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // 优先喂药插件自身时间窗口
+    final sh = prefs.getInt('medication_work_start_hour');
+    int startH, startM, endH, endM;
+
+    if (sh != null) {
+      startH = sh;
+      startM = prefs.getInt('medication_work_start_min') ?? 0;
+      endH = prefs.getInt('medication_work_end_hour') ?? 22;
+      endM = prefs.getInt('medication_work_end_min') ?? 0;
+    } else {
+      // 回退到全局工作时间
+      startH = prefs.getInt('work_start_hour') ?? 8;
+      startM = prefs.getInt('work_start_min') ?? 0;
+      endH = prefs.getInt('work_end_hour') ?? 22;
+      endM = prefs.getInt('work_end_min') ?? 0;
     }
+
+    final startMin = startH * 60 + startM;
+    final endMin = endH * 60 + endM;
+    final window = endMin <= startMin ? (24 * 60 - startMin) + endMin : endMin - startMin;
+    if (window <= 0) return [_TimeSlot(startH, startM)];
+
+    if (timesPerDay == 1) {
+      final mid = (startMin + window ~/ 2) % (24 * 60);
+      return [_TimeSlot(mid ~/ 60, mid % 60)];
+    }
+
+    final interval = window / (timesPerDay - 1);
+    return List.generate(timesPerDay, (i) {
+      final m = (startMin + (interval * i).round()) % (24 * 60);
+      return _TimeSlot(m ~/ 60, m % 60);
+    });
   }
 
   /// 自动生成喂药日志
@@ -132,9 +168,9 @@ extension MedicationRepository on AppDatabase {
     List<TimeOfDay>? customTimes,
   }) async {
     final endDate = end ?? start.add(const Duration(days: 7)); // 默认 7 天
-    // 使用自定义时间点，或根据 timesPerDay 使用默认分布
+    // 使用自定义时间点，或根据工作时间均分
     final timeSlots = customTimes?.map((t) => _TimeSlot(t.hour, t.minute)).toList()
-        ?? _timeSlots(timesPerDay);
+        ?? await _distributedTimeSlots(timesPerDay);
 
     for (var day = start; day.isBefore(endDate) || day == start; day = day.add(const Duration(days: 1))) {
       if (day.isAfter(endDate)) break;
@@ -162,8 +198,9 @@ class MedicationLogData {
   final MedicationLog log;
   final Medication medication;
   String? birdName;
+  String? birdRingNumber;
 
-  MedicationLogData({required this.log, required this.medication, this.birdName});
+  MedicationLogData({required this.log, required this.medication, this.birdName, this.birdRingNumber});
 
   String get timeLabel =>
       '${log.scheduledTime.hour.toString().padLeft(2, '0')}:${log.scheduledTime.minute.toString().padLeft(2, '0')}';

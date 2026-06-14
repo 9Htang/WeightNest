@@ -1,9 +1,11 @@
 ﻿import 'dart:math';
+import 'package:drift/drift.dart';
 import '../database/database.dart';
 import '../core/plugin.dart';
 import '../core/plugin_registry.dart';
 import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
+import '../utils/uuid.dart';
 
 class AnomalyAlert {
   final BirdWithDetails bird;
@@ -146,19 +148,24 @@ class AlertService {
       }
     }
 
+    // 48h 直观体重变化百分比（仅用于展示）
+    final firstW = recent.first.weightG;
+    final lastW = recent.last.weightG;
+    final displayPct = (lastW - firstW) / firstW * 100;
+
     if (avgRate > 0.08) {
       // 正常
     } else if (avgRate > 0.03) {
       alerts.add(AnomalyAlert(bird: bird, type: '增长减缓',
-        description: '雏鸟48h Log增长率 ${(avgRate*100).toStringAsFixed(1)}%，增长偏慢',
+        description: '48h 仅增重 ${displayPct.toStringAsFixed(1)}%，增长偏慢',
         severity: AlertSeverity.warning));
     } else if (avgRate > 0) {
       alerts.add(AnomalyAlert(bird: bird, type: '增长停滞',
-        description: '雏鸟48h Log增长率仅 ${(avgRate*100).toStringAsFixed(1)}%，接近停滞',
+        description: '48h 仅增重 ${displayPct.toStringAsFixed(1)}%，接近停滞',
         severity: AlertSeverity.danger));
     } else {
       alerts.add(AnomalyAlert(bird: bird, type: '体重下降',
-        description: '雏鸟48h内体重下降（Log增长率${(avgRate*100).toStringAsFixed(1)}%）',
+        description: '48h 下降 ${displayPct.abs().toStringAsFixed(1)}%',
         severity: AlertSeverity.danger));
     }
 
@@ -190,7 +197,7 @@ class AlertService {
       
       if (trendPct < -5) {
         alerts.add(AnomalyAlert(bird: bird, type: '慢性下降',
-          description: '幼鸟7日EMA趋势下降 ${trendPct.abs().toStringAsFixed(1)}%',
+          description: '近7日下降 ${trendPct.abs().toStringAsFixed(1)}%',
           severity: trendPct < -8 ? AlertSeverity.danger : AlertSeverity.warning));
       }
 
@@ -200,7 +207,7 @@ class AlertService {
       final volatility = std / avgV * 100;
       if (volatility > 8) {
         alerts.add(AnomalyAlert(bird: bird, type: '波动异常',
-          description: '幼鸟7日体重波动 ${volatility.toStringAsFixed(0)}%，不稳定',
+          description: '近7日波动 ${volatility.toStringAsFixed(0)}%',
           severity: volatility > 12 ? AlertSeverity.danger : AlertSeverity.warning));
       }
     }
@@ -215,7 +222,7 @@ class AlertService {
         final normDrop = _normalize24h(dropPct / 100, h) * 100;
         if (normDrop > 8) {
           alerts.add(AnomalyAlert(bird: bird, type: '急性下降',
-            description: '幼鸟24h标准化下降 ${normDrop.toStringAsFixed(1)}%',
+            description: '较上次下降 ${dropPct.toStringAsFixed(1)}%',
             severity: AlertSeverity.danger));
         }
       }
@@ -270,7 +277,7 @@ class AlertService {
       final trend30 = (ema30.last - ema30.first) / ema30.first * 100;
       if (trend30 < -10) {
         alerts.add(AnomalyAlert(bird: bird, type: '长期下降趋势',
-          description: '30日EMA趋势下降 ${trend30.abs().toStringAsFixed(0)}%',
+          description: '近30日下降 ${trend30.abs().toStringAsFixed(0)}%',
           severity: AlertSeverity.danger));
       }
     }
@@ -289,5 +296,48 @@ class AlertService {
         severity: daysSince > 14 ? AlertSeverity.danger : AlertSeverity.warning)];
     }
     return [];
+  }
+}
+
+/// 异常提醒确认持久化
+extension AlertRepository on AppDatabase {
+  /// 确认单条提醒（当天同鸟+同类型去重）
+  Future<void> confirmAlert(int birdId, String alertType, String description) async {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final existing = await (select(alertRecords)
+      ..where((t) => t.birdId.equals(birdId) &
+          t.alertType.equals(alertType) &
+          t.createdAt.isBiggerOrEqualValue(dayStart)))
+      .getSingleOrNull();
+    if (existing != null) {
+      await (update(alertRecords)..where((t) => t.id.equals(existing.id)))
+          .write(AlertRecordsCompanion(isRead: Value(true), updatedAt: Value(DateTime.now())));
+    } else {
+      await into(alertRecords).insert(AlertRecordsCompanion.insert(
+        uuid: genUuid(),
+        birdId: birdId,
+        alertType: alertType,
+        description: description,
+        isRead: Value(true),
+      ));
+    }
+  }
+
+  /// 批量确认
+  Future<void> confirmAllAlerts(List<AnomalyAlert> alerts) async {
+    for (final a in alerts) {
+      await confirmAlert(a.bird.bird.id, a.type, a.description);
+    }
+  }
+
+  /// 获取今日已确认的 birdId:alertType 集合
+  Future<Set<String>> getConfirmedAlertKeys() async {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final rows = await (select(alertRecords)
+      ..where((t) => t.isRead.equals(true) & t.createdAt.isBiggerOrEqualValue(dayStart)))
+      .get();
+    return rows.map((r) => '${r.birdId}:${r.alertType}').toSet();
   }
 }

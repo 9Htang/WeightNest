@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/work_hours_config.dart';
 
-/// 喂药窗口配置持久化 key
-const _kWindowStartHour = 'medication_config_window_start_hour';
-const _kWindowStartMin = 'medication_config_window_start_min';
-const _kWindowEndHour = 'medication_config_window_end_hour';
-const _kWindowEndMin = 'medication_config_window_end_min';
+/// 喂药插件自己的时间窗口 key（覆盖全局工作时间）
+const _kMedStartHour = 'medication_work_start_hour';
+const _kMedStartMin = 'medication_work_start_min';
+const _kMedEndHour = 'medication_work_end_hour';
+const _kMedEndMin = 'medication_work_end_min';
+
+/// 默认给药次数 key
 const _kDefaultDoses = 'medication_config_default_doses';
 
-/// 喂药窗口配置
+/// 喂药插件配置（优先自身时间窗口，未设时回退到全局 WorkHoursConfig）
 class MedicationConfig {
   final TimeOfDay windowStart;
   final TimeOfDay windowEnd;
   final int defaultDoses;
 
+  final bool _hasCustomWindow;
+
   const MedicationConfig({
     this.windowStart = const TimeOfDay(hour: 8, minute: 0),
     this.windowEnd = const TimeOfDay(hour: 22, minute: 0),
     this.defaultDoses = 2,
-  });
+    bool hasCustomWindow = false,
+  }) : _hasCustomWindow = hasCustomWindow;
 
   bool get crossesMidnight {
     final s = windowStart.hour * 60 + windowStart.minute;
@@ -35,11 +41,10 @@ class MedicationConfig {
     return e - s;
   }
 
-  /// 根据每日次数自动均分时间点
+  /// 根据每日次数在工作窗口内均分时间点
   List<TimeOfDay> distributeDoses(int doses) {
     if (doses <= 0) return [];
     if (doses == 1) {
-      // 单次放窗口中间
       final mid = (windowStart.hour * 60 + windowStart.minute + windowMinutes ~/ 2) % (24 * 60);
       return [TimeOfDay(hour: mid ~/ 60, minute: mid % 60)];
     }
@@ -54,29 +59,48 @@ class MedicationConfig {
   String formatTime(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-  /// 加载配置
+  /// 是否有自己的时间窗口（而非回退到全局）
+  bool get hasCustomWindow => _hasCustomWindow;
+
+  /// 加载配置：优先喂药插件自身时间窗口，未设时回退到全局 WorkHoursConfig
   static Future<MedicationConfig> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final sh = prefs.getInt(_kMedStartHour);
+
+    TimeOfDay windowStart;
+    TimeOfDay windowEnd;
+    bool custom = false;
+
+    if (sh != null) {
+      // 喂药插件有自己的时间窗口
+      windowStart = TimeOfDay(hour: sh, minute: prefs.getInt(_kMedStartMin) ?? 0);
+      windowEnd = TimeOfDay(
+        hour: prefs.getInt(_kMedEndHour) ?? 22,
+        minute: prefs.getInt(_kMedEndMin) ?? 0,
+      );
+      custom = true;
+    } else {
+      // 回退到全局工作时间
+      final wh = await WorkHoursConfig.load();
+      windowStart = wh.workStart;
+      windowEnd = wh.workEnd;
+    }
+
     return MedicationConfig(
-      windowStart: TimeOfDay(
-        hour: prefs.getInt(_kWindowStartHour) ?? 8,
-        minute: prefs.getInt(_kWindowStartMin) ?? 0,
-      ),
-      windowEnd: TimeOfDay(
-        hour: prefs.getInt(_kWindowEndHour) ?? 22,
-        minute: prefs.getInt(_kWindowEndMin) ?? 0,
-      ),
+      windowStart: windowStart,
+      windowEnd: windowEnd,
       defaultDoses: prefs.getInt(_kDefaultDoses) ?? 2,
+      hasCustomWindow: custom,
     );
   }
 
-  /// 保存配置
+  /// 保存配置（时间窗口 + 默认次数，均使用喂药插件独立 key）
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kWindowStartHour, windowStart.hour);
-    await prefs.setInt(_kWindowStartMin, windowStart.minute);
-    await prefs.setInt(_kWindowEndHour, windowEnd.hour);
-    await prefs.setInt(_kWindowEndMin, windowEnd.minute);
+    await prefs.setInt(_kMedStartHour, windowStart.hour);
+    await prefs.setInt(_kMedStartMin, windowStart.minute);
+    await prefs.setInt(_kMedEndHour, windowEnd.hour);
+    await prefs.setInt(_kMedEndMin, windowEnd.minute);
     await prefs.setInt(_kDefaultDoses, defaultDoses);
   }
 
@@ -89,10 +113,10 @@ class MedicationConfig {
       windowStart: windowStart ?? this.windowStart,
       windowEnd: windowEnd ?? this.windowEnd,
       defaultDoses: defaultDoses ?? this.defaultDoses,
+      hasCustomWindow: true, // 手动调整时间窗口后标记为自定义
     );
   }
 
-  /// 重置默认值
   static const MedicationConfig defaults = MedicationConfig();
 }
 
@@ -119,23 +143,6 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
     if (mounted) setState(() { _config = c; _loading = false; });
   }
 
-  Future<void> _pickTime(bool isStart) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: isStart ? _config.windowStart : _config.windowEnd,
-      cancelText: '取消',
-      confirmText: '确定',
-      helpText: isStart ? '喂药起始时间' : '喂药结束时间',
-    );
-    if (picked != null) {
-      final updated = isStart
-          ? _config.copyWith(windowStart: picked)
-          : _config.copyWith(windowEnd: picked);
-      setState(() => _config = updated);
-      await updated.save();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -159,8 +166,14 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
             icon: const Icon(Icons.restore, size: 16),
             label: const Text('重置'),
             onPressed: () async {
-              await MedicationConfig.defaults.save();
-              setState(() => _config = MedicationConfig.defaults);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove(_kMedStartHour);
+              await prefs.remove(_kMedStartMin);
+              await prefs.remove(_kMedEndHour);
+              await prefs.remove(_kMedEndMin);
+              await prefs.setInt(_kDefaultDoses, 2);
+              final c = await MedicationConfig.load();
+              if (mounted) setState(() => _config = c);
             },
           ),
           const SizedBox(width: 8),
@@ -169,7 +182,7 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 喂药窗口 ──
+          // ── 喂药时间窗口 ──
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -179,19 +192,47 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                   Row(children: [
                     const Icon(Icons.access_time, size: 20),
                     const SizedBox(width: 8),
-                    Text('喂药时间窗口', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('喂药时间窗口', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                    // 重置为全局工作时间
+                    if (_config.hasCustomWindow)
+                      TextButton.icon(
+                        icon: const Icon(Icons.restore, size: 14),
+                        label: const Text('用全局', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('重置时间窗口'),
+                              content: const Text('清除喂药插件的时间窗口，改回使用全局工作时间？'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true && mounted) {
+                            await _resetToGlobalWindow();
+                          }
+                        },
+                      ),
                   ]),
                   const SizedBox(height: 4),
-                  Text('设置一天内可以喂药的时间段，系统将在此范围内自动分配喂药时间',
+                  Text(_config.hasCustomWindow
+                      ? '已设置独立时间窗口，不受全局工作时间影响'
+                      : '未单独设置，沿用全局工作时间',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   const SizedBox(height: 16),
+                  // 可编辑时间选择
                   Row(
                     children: [
                       Expanded(
                         child: _TimeCard(
                           label: '起始时间',
                           time: _config.formatTime(_config.windowStart),
-                          onTap: () => _pickTime(true),
+                          onTap: () => _pickMedTime(true),
                         ),
                       ),
                       const Padding(
@@ -202,7 +243,7 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                         child: _TimeCard(
                           label: '结束时间',
                           time: _config.formatTime(_config.windowEnd),
-                          onTap: () => _pickTime(false),
+                          onTap: () => _pickMedTime(false),
                         ),
                       ),
                     ],
@@ -218,10 +259,26 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                       child: const Row(children: [
                         Icon(Icons.nightlight_round, size: 16, color: Colors.blue),
                         SizedBox(width: 8),
-                        Expanded(child: Text('检测到跨午夜窗口，凌晨时间将归入次日', style: TextStyle(fontSize: 12, color: Colors.blue))),
+                        Expanded(child: Text('跨午夜模式，凌晨时间归入次日', style: TextStyle(fontSize: 12, color: Colors.blue))),
                       ]),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text('此处仅覆盖喂药插件的时间。其他插件仍使用全局工作时间。',
+                            style: TextStyle(fontSize: 12, color: Colors.blue)),
+                      ),
+                    ]),
+                  ),
                 ],
               ),
             ),
@@ -275,10 +332,9 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                     Text('时间分布预览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
                   const SizedBox(height: 4),
-                  Text('每日 $_config.defaultDoses 次 · $windowLabel',
+                  Text('每日 ${_config.defaultDoses} 次 · $windowLabel',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   const SizedBox(height: 16),
-                  // 时间线预览
                   SizedBox(
                     height: 64,
                     child: Row(
@@ -298,7 +354,6 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // 时间标签
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -329,10 +384,10 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
                     Text('说明', style: TextStyle(fontWeight: FontWeight.bold)),
                   ]),
                   SizedBox(height: 8),
-                  Text('• 此处为全局默认设置，新添加药品时自动应用\n'
+                  Text('• 此处设置仅影响喂药插件，不影响全局或其他插件\n'
+                      '• 未设置时间窗口时，自动沿用全局工作时间\n'
                       '• 添加药品时仍可单独调整每日次数和时间点\n'
-                      '• 喂药任务将于预定时间前 30 分钟出现在任务列表中\n'
-                      '• 结束时间早于起始时间 = 跨午夜模式',
+                      '• 喂药任务将于预定时间前 30 分钟出现在任务列表中',
                       style: TextStyle(fontSize: 13, color: Colors.grey)),
                 ],
               ),
@@ -342,17 +397,47 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
       ),
     );
   }
+
+  Future<void> _pickMedTime(bool isStart) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _config.windowStart : _config.windowEnd,
+      cancelText: '取消',
+      confirmText: '确定',
+      helpText: isStart ? '喂药起始时间' : '喂药结束时间',
+    );
+    if (picked != null && mounted) {
+      final updated = isStart
+          ? _config.copyWith(windowStart: picked)
+          : _config.copyWith(windowEnd: picked);
+      await updated.save();
+      setState(() => _config = updated);
+    }
+  }
+
+  /// 清除喂药插件自身的时间窗口，改回使用全局工作时间
+  Future<void> _resetToGlobalWindow() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kMedStartHour);
+    await prefs.remove(_kMedStartMin);
+    await prefs.remove(_kMedEndHour);
+    await prefs.remove(_kMedEndMin);
+    // 重新加载（此时会回退到全局）
+    final c = await MedicationConfig.load();
+    if (mounted) setState(() => _config = c);
+  }
 }
 
 class _TimeCard extends StatelessWidget {
   final String label;
   final String time;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _TimeCard({required this.label, required this.time, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isReadOnly = onTap == null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -361,23 +446,16 @@ class _TimeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.colorScheme.outlineVariant),
-          color: theme.colorScheme.surfaceContainerLow,
+          color: isReadOnly ? Colors.grey.shade100 : theme.colorScheme.surfaceContainerLow,
         ),
         child: Column(
           children: [
             Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(time, style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )),
-                const SizedBox(width: 4),
-                Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
-              ],
-            ),
+            Text(time, style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            )),
           ],
         ),
       ),

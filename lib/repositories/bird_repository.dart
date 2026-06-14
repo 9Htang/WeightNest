@@ -20,6 +20,25 @@ extension BirdRepository on AppDatabase {
   Future<Bird?> getBirdById(int id) =>
       (select(birds)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  /// Get a single bird with its species, room, and enclosure.
+  Future<BirdWithDetails?> getWithDetails(int birdId) async {
+    final rows = await (select(birds).join([
+      innerJoin(species, species.id.equalsExp(birds.speciesId)),
+      leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      leftOuterJoin(enclosures, enclosures.id.equalsExp(birds.enclosureId)),
+    ])
+      ..where(birds.id.equals(birdId))
+      ..limit(1)).get();
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    return BirdWithDetails(
+      bird: row.readTable(birds),
+      species: row.readTable(species),
+      room: row.readTableOrNull(rooms),
+      enclosure: row.readTableOrNull(enclosures),
+    );
+  }
+
   Future<Bird?> getBirdByUuid(String uuid) =>
       (select(birds)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
 

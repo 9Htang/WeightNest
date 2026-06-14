@@ -2,6 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
+import '../../database/database.dart';
+import '../../core/plugin_registry.dart';
 import '../../plugins/medication/medication_repository.dart';
 import '../weigh/weigh_grid_screen.dart';
 import '../../widgets/section_header.dart';
@@ -87,6 +89,25 @@ class _TodayTasks extends ConsumerWidget {
     final pendingMeds = medLogs.where((l) => !l.isDone && !l.isSkipped).toList();
     final doneMeds = medLogs.where((l) => l.isDone || l.isSkipped).toList();
 
+    // 异常鸟 ID 集合 — 用于标红和排序
+    final alertsAsync = ref.watch(alertListProvider);
+    final anomalyBirdIds = alertsAsync.valueOrNull
+        ?.map((a) => a.bird.bird.id).toSet() ?? <int>{};
+
+    // 待完成排序：异常鸟在前
+    pendingWeigh.sort((a, b) {
+      final aAnomaly = anomalyBirdIds.contains(a.bird.id) ? 0 : 1;
+      final bAnomaly = anomalyBirdIds.contains(b.bird.id) ? 0 : 1;
+      return aAnomaly.compareTo(bAnomaly);
+    });
+
+    // 已完成排序：异常鸟在前
+    doneWeigh.sort((a, b) {
+      final aAnomaly = anomalyBirdIds.contains(a.bird.id) ? 0 : 1;
+      final bAnomaly = anomalyBirdIds.contains(b.bird.id) ? 0 : 1;
+      return aAnomaly.compareTo(bAnomaly);
+    });
+
     final allPendingCount = pendingWeigh.length + pendingMeds.length;
     final allDoneCount = doneWeigh.length + doneMeds.length;
 
@@ -125,8 +146,9 @@ class _TodayTasks extends ConsumerWidget {
             // 称重任务
             ...pendingWeigh.map((t) => _TaskCard(
               task: t,
+              isAnomaly: anomalyBirdIds.contains(t.bird.id),
               onComplete: () => _completeWeighTask(t.task.id, ref),
-              onWeigh: () => _startWeighing(context, t.bird.roomId),
+              onWeigh: () => _startWeighing(context, t.bird.roomId, t.bird.id),
             )),
             // 喂药任务
             ...pendingMeds.map((l) => _MedTaskCard(
@@ -137,7 +159,11 @@ class _TodayTasks extends ConsumerWidget {
           ],
           if (allDoneCount > 0) ...[
             SectionHeader(title: '已完成 ($allDoneCount)'),
-            ...doneWeigh.map((t) => _TaskCard(task: t, done: true)),
+            ...doneWeigh.map((t) => _TaskCard(
+              task: t,
+              done: true,
+              isAnomaly: anomalyBirdIds.contains(t.bird.id),
+            )),
             ...doneMeds.map((l) => _MedTaskCard(logData: l, done: true)),
           ],
         ],
@@ -160,9 +186,9 @@ class _TodayTasks extends ConsumerWidget {
     ref.invalidate(todayAllMedicationLogsProvider);
   }
 
-  void _startWeighing(BuildContext context, int? roomId) {
+  void _startWeighing(BuildContext context, int? roomId, int birdId) {
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId)));
+        MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)));
   }
 }
 
@@ -216,6 +242,7 @@ class _TaskCard extends StatelessWidget {
   final TaskWithBird task;
   final bool done;
   final bool urgent;
+  final bool isAnomaly;
   final VoidCallback? onComplete;
   final VoidCallback? onWeigh;
 
@@ -223,6 +250,7 @@ class _TaskCard extends StatelessWidget {
     required this.task,
     this.done = false,
     this.urgent = false,
+    this.isAnomaly = false,
     this.onComplete,
     this.onWeigh,
   });
@@ -230,59 +258,127 @@ class _TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ring = task.bird.ringNumber;
+    final speciesName = task.species?.name ?? '';
+    final roomName = task.room?.name;
+    final enclosureName = task.enclosure?.name;
+    final w = task.todayWeight;
+
+    // 背景色
+    Color? bgColor;
+    if (done && isAnomaly) {
+      bgColor = Colors.red.shade50;
+    } else if (done) {
+      bgColor = Colors.grey.shade50;
+    } else if (isAnomaly || urgent) {
+      bgColor = Colors.red.shade50;
+    }
+
+    // 图标
+    final icon = done ? Icons.check_circle : (isAnomaly || urgent ? Icons.warning_amber_rounded : Icons.radio_button_unchecked);
+    final iconColor = done ? Colors.green : (isAnomaly || urgent ? Colors.red : Colors.grey);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      color: urgent ? Colors.orange.shade50 : (done ? Colors.grey.shade50 : null),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              done ? Icons.check_circle : (urgent ? Icons.warning : Icons.radio_button_unchecked),
-              color: done ? Colors.green : (urgent ? Colors.orange : Colors.grey),
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(task.bird.name,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${task.species?.name ?? ''} · ${task.task.dueDate.month}/${task.task.dueDate.day} · 房间 ${task.bird.roomId ?? "?"}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                  ),
-                  if (task.task.assignedUserId != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text('已指派 #${task.task.assignedUserId}',
-                          style: TextStyle(fontSize: 10, color: Colors.blue.shade400)),
+      color: bgColor,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          final weightPlugin = pluginRegistry.getPlugin('weights');
+          if (weightPlugin == null) return;
+          final page = weightPlugin.onTaskCardTap(context, task.bird.id);
+          if (page != null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, color: iconColor, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 第一行：鸟名 + 脚环
+                    RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isAnomaly ? Colors.red.shade800 : theme.textTheme.bodyMedium?.color,
+                        ),
+                        children: [
+                          TextSpan(text: task.bird.name),
+                          if (ring != null && ring.isNotEmpty) ...[
+                            TextSpan(
+                              text: '  #$ring',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: (isAnomaly ? Colors.red : Colors.grey).shade500,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                ],
-              ),
-            ),
-            if (!done) ...[
-              if (onWeigh != null)
-                IconButton(
-                  icon: const Icon(Icons.monitor_weight_outlined, size: 20),
-                  tooltip: '称重',
-                  onPressed: onWeigh,
+                    const SizedBox(height: 2),
+                    // 第二行
+                    _buildSecondLine(context, done, w, speciesName, roomName, enclosureName),
+                  ],
                 ),
-              FilledButton.tonal(
-                onPressed: onComplete,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(60, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: const Text('完成', style: TextStyle(fontSize: 13)),
               ),
+              if (!done) ...[
+                if (onWeigh != null)
+                  IconButton(
+                    icon: const Icon(Icons.monitor_weight_outlined, size: 20),
+                    tooltip: '称重',
+                    onPressed: onWeigh,
+                  ),
+                FilledButton.tonal(
+                  onPressed: onComplete,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(60, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('完成', style: TextStyle(fontSize: 13)),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSecondLine(BuildContext context, bool done, Weight? w,
+      String speciesName, String? roomName, String? enclosureName) {
+    final theme = Theme.of(context);
+    if (done && w != null) {
+      // 已完成：显示体重和时间
+      final timeStr =
+          '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')}';
+      final parts = <String>[
+        '称重 ${w.weightG.toStringAsFixed(1)}g',
+        timeStr,
+      ];
+      if (!w.isFasting) parts.add('非空腹');
+      return Text(
+        parts.join(' · '),
+        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+      );
+    }
+    // 待完成：位置信息
+    final parts = <String>[
+      if (speciesName.isNotEmpty) speciesName,
+      if (roomName != null && roomName.isNotEmpty) roomName,
+      if (enclosureName != null && enclosureName.isNotEmpty) enclosureName,
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Text(
+      parts.join(' · '),
+      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
     );
   }
 }
@@ -305,11 +401,22 @@ class _MedTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isLate = !done && logData.log.scheduledTime.isBefore(DateTime.now());
+    final ring = logData.birdRingNumber;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       color: done ? Colors.grey.shade50 : (isLate ? Colors.red.shade50 : null),
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          final medPlugin = pluginRegistry.getPlugin('medication');
+          if (medPlugin == null) return;
+          final page = medPlugin.onTaskCardTap(context, logData.log.birdId);
+          if (page != null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+          }
+        },
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
@@ -330,6 +437,7 @@ class _MedTaskCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 第一行：药名 + 剂量
                   Row(children: [
                     Text(logData.medication.drugName,
                         style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -338,10 +446,20 @@ class _MedTaskCard extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   ]),
                   const SizedBox(height: 2),
-                  Text(
-                    '${logData.birdName ?? ''} · ${logData.timeLabel}${isLate && !done ? " (已逾期)" : ""}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isLate && !done ? Colors.red : Colors.grey,
+                  // 第二行：鸟名 + 脚环 · 时间
+                  RichText(
+                    text: TextSpan(
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isLate && !done ? Colors.red : Colors.grey,
+                      ),
+                      children: [
+                        TextSpan(text: logData.birdName ?? ''),
+                        if (ring != null && ring.isNotEmpty)
+                          TextSpan(text: '  #$ring'),
+                        TextSpan(text: ' · ${logData.timeLabel}'),
+                        if (isLate && !done)
+                          const TextSpan(text: ' (已逾期)'),
+                      ],
                     ),
                   ),
                 ],
@@ -369,6 +487,7 @@ class _MedTaskCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
         ),
       ),
     );

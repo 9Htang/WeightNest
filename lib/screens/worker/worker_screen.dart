@@ -19,9 +19,14 @@ class WorkerInfo {
 
 /// 用户状态管理
 class WorkerNotifier extends StateNotifier<WorkerInfo> {
+  late final Future<void> _loadFuture;
+
   WorkerNotifier() : super(const WorkerInfo(isInitializing: true)) {
-    _load();
+    _loadFuture = _load();
   }
+
+  /// Completes after SharedPreferences _load() finishes.
+  Future<void> get ready => _loadFuture;
 
   static const _keyName = 'worker_name';
   static const _keyId = 'worker_id';

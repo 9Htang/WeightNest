@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
+import '../../repositories/task_repository.dart';
+import '../../repositories/user_repository.dart';
 import '../../core/plugin_registry.dart';
+import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
 import '../rooms/rooms_screen.dart';
@@ -17,8 +21,13 @@ class MobileShell extends ConsumerStatefulWidget {
   ConsumerState<MobileShell> createState() => _MobileShellState();
 }
 
-class _MobileShellState extends ConsumerState<MobileShell> {
+class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  DateTime? _lastCheckedDay;
+  Timer? _dateCheckTimer;
+
+  // 懒加载 Tab：仅构建当前激活的标签页，首次访问后缓存
+  final List<Widget?> _tabCache = List.filled(4, null);
 
   static const _tabs = [
     _TabData(Icons.home_outlined, Icons.home_rounded, '首页'),
@@ -27,21 +36,88 @@ class _MobileShellState extends ConsumerState<MobileShell> {
     _TabData(Icons.settings_outlined, Icons.settings, '设置'),
   ];
 
+  Widget _makeTab(int i) => switch (i) {
+    0 => const HomeShell(),
+    1 => const TasksScreen(),
+    2 => const BirdsScreen(),
+    3 => const SettingsScreen(),
+    _ => const HomeShell(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startDateCheckTimer();
+    // 首帧渲染后执行数据库初始化，不阻塞首页显示
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initAfterBuild());
+  }
+
+  Future<void> _initAfterBuild() async {
+    try {
+      // 1. 确保 DB 已迁移、种子数据已创建
+      await ref.read(initDefaultsProvider.future);
+      // 2. 自动选择第一个用户（首次启动无缓存用户时）
+      if (!ref.read(workerProvider).isSelected) {
+        final users = await ref.read(databaseProvider).getAllUsers();
+        if (users.isNotEmpty) {
+          final u = users.first;
+          await ref.read(workerProvider.notifier).selectUser(
+              u.id, u.displayName, u.role, username: u.username);
+        }
+      }
+      // 3. 预生成今日任务
+      await ref.read(databaseProvider).generateTodayTasks();
+      // 4. 刷新任务列表（首帧查询时可能还没有生成的任务）
+      ref.invalidate(todayTasksProvider);
+    } catch (_) {
+      // DB 异常时静默失败，首页在加载状态中显示错误
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateLastCheckedDay();
+      ref.invalidate(todayTasksProvider);
+      ref.invalidate(alertListProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dateCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startDateCheckTimer() {
+    _updateLastCheckedDay();
+    _dateCheckTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      if (_lastCheckedDay != null && _lastCheckedDay != today) {
+        _lastCheckedDay = today;
+        if (mounted) {
+          ref.invalidate(todayTasksProvider);
+          ref.invalidate(alertListProvider);
+        }
+      }
+    });
+  }
+
+  void _updateLastCheckedDay() {
+    final now = DateTime.now();
+    _lastCheckedDay = DateTime(now.year, now.month, now.day);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          HomeShell(),
-          TasksScreen(),
-          BirdsScreen(),
-          SettingsScreen(),
-        ],
-      ),
+      body: _tabCache[_currentIndex] ??= _makeTab(_currentIndex),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
@@ -97,7 +173,7 @@ class HomeScreenContent extends ConsumerWidget {
     ref.watch(pluginToggleVersionProvider); // 插件开关时重建快捷操作/称重按钮
     final theme = Theme.of(context);
     final tasksAsync = ref.watch(todayTasksProvider);
-    final alertCount = ref.watch(alertCountProvider);
+    final hasRecentAlerts = ref.watch(hasRecentAlertRecordsProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
 
     return RefreshIndicator(
@@ -125,7 +201,8 @@ class HomeScreenContent extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // ── 异常提醒入口 ──
-          if (alertCount > 0) _AlertBannerWarm(count: alertCount),
+          if (hasRecentAlerts.valueOrNull == true)
+            _AlertBannerWarm(),
 
           const SizedBox(height: 16),
 
@@ -377,13 +454,13 @@ class _StatsSkeleton extends StatelessWidget {
 }
 
 class _AlertBannerWarm extends StatelessWidget {
-  final int count;
-  const _AlertBannerWarm({required this.count});
+  final int? count;
+  const _AlertBannerWarm({this.count});
 
   @override
   Widget build(BuildContext context) {
-    if (count == 0) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final text = count != null ? '$count 只鹦鹉存在异常' : '查看异常提醒';
 
     return Container(
       decoration: BoxDecoration(
@@ -411,7 +488,7 @@ class _AlertBannerWarm extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('$count 只鹦鹉存在异常',
+                child: Text(text,
                     style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFFC44F4F))),

@@ -12,8 +12,9 @@ import '../../core/plugin_registry.dart';
 
 class BirdDetailScreen extends ConsumerWidget {
   final BirdWithDetails bird;
+  final String? initialPluginId;
 
-  const BirdDetailScreen({super.key, required this.bird});
+  const BirdDetailScreen({super.key, required this.bird, this.initialPluginId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,7 +95,7 @@ class BirdDetailScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // 插件详情区（TabBar 切换体重趋势 / 喂药计划等）
-            _PluginDetailTabs(birdId: bird.bird.id, weightsAsync: weightsAsync, theme: theme),
+            _PluginDetailTabs(birdId: bird.bird.id, weightsAsync: weightsAsync, theme: theme, initialPluginId: initialPluginId),
 
             const SizedBox(height: 16),
 
@@ -775,21 +776,39 @@ class _PluginDetailTabs extends StatelessWidget {
   final int birdId;
   final AsyncValue<List<Weight>> weightsAsync;
   final ThemeData theme;
+  final String? initialPluginId;
 
   const _PluginDetailTabs({
     required this.birdId,
     required this.weightsAsync,
     required this.theme,
+    this.initialPluginId,
   });
 
   @override
   Widget build(BuildContext context) {
-    // 收集所有已启用插件的详情 sections
+    // 收集所有已启用插件的详情 sections，同时记录插件 ID → 首个 tab 索引映射
     final sections = <DetailSection>[];
+    final pluginFirstTab = <String, int>{}; // pluginId → first tab index
     for (final plugin in pluginRegistry.enabledPlugins) {
-      sections.addAll(plugin.buildDetailSections(birdId));
+      final pluginSections = plugin.buildDetailSections(birdId);
+      if (pluginSections.isNotEmpty) {
+        pluginFirstTab[plugin.id] = sections.length;
+      }
+      sections.addAll(pluginSections);
     }
     sections.sort((a, b) => a.priority.compareTo(b.priority));
+
+    // 重建排序后的映射（排序可能打乱了顺序）
+    // 简化：取各 plugin 中 priority 最小的 section 在排序列表中的位置
+    pluginFirstTab.clear();
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      final pluginSections = plugin.buildDetailSections(birdId);
+      if (pluginSections.isEmpty) continue;
+      final minPriority = pluginSections.map((s) => s.priority).reduce((a, b) => a < b ? a : b);
+      final idx = sections.indexWhere((s) => s.priority == minPriority);
+      if (idx >= 0) pluginFirstTab[plugin.id] = idx;
+    }
 
     if (sections.isEmpty) {
       // 降级：无插件时显示原始体重图表
@@ -808,9 +827,15 @@ class _PluginDetailTabs extends StatelessWidget {
       return sections.first.child;
     }
 
+    // 计算初始 tab 索引
+    final initialIdx = initialPluginId != null
+        ? (pluginFirstTab[initialPluginId] ?? 0)
+        : 0;
+
     // 多个 section → TabBar + TabBarView
     return DefaultTabController(
       length: sections.length,
+      initialIndex: initialIdx.clamp(0, sections.length - 1),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

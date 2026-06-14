@@ -4,25 +4,23 @@ class AppTheme {
   static const _seedColor = Color(0xFF6B8F71); // 森林绿
   static const _warmBrown = Color(0xFFC4956A); // 暖木色
 
+  // 预计算 ColorScheme，避免 build 时 fromSeed() 开销
+  static final ColorScheme _lightScheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: Brightness.light,
+    secondary: _warmBrown,
+  );
+  static final ColorScheme _darkScheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: Brightness.dark,
+    secondary: const Color(0xFFD4A87C),
+  );
+
   // ── Light Theme ──
-  static ThemeData get lightTheme {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
-      brightness: Brightness.light,
-      secondary: _warmBrown,
-    );
-    return _buildTheme(scheme, Brightness.light);
-  }
+  static final ThemeData lightTheme = _buildTheme(_lightScheme, Brightness.light);
 
   // ── Dark Theme ──
-  static ThemeData get darkTheme {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
-      brightness: Brightness.dark,
-      secondary: const Color(0xFFD4A87C),
-    );
-    return _buildTheme(scheme, Brightness.dark);
-  }
+  static final ThemeData darkTheme = _buildTheme(_darkScheme, Brightness.dark);
 
   static ThemeData _buildTheme(ColorScheme scheme, Brightness brightness) {
     final isDark = brightness == Brightness.dark;

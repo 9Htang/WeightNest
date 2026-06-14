@@ -3,6 +3,8 @@ import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
 import '../../core/event_bus.dart';
 import '../../database/database.dart';
+import '../../repositories/bird_repository.dart';
+import '../../screens/birds/bird_detail_screen.dart';
 import 'medication_screen.dart';
 import 'medication_calendar.dart';
 import 'medication_repository.dart';
@@ -74,6 +76,15 @@ class MedicationPlugin extends FeaturePlugin {
   Widget? buildDayView(DateTime day, {int? birdId}) =>
       MedicationCalendarView(birdId: birdId, initialDay: day);
 
+  // ── Task card navigation ──
+
+  @override
+  Widget? onTaskCardTap(BuildContext context, int birdId) {
+    final db = pluginRegistry.db;
+    if (db == null) return null;
+    return _MedicationTaskDetailPage(birdId: birdId, initialPluginId: id);
+  }
+
   // ── Slot B: 详情嵌入 ──
 
   @override
@@ -119,4 +130,40 @@ class MedicationPlugin extends FeaturePlugin {
 
   @override
   void registerEvents(EventBus bus) {}
+}
+
+/// Loads bird details and shows [BirdDetailScreen] for task card tap navigation.
+class _MedicationTaskDetailPage extends StatelessWidget {
+  final int birdId;
+  final String? initialPluginId;
+  const _MedicationTaskDetailPage({required this.birdId, this.initialPluginId});
+
+  @override
+  Widget build(BuildContext context) {
+    final db = pluginRegistry.db;
+    if (db == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('详情')),
+        body: const Center(child: Text('数据库未初始化')),
+      );
+    }
+    return FutureBuilder<BirdWithDetails?>(
+      future: db.getWithDetails(birdId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final bird = snapshot.data;
+        if (bird == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('详情')),
+            body: const Center(child: Text('未找到该鹦鹉')),
+          );
+        }
+        return BirdDetailScreen(bird: bird, initialPluginId: initialPluginId);
+      },
+    );
+  }
 }
