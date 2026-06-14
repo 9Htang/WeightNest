@@ -201,7 +201,7 @@ class HomeScreenContent extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                'v1.8.1', // 发布时与 pubspec.yaml 同步更新
+                'v1.8.2', // 发布时与 pubspec.yaml 同步更新
                 style: TextStyle(
                   fontSize: 11,
                   color: theme.colorScheme.onSurface.withAlpha(80),

@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -40,6 +40,11 @@ class AppDatabase extends _$AppDatabase {
             // v5 → v6: enclosures (containers within rooms)
             await m.createTable(enclosures);
             await m.addColumn(birds, birds.enclosureId);
+          }
+          if (from < 7) {
+            // v6 → v7: baseline weight + weaning override
+            await m.addColumn(birds, birds.manualBaselineG);
+            await m.addColumn(birds, birds.weaningOverride);
           }
         },
       );
