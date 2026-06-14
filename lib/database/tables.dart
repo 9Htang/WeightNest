@@ -98,6 +98,12 @@ class Birds extends Table {
   /// 单只称重间隔覆盖（天），NULL=使用品种默认值
   IntColumn get weighIntervalDays => integer().nullable()();
 
+  /// 用户手动设置的基准体重（g），NULL=自动推断
+  RealColumn get manualBaselineG => real().nullable()();
+
+  /// 断奶期覆盖：NULL=自动检测，true=强制开启，false=强制关闭
+  BoolColumn get weaningOverride => boolean().nullable()();
+
   /// 状态：正常/异常/已离舍
   TextColumn get status => text().withLength(max: 20).withDefault(const Constant('正常'))();
 

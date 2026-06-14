@@ -24,6 +24,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── 联系信息 ──
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                '如有优化意见 请微信联系cWV9822',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(204),
+                ),
+              ),
+            ),
+          ),
+
           // ── 主题设置 ──
           const _ThemeCard(),
 

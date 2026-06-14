@@ -1998,6 +1998,21 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
   late final GeneratedColumn<int> weighIntervalDays = GeneratedColumn<int>(
       'weigh_interval_days', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _manualBaselineGMeta =
+      const VerificationMeta('manualBaselineG');
+  @override
+  late final GeneratedColumn<double> manualBaselineG = GeneratedColumn<double>(
+      'manual_baseline_g', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _weaningOverrideMeta =
+      const VerificationMeta('weaningOverride');
+  @override
+  late final GeneratedColumn<bool> weaningOverride = GeneratedColumn<bool>(
+      'weaning_override', aliasedName, true,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("weaning_override" IN (0, 1))'));
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2048,6 +2063,8 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
         gender,
         sortOrder,
         weighIntervalDays,
+        manualBaselineG,
+        weaningOverride,
         status,
         notes,
         createdAt,
@@ -2121,6 +2138,18 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           weighIntervalDays.isAcceptableOrUnknown(
               data['weigh_interval_days']!, _weighIntervalDaysMeta));
     }
+    if (data.containsKey('manual_baseline_g')) {
+      context.handle(
+          _manualBaselineGMeta,
+          manualBaselineG.isAcceptableOrUnknown(
+              data['manual_baseline_g']!, _manualBaselineGMeta));
+    }
+    if (data.containsKey('weaning_override')) {
+      context.handle(
+          _weaningOverrideMeta,
+          weaningOverride.isAcceptableOrUnknown(
+              data['weaning_override']!, _weaningOverrideMeta));
+    }
     if (data.containsKey('status')) {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
@@ -2172,6 +2201,10 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
       weighIntervalDays: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}weigh_interval_days']),
+      manualBaselineG: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}manual_baseline_g']),
+      weaningOverride: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}weaning_override']),
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       notes: attachedDatabase.typeMapping
@@ -2220,6 +2253,12 @@ class Bird extends DataClass implements Insertable<Bird> {
   /// 单只称重间隔覆盖（天），NULL=使用品种默认值
   final int? weighIntervalDays;
 
+  /// 用户手动设置的基准体重（g），NULL=自动推断
+  final double? manualBaselineG;
+
+  /// 断奶期覆盖：NULL=自动检测，true=强制开启，false=强制关闭
+  final bool? weaningOverride;
+
   /// 状态：正常/异常/已离舍
   final String status;
 
@@ -2240,6 +2279,8 @@ class Bird extends DataClass implements Insertable<Bird> {
       required this.gender,
       required this.sortOrder,
       this.weighIntervalDays,
+      this.manualBaselineG,
+      this.weaningOverride,
       required this.status,
       this.notes,
       required this.createdAt,
@@ -2266,6 +2307,12 @@ class Bird extends DataClass implements Insertable<Bird> {
     map['sort_order'] = Variable<int>(sortOrder);
     if (!nullToAbsent || weighIntervalDays != null) {
       map['weigh_interval_days'] = Variable<int>(weighIntervalDays);
+    }
+    if (!nullToAbsent || manualBaselineG != null) {
+      map['manual_baseline_g'] = Variable<double>(manualBaselineG);
+    }
+    if (!nullToAbsent || weaningOverride != null) {
+      map['weaning_override'] = Variable<bool>(weaningOverride);
     }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
@@ -2299,6 +2346,12 @@ class Bird extends DataClass implements Insertable<Bird> {
       weighIntervalDays: weighIntervalDays == null && nullToAbsent
           ? const Value.absent()
           : Value(weighIntervalDays),
+      manualBaselineG: manualBaselineG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manualBaselineG),
+      weaningOverride: weaningOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weaningOverride),
       status: Value(status),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
@@ -2325,6 +2378,8 @@ class Bird extends DataClass implements Insertable<Bird> {
       gender: serializer.fromJson<String>(json['gender']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       weighIntervalDays: serializer.fromJson<int?>(json['weighIntervalDays']),
+      manualBaselineG: serializer.fromJson<double?>(json['manualBaselineG']),
+      weaningOverride: serializer.fromJson<bool?>(json['weaningOverride']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -2347,6 +2402,8 @@ class Bird extends DataClass implements Insertable<Bird> {
       'gender': serializer.toJson<String>(gender),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'weighIntervalDays': serializer.toJson<int?>(weighIntervalDays),
+      'manualBaselineG': serializer.toJson<double?>(manualBaselineG),
+      'weaningOverride': serializer.toJson<bool?>(weaningOverride),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -2367,6 +2424,8 @@ class Bird extends DataClass implements Insertable<Bird> {
           String? gender,
           int? sortOrder,
           Value<int?> weighIntervalDays = const Value.absent(),
+          Value<double?> manualBaselineG = const Value.absent(),
+          Value<bool?> weaningOverride = const Value.absent(),
           String? status,
           Value<String?> notes = const Value.absent(),
           DateTime? createdAt,
@@ -2386,6 +2445,12 @@ class Bird extends DataClass implements Insertable<Bird> {
         weighIntervalDays: weighIntervalDays.present
             ? weighIntervalDays.value
             : this.weighIntervalDays,
+        manualBaselineG: manualBaselineG.present
+            ? manualBaselineG.value
+            : this.manualBaselineG,
+        weaningOverride: weaningOverride.present
+            ? weaningOverride.value
+            : this.weaningOverride,
         status: status ?? this.status,
         notes: notes.present ? notes.value : this.notes,
         createdAt: createdAt ?? this.createdAt,
@@ -2409,6 +2474,12 @@ class Bird extends DataClass implements Insertable<Bird> {
       weighIntervalDays: data.weighIntervalDays.present
           ? data.weighIntervalDays.value
           : this.weighIntervalDays,
+      manualBaselineG: data.manualBaselineG.present
+          ? data.manualBaselineG.value
+          : this.manualBaselineG,
+      weaningOverride: data.weaningOverride.present
+          ? data.weaningOverride.value
+          : this.weaningOverride,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -2431,6 +2502,8 @@ class Bird extends DataClass implements Insertable<Bird> {
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('weighIntervalDays: $weighIntervalDays, ')
+          ..write('manualBaselineG: $manualBaselineG, ')
+          ..write('weaningOverride: $weaningOverride, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -2453,6 +2526,8 @@ class Bird extends DataClass implements Insertable<Bird> {
       gender,
       sortOrder,
       weighIntervalDays,
+      manualBaselineG,
+      weaningOverride,
       status,
       notes,
       createdAt,
@@ -2473,6 +2548,8 @@ class Bird extends DataClass implements Insertable<Bird> {
           other.gender == this.gender &&
           other.sortOrder == this.sortOrder &&
           other.weighIntervalDays == this.weighIntervalDays &&
+          other.manualBaselineG == this.manualBaselineG &&
+          other.weaningOverride == this.weaningOverride &&
           other.status == this.status &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
@@ -2492,6 +2569,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
   final Value<String> gender;
   final Value<int> sortOrder;
   final Value<int?> weighIntervalDays;
+  final Value<double?> manualBaselineG;
+  final Value<bool?> weaningOverride;
   final Value<String> status;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -2509,6 +2588,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.weighIntervalDays = const Value.absent(),
+    this.manualBaselineG = const Value.absent(),
+    this.weaningOverride = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2527,6 +2608,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.gender = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.weighIntervalDays = const Value.absent(),
+    this.manualBaselineG = const Value.absent(),
+    this.weaningOverride = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2548,6 +2631,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     Expression<String>? gender,
     Expression<int>? sortOrder,
     Expression<int>? weighIntervalDays,
+    Expression<double>? manualBaselineG,
+    Expression<bool>? weaningOverride,
     Expression<String>? status,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -2566,6 +2651,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       if (gender != null) 'gender': gender,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (weighIntervalDays != null) 'weigh_interval_days': weighIntervalDays,
+      if (manualBaselineG != null) 'manual_baseline_g': manualBaselineG,
+      if (weaningOverride != null) 'weaning_override': weaningOverride,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -2586,6 +2673,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       Value<String>? gender,
       Value<int>? sortOrder,
       Value<int?>? weighIntervalDays,
+      Value<double?>? manualBaselineG,
+      Value<bool?>? weaningOverride,
       Value<String>? status,
       Value<String?>? notes,
       Value<DateTime>? createdAt,
@@ -2603,6 +2692,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       gender: gender ?? this.gender,
       sortOrder: sortOrder ?? this.sortOrder,
       weighIntervalDays: weighIntervalDays ?? this.weighIntervalDays,
+      manualBaselineG: manualBaselineG ?? this.manualBaselineG,
+      weaningOverride: weaningOverride ?? this.weaningOverride,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -2647,6 +2738,12 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     if (weighIntervalDays.present) {
       map['weigh_interval_days'] = Variable<int>(weighIntervalDays.value);
     }
+    if (manualBaselineG.present) {
+      map['manual_baseline_g'] = Variable<double>(manualBaselineG.value);
+    }
+    if (weaningOverride.present) {
+      map['weaning_override'] = Variable<bool>(weaningOverride.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -2679,6 +2776,8 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
           ..write('gender: $gender, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('weighIntervalDays: $weighIntervalDays, ')
+          ..write('manualBaselineG: $manualBaselineG, ')
+          ..write('weaningOverride: $weaningOverride, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -7541,6 +7640,8 @@ typedef $$BirdsTableCreateCompanionBuilder = BirdsCompanion Function({
   Value<String> gender,
   Value<int> sortOrder,
   Value<int?> weighIntervalDays,
+  Value<double?> manualBaselineG,
+  Value<bool?> weaningOverride,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -7559,6 +7660,8 @@ typedef $$BirdsTableUpdateCompanionBuilder = BirdsCompanion Function({
   Value<String> gender,
   Value<int> sortOrder,
   Value<int?> weighIntervalDays,
+  Value<double?> manualBaselineG,
+  Value<bool?> weaningOverride,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -7716,6 +7819,14 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
 
   ColumnFilters<int> get weighIntervalDays => $composableBuilder(
       column: $table.weighIntervalDays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get manualBaselineG => $composableBuilder(
+      column: $table.manualBaselineG,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get weaningOverride => $composableBuilder(
+      column: $table.weaningOverride,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get status => $composableBuilder(
@@ -7933,6 +8044,14 @@ class $$BirdsTableOrderingComposer
       column: $table.weighIntervalDays,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get manualBaselineG => $composableBuilder(
+      column: $table.manualBaselineG,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get weaningOverride => $composableBuilder(
+      column: $table.weaningOverride,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
@@ -8041,6 +8160,12 @@ class $$BirdsTableAnnotationComposer
 
   GeneratedColumn<int> get weighIntervalDays => $composableBuilder(
       column: $table.weighIntervalDays, builder: (column) => column);
+
+  GeneratedColumn<double> get manualBaselineG => $composableBuilder(
+      column: $table.manualBaselineG, builder: (column) => column);
+
+  GeneratedColumn<bool> get weaningOverride => $composableBuilder(
+      column: $table.weaningOverride, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -8265,6 +8390,8 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int?> weighIntervalDays = const Value.absent(),
+            Value<double?> manualBaselineG = const Value.absent(),
+            Value<bool?> weaningOverride = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -8283,6 +8410,8 @@ class $$BirdsTableTableManager extends RootTableManager<
             gender: gender,
             sortOrder: sortOrder,
             weighIntervalDays: weighIntervalDays,
+            manualBaselineG: manualBaselineG,
+            weaningOverride: weaningOverride,
             status: status,
             notes: notes,
             createdAt: createdAt,
@@ -8301,6 +8430,8 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<String> gender = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int?> weighIntervalDays = const Value.absent(),
+            Value<double?> manualBaselineG = const Value.absent(),
+            Value<bool?> weaningOverride = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -8319,6 +8450,8 @@ class $$BirdsTableTableManager extends RootTableManager<
             gender: gender,
             sortOrder: sortOrder,
             weighIntervalDays: weighIntervalDays,
+            manualBaselineG: manualBaselineG,
+            weaningOverride: weaningOverride,
             status: status,
             notes: notes,
             createdAt: createdAt,

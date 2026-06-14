@@ -92,6 +92,11 @@ class BirdDetailScreen extends ConsumerWidget {
               ),
             ),
 
+            const SizedBox(height: 12),
+
+            // 基准体重 & 断奶状态
+            _BaselineCard(bird: bird),
+
             const SizedBox(height: 16),
 
             // 插件详情区（TabBar 切换体重趋势 / 喂药计划等）
@@ -248,30 +253,36 @@ class _EditBirdDialog extends StatefulWidget {
 class _EditBirdDialogState extends State<_EditBirdDialog> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _ringCtrl;
+  late final TextEditingController _baselineCtrl;
   late int? _selectedSpeciesId;
   late int? _selectedRoomId;
   late int? _selectedEnclosureId;
   late String? _selectedEnclosureName;
   late String _gender;
   late DateTime _birthDate;
+  bool? _weaningOverride; // null=自动, true=强制断奶, false=强制正常
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.bird.bird.name);
     _ringCtrl = TextEditingController(text: widget.bird.bird.ringNumber ?? '');
+    _baselineCtrl = TextEditingController(
+        text: widget.bird.bird.manualBaselineG?.toStringAsFixed(1) ?? '');
     _selectedSpeciesId = widget.bird.bird.speciesId;
     _selectedRoomId = widget.bird.bird.roomId;
     _selectedEnclosureId = widget.bird.bird.enclosureId;
     _selectedEnclosureName = widget.bird.enclosure?.name;
     _gender = widget.bird.bird.gender;
     _birthDate = widget.bird.bird.birthDate;
+    _weaningOverride = widget.bird.bird.weaningOverride;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _ringCtrl.dispose();
+    _baselineCtrl.dispose();
     super.dispose();
   }
 
@@ -437,6 +448,42 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // 基准体重
+            TextField(
+              controller: _baselineCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '基准体重 (g)',
+                hintText: '留空则自动推断',
+                suffixText: 'g',
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text('设定了基准体重后，算法将以该值为基线判断异常偏离',
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withAlpha(100))),
+            const SizedBox(height: 12),
+            // 断奶模式
+            Row(
+              children: [
+                const Text('断奶模式'),
+                const Spacer(),
+                SegmentedButton<bool?>(
+                  segments: const [
+                    ButtonSegment(value: null, label: Text('自动'), icon: Icon(Icons.auto_mode, size: 16)),
+                    ButtonSegment(value: true, label: Text('断奶'), icon: Icon(Icons.baby_changing_station, size: 16)),
+                    ButtonSegment(value: false, label: Text('正常'), icon: Icon(Icons.pets, size: 16)),
+                  ],
+                  selected: {_weaningOverride},
+                  onSelectionChanged: (v) => setState(() => _weaningOverride = v.first),
+                  showSelectedIcon: false,
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             // 性别
             Row(
               children: ['公', '母', '未知'].map((g) => Expanded(
@@ -492,6 +539,8 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               return;
             }
             final db = ProviderScope.containerOf(context).read(databaseProvider);
+            final baselineText = _baselineCtrl.text.trim();
+            final baseline = baselineText.isEmpty ? null : double.tryParse(baselineText);
             await db.updateBird(
               widget.bird.bird.id,
               name: name,
@@ -500,6 +549,8 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
               birthDate: _birthDate,
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
+              manualBaselineG: baseline,
+              weaningOverride: _weaningOverride,
             );
             // Enclosure needs explicit handling: Value(null) clears it,
             // Value.absent() would silently keep the old value
@@ -529,6 +580,103 @@ class _InfoRow extends StatelessWidget {
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(120), fontSize: 13))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),
         ],
+      ),
+    );
+  }
+}
+
+/// 基准体重 & 断奶状态卡片
+class _BaselineCard extends ConsumerWidget {
+  final BirdWithDetails bird;
+  const _BaselineCard({required this.bird});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final weightsAsync = ref.watch(birdWeightsProvider(bird.bird.id));
+    final weights = weightsAsync.valueOrNull ?? <Weight>[];
+
+    // EWMA 基线
+    double emaBaseline = 0;
+    if (weights.isNotEmpty) {
+      emaBaseline = weights.first.weightG;
+      for (int i = 1; i < weights.length; i++) {
+        emaBaseline = 0.2 * weights[i].weightG + 0.8 * emaBaseline;
+      }
+    }
+
+    final manualB = bird.bird.manualBaselineG;
+    final baseline = manualB ?? (weights.isNotEmpty ? emaBaseline : 0);
+    final baselineLabel = manualB != null ? '手动设置' : '自动推断';
+
+    // 断奶状态
+    String weaningStatus;
+    final weaningOverride = bird.bird.weaningOverride;
+    if (weaningOverride == true) {
+      weaningStatus = '强制断奶';
+    } else if (weaningOverride == false) {
+      weaningStatus = '强制正常';
+    } else {
+      // 自动检测断奶
+      final ageOk = bird.ageDays >= bird.species.nestlingEndDays - 5 &&
+          bird.ageDays <= bird.species.juvenileEndDays;
+      if (!ageOk) {
+        weaningStatus = '正常（非断奶期）';
+      } else if (weights.length < 3) {
+        weaningStatus = '正常（数据不足）';
+      } else {
+        final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
+        final latest = weights.last.weightG;
+        final droppedFromPeak = latest < peak * 0.95;
+        int recentDrops = 0;
+        for (int i = weights.length - 1; i > 0 && i > weights.length - 4; i--) {
+          if (weights[i].weightG < weights[i - 1].weightG) recentDrops++;
+        }
+        if (droppedFromPeak && recentDrops >= 2) {
+          weaningStatus = '断奶期（自动检测）';
+        } else {
+          weaningStatus = '正常';
+        }
+      }
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.monitor_weight_outlined, size: 18,
+                    color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('基准体重', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                Text('$baselineLabel ${baseline > 0 ? baseline.toStringAsFixed(1) + 'g' : '-'}',
+                    style: TextStyle(fontSize: 13, color: theme.colorScheme.primary)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.baby_changing_station_outlined, size: 18,
+                    color: weaningStatus.contains('断奶')
+                        ? Colors.orange
+                        : theme.colorScheme.onSurface.withAlpha(120)),
+                const SizedBox(width: 6),
+                Text('断奶状态', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                Text(weaningStatus,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: weaningStatus.contains('断奶')
+                            ? Colors.orange
+                            : theme.colorScheme.onSurface.withAlpha(150))),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

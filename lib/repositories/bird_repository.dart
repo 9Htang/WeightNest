@@ -86,6 +86,7 @@ extension BirdRepository on AppDatabase {
     String? name, int? speciesId, int? roomId, DateTime? birthDate,
     String? gender, int? sortOrder, String? status, String? notes,
     String? ringNumber, int? weighIntervalDays, int? enclosureId,
+    double? manualBaselineG, bool? weaningOverride,
   }) async {
     final list = await (update(birds)..where((t) => t.id.equals(id)))
         .writeReturning(BirdsCompanion(
@@ -100,6 +101,8 @@ extension BirdRepository on AppDatabase {
       ringNumber: ringNumber != null ? Value(ringNumber) : const Value.absent(),
       weighIntervalDays: weighIntervalDays != null ? Value(weighIntervalDays) : const Value.absent(),
       enclosureId: enclosureId != null ? Value(enclosureId) : const Value.absent(),
+      manualBaselineG: manualBaselineG != null ? Value(manualBaselineG) : const Value.absent(),
+      weaningOverride: weaningOverride != null ? Value(weaningOverride) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;

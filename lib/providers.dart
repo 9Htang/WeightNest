@@ -123,6 +123,10 @@ final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   final alerts = await service.detectAll();
   // 持久化未读异常 → 首页轻量查询可感知
   await db.upsertUnreadAlerts(alerts);
+  // 持久化完成后才触发首页查询，避免竞态：hasRecentAlertRecordsProvider
+  // 若与 alertListProvider 同时监听 weightSavedProvider，可能在
+  // upsertUnreadAlerts 完成前就查询到空结果
+  ref.invalidate(hasRecentAlertRecordsProvider);
   // 过滤已确认：同鸟 + 同类型当天已确认的不再显示
   final confirmed = await db.getConfirmedAlertKeys();
   return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}')).toList();
@@ -135,8 +139,10 @@ final alertCountProvider = Provider<int>((ref) {
 });
 
 /// 首页轻量检查：最近 3 天是否有已检测但未确认的异常（不触发 detectAll）
+/// 注意：不直接监听 weightSavedProvider，否则会与 alertListProvider 竞态 —
+/// alertListProvider 持久化未读记录之前本 provider 已查询到空结果。
+/// 改为由 alertListProvider 在 upsertUnreadAlerts 完成后主动 invalidate 本 provider。
 final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
-  ref.watch(weightSavedProvider); // 体重保存后重新检查
   ref.watch(alertConfirmedVersionProvider); // 确认后重新检查
   final db = ref.watch(databaseProvider);
   final cutoff = DateTime.now().subtract(const Duration(days: 3));
