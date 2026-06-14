@@ -7,6 +7,7 @@ import '../../repositories/task_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../core/plugin_registry.dart';
 import '../../services/alert_service.dart';
+import '../../utils/app_version.dart';
 import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
@@ -196,20 +197,8 @@ class HomeScreenContent extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 版本号
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'v1.8.2', // 发布时与 pubspec.yaml 同步更新
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.onSurface.withAlpha(80),
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ),
+          // 版本号（自动从 pubspec.yaml 读取）
+          _VersionBadge(theme: theme),
 
           // ── 今日统计卡片 ──
           tasksAsync.when(
@@ -650,6 +639,35 @@ void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
       ),
     ),
   );
+}
+
+/// 自动从 pubspec.yaml 读取版本号，无需手动同步
+class _VersionBadge extends StatelessWidget {
+  final ThemeData theme;
+  const _VersionBadge({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: getAppVersion(),
+      builder: (context, snapshot) {
+        final v = snapshot.data ?? '';
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'v$v',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurface.withAlpha(80),
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _QuickChip extends StatelessWidget {

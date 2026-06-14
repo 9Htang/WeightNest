@@ -6,6 +6,7 @@ import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../repositories/enclosure_repository.dart';
+import '../../services/alert_service.dart';
 import '../../repositories/room_repository.dart';
 
 /// 表格列中的编组 — 容器标题 + 下属鸟列表
@@ -40,6 +41,7 @@ class WeighGridState {
   final String? message;
   final Weight? lastWeigh;
   final int todayCompleted;
+  final Set<int> abnormalBirdIds; // 上次称重异常的鸟 ID 集合
 
   const WeighGridState({
     this.columns = const [],
@@ -51,6 +53,7 @@ class WeighGridState {
     this.message,
     this.lastWeigh,
     this.todayCompleted = 0,
+    this.abnormalBirdIds = const {},
   });
 
   WeighGridState copyWith({
@@ -63,6 +66,7 @@ class WeighGridState {
     String? message,
     Weight? lastWeigh,
     int? todayCompleted,
+    Set<int>? abnormalBirdIds,
     bool clearSelected = false,
     bool clearLastWeigh = false,
   }) =>
@@ -76,6 +80,7 @@ class WeighGridState {
         message: message,
         lastWeigh: clearLastWeigh ? null : (lastWeigh ?? this.lastWeigh),
         todayCompleted: todayCompleted ?? this.todayCompleted,
+        abnormalBirdIds: abnormalBirdIds ?? this.abnormalBirdIds,
       );
 }
 
@@ -174,7 +179,23 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     state = state.copyWith(columns: columns, birdOrder: birdOrder);
 
-    // 3. 确定初始选中鸟
+    // 3. 计算哪些鸟上次称重异常
+    final abnormalIds = <int>{};
+    final cutoff = DateTime.now().subtract(const Duration(days: 90));
+    for (final bird in allBirds) {
+      final weights = await _db.getByBirdInRange(
+        bird.bird.id,
+        from: cutoff,
+        to: DateTime.now(),
+      );
+      if (weights.isNotEmpty && AlertService.isLatestAbnormal(bird, weights)) {
+        abnormalIds.add(bird.bird.id);
+      }
+    }
+
+    state = state.copyWith(abnormalBirdIds: abnormalIds);
+
+    // 4. 确定初始选中鸟
     int? targetBirdId = initialBirdId;
     if (targetBirdId == null && initialEnclosureId != null) {
       // 容器称重入口 → 选中该容器第一只鸟

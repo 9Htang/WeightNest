@@ -202,6 +202,84 @@ class AlertService {
     return [];
   }
 
+  /// 判断该鸟最近一次称重是否异常（用于称重表格标记）
+  /// weights 按 recordedAt DESC（最新在前）
+  static bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) {
+    if (weights.length < 2) return false;
+    final latest = weights.first.weightG;
+
+    // 断奶期 → 峰值下降检查
+    final inWeaning = bird.growthStage == '雏鸟' && _isWeaningPhaseStatic(bird, weights);
+    if (inWeaning) {
+      final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
+      final drop = (peak - latest) / peak * 100;
+      return drop > 10;
+    }
+
+    switch (bird.growthStage) {
+      case '雏鸟':
+        return latest < weights[1].weightG; // 下降即为异常
+      case '幼鸟':
+      case '成鸟':
+        final manualB = bird.bird.manualBaselineG;
+        if (manualB != null) {
+          return (latest - manualB).abs() / manualB > 0.10;
+        }
+        // 自动 EWMA：用全部历史计算基线
+        if (weights.length < 3) return false;
+        final values = weights.reversed.map((w) => w.weightG).toList();
+        double ema = values.first;
+        for (int i = 1; i < values.length; i++) {
+          ema = 0.2 * values[i] + 0.8 * ema;
+        }
+        return (latest - ema).abs() / ema > 0.10;
+    }
+    return false;
+  }
+
+  /// 断奶期判断的静态版本，供 isLatestAbnormal 调用
+  /// weights 按 recordedAt DESC（最新在前）
+  static bool _isWeaningPhaseStatic(BirdWithDetails bird, List<Weight> weights) {
+    if (bird.bird.weaningOverride == true) return true;
+    if (bird.bird.weaningOverride == false) return false;
+
+    if (bird.ageDays < bird.species.nestlingEndDays - 5 ||
+        bird.ageDays > bird.species.juvenileEndDays) {
+      return false;
+    }
+
+    if (weights.length < 3) return false;
+
+    final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
+    final latest = weights.first.weightG;
+    if (latest >= peak * 0.95) return false;
+
+    int recentDrops = 0;
+    for (int i = 0; i < weights.length - 1 && i < 3; i++) {
+      if (weights[i].weightG < weights[i + 1].weightG) recentDrops++;
+    }
+    if (recentDrops < 2) return false;
+
+    if (bird.ageDays > bird.species.juvenileEndDays + 10) return false;
+
+    if (weights.length >= 3) {
+      final last3 = weights.sublist(0, 3);
+      final vals = last3.map((w) => w.weightG).toList();
+      final avg3 = vals.reduce((a, b) => a + b) / vals.length;
+      final range = vals.reduce((a, b) => a > b ? a : b) -
+          vals.reduce((a, b) => a < b ? a : b);
+      if (range / avg3 * 100 < 3 && vals.last <= vals.first) return false;
+    }
+
+    final subset = weights.take(weights.length ~/ 3).toList();
+    if (subset.isEmpty) return true;
+    final weaningMin =
+        subset.map((w) => w.weightG).reduce((a, b) => a < b ? a : b);
+    if (latest > weaningMin * 1.05) return false;
+
+    return true;
+  }
+
   // ==================== 雏鸟算法 ====================
   // 核心：48h 滑动窗口 Log 增长率 + 最后一对独立检查
 
@@ -399,36 +477,50 @@ class AlertService {
 /// 异常提醒确认持久化
 extension AlertRepository on AppDatabase {
   /// 持久化新检测到的异常（isRead = false），供首页横幅查询
-  /// 同一天同一鸟+同一类型只保留一条未读记录
+  /// 同一天同一鸟+同一类型只保留一条未读记录；
+  /// 若相同描述的已确认记录已存在也跳过（避免确认后立即重复出现）
   Future<void> upsertUnreadAlerts(List<AnomalyAlert> alerts) async {
     final today = DateTime.now();
     final dayStart = DateTime(today.year, today.month, today.day);
     for (final a in alerts) {
-      final existing = await (select(alertRecords)
+      // 1. 已有未读记录 → 跳过（去重）
+      final existingUnread = await (select(alertRecords)
         ..where((t) => t.birdId.equals(a.bird.bird.id) &
             t.alertType.equals(a.type) &
+            t.isRead.equals(false) &
             t.createdAt.isBiggerOrEqualValue(dayStart)))
         .getSingleOrNull();
-      if (existing == null) {
-        await into(alertRecords).insert(AlertRecordsCompanion.insert(
-          uuid: genUuid(),
-          birdId: a.bird.bird.id,
-          alertType: a.type,
-          description: a.description,
-          isRead: const Value(false),
-        ));
-      }
-      // 已存在则保留当前 isRead 状态（不覆盖用户已确认的记录）
+      if (existingUnread != null) continue;
+
+      // 2. 完全相同描述的已确认记录 → 跳过（用户已确认过这个具体预警）
+      final existingConfirmed = await (select(alertRecords)
+        ..where((t) => t.birdId.equals(a.bird.bird.id) &
+            t.alertType.equals(a.type) &
+            t.description.equals(a.description) &
+            t.isRead.equals(true) &
+            t.createdAt.isBiggerOrEqualValue(dayStart)))
+        .getSingleOrNull();
+      if (existingConfirmed != null) continue;
+
+      // 3. 新预警 → 写入
+      await into(alertRecords).insert(AlertRecordsCompanion.insert(
+        uuid: genUuid(),
+        birdId: a.bird.bird.id,
+        alertType: a.type,
+        description: a.description,
+        isRead: const Value(false),
+      ));
     }
   }
 
-  /// 确认单条提醒（当天同鸟+同类型去重）
+  /// 确认单条提醒（当天同鸟+同类型+同描述去重）
   Future<void> confirmAlert(int birdId, String alertType, String description) async {
     final today = DateTime.now();
     final dayStart = DateTime(today.year, today.month, today.day);
     final existing = await (select(alertRecords)
       ..where((t) => t.birdId.equals(birdId) &
           t.alertType.equals(alertType) &
+          t.description.equals(description) &
           t.createdAt.isBiggerOrEqualValue(dayStart)))
       .getSingleOrNull();
     if (existing != null) {
@@ -452,13 +544,13 @@ extension AlertRepository on AppDatabase {
     }
   }
 
-  /// 获取今日已确认的 birdId:alertType 集合
+  /// 获取今日已确认的 birdId:alertType:description 集合
   Future<Set<String>> getConfirmedAlertKeys() async {
     final today = DateTime.now();
     final dayStart = DateTime(today.year, today.month, today.day);
     final rows = await (select(alertRecords)
       ..where((t) => t.isRead.equals(true) & t.createdAt.isBiggerOrEqualValue(dayStart)))
       .get();
-    return rows.map((r) => '${r.birdId}:${r.alertType}').toSet();
+    return rows.map((r) => '${r.birdId}:${r.alertType}:${r.description}').toSet();
   }
 }

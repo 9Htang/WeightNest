@@ -127,9 +127,9 @@ final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   // 若与 alertListProvider 同时监听 weightSavedProvider，可能在
   // upsertUnreadAlerts 完成前就查询到空结果
   ref.invalidate(hasRecentAlertRecordsProvider);
-  // 过滤已确认：同鸟 + 同类型当天已确认的不再显示
+  // 过滤已确认：同鸟 + 同类型 + 同描述当天已确认的不再显示
   final confirmed = await db.getConfirmedAlertKeys();
-  return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}')).toList();
+  return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}:${a.description}')).toList();
 });
 
 /// 异常提醒数量 — 从 alertListProvider 派生，避免重复计算

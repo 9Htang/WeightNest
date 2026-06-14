@@ -447,27 +447,30 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            // 基准体重
-            TextField(
-              controller: _baselineCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: '基准体重 (g)',
-                hintText: '留空则自动推断',
-                suffixText: 'g',
+            if (widget.bird.growthStage != '雏鸟') ...[
+              const SizedBox(height: 12),
+              // 基准体重
+              TextField(
+                controller: _baselineCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: '基准体重 (g)',
+                  hintText: '留空则自动推断',
+                  suffixText: 'g',
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text('设定了基准体重后，算法将以该值为基线判断异常偏离',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withAlpha(100))),
+              const SizedBox(height: 6),
+              Text('设定了基准体重后，算法将以该值为基线判断异常偏离',
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withAlpha(100))),
+            ],
             const SizedBox(height: 12),
             // 断奶模式
             Row(
               children: [
                 const Text('断奶模式'),
                 const Spacer(),
-                SegmentedButton<bool?>(
+                Expanded(
+                  child: SegmentedButton<bool?>(
                   segments: const [
                     ButtonSegment(value: null, label: Text('自动'), icon: Icon(Icons.auto_mode, size: 16)),
                     ButtonSegment(value: true, label: Text('断奶'), icon: Icon(Icons.baby_changing_station, size: 16)),
@@ -480,6 +483,7 @@ class _EditBirdDialogState extends State<_EditBirdDialog> {
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
+                ),
                 ),
               ],
             ),
@@ -646,18 +650,20 @@ class _BaselineCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.monitor_weight_outlined, size: 18,
-                    color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
-                Text('基准体重', style: theme.textTheme.labelLarge),
-                const Spacer(),
-                Text('$baselineLabel ${baseline > 0 ? baseline.toStringAsFixed(1) + 'g' : '-'}',
-                    style: TextStyle(fontSize: 13, color: theme.colorScheme.primary)),
-              ],
-            ),
-            const SizedBox(height: 8),
+            if (bird.growthStage != '雏鸟')
+              Row(
+                children: [
+                  Icon(Icons.monitor_weight_outlined, size: 18,
+                      color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text('基准体重', style: theme.textTheme.labelLarge),
+                  const Spacer(),
+                  Text('$baselineLabel ${baseline > 0 ? baseline.toStringAsFixed(1) + 'g' : '-'}',
+                      style: TextStyle(fontSize: 13, color: theme.colorScheme.primary)),
+                ],
+              ),
+            if (bird.growthStage != '雏鸟')
+              const SizedBox(height: 8),
             Row(
               children: [
                 Icon(Icons.baby_changing_station_outlined, size: 18,

@@ -124,6 +124,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                           return _RoomColumnWidget(
                             column: col,
                             selectedBirdId: selected,
+                            abnormalBirdIds: state.abnormalBirdIds,
                             theme: theme,
                             scheme: scheme,
                             onTapBird: (birdId) {
@@ -161,6 +162,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
 class _RoomColumnWidget extends StatelessWidget {
   final RoomColumn column;
   final int? selectedBirdId;
+  final Set<int> abnormalBirdIds;
   final ThemeData theme;
   final ColorScheme scheme;
   final ValueChanged<int> onTapBird;
@@ -168,6 +170,7 @@ class _RoomColumnWidget extends StatelessWidget {
   const _RoomColumnWidget({
     required this.column,
     required this.selectedBirdId,
+    required this.abnormalBirdIds,
     required this.theme,
     required this.scheme,
     required this.onTapBird,
@@ -221,6 +224,7 @@ class _RoomColumnWidget extends StatelessWidget {
                   return _GroupSection(
                     group: group,
                     selectedBirdId: selectedBirdId,
+                    abnormalBirdIds: abnormalBirdIds,
                     theme: theme,
                     scheme: scheme,
                     onTapBird: onTapBird,
@@ -242,6 +246,7 @@ class _RoomColumnWidget extends StatelessWidget {
 class _GroupSection extends StatelessWidget {
   final BirdGroup group;
   final int? selectedBirdId;
+  final Set<int> abnormalBirdIds;
   final ThemeData theme;
   final ColorScheme scheme;
   final ValueChanged<int> onTapBird;
@@ -249,6 +254,7 @@ class _GroupSection extends StatelessWidget {
   const _GroupSection({
     required this.group,
     required this.selectedBirdId,
+    required this.abnormalBirdIds,
     required this.theme,
     required this.scheme,
     required this.onTapBird,
@@ -290,6 +296,7 @@ class _GroupSection extends StatelessWidget {
           return _BirdCell(
             bird: bird,
             isSelected: isSelected,
+            isAbnormal: abnormalBirdIds.contains(bird.bird.id),
             theme: theme,
             scheme: scheme,
             onTap: () => onTapBird(bird.bird.id),
@@ -307,6 +314,7 @@ class _GroupSection extends StatelessWidget {
 class _BirdCell extends StatelessWidget {
   final BirdWithDetails bird;
   final bool isSelected;
+  final bool isAbnormal;
   final ThemeData theme;
   final ColorScheme scheme;
   final VoidCallback onTap;
@@ -314,6 +322,7 @@ class _BirdCell extends StatelessWidget {
   const _BirdCell({
     required this.bird,
     required this.isSelected,
+    required this.isAbnormal,
     required this.theme,
     required this.scheme,
     required this.onTap,
@@ -326,7 +335,9 @@ class _BirdCell extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? scheme.primaryContainer.withAlpha(60) : null,
+          color: isAbnormal
+              ? Colors.red.shade50
+              : (isSelected ? scheme.primaryContainer.withAlpha(60) : null),
           border: Border(
             left: BorderSide(
               color: isSelected ? scheme.primary : Colors.transparent,
