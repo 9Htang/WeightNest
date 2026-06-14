@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'core/plugin_registry.dart';
@@ -13,6 +14,7 @@ import 'services/alert_service.dart';
 import 'services/work_hours_config.dart';
 import 'plugins/medication/medication_repository.dart';
 import 'screens/worker/worker_screen.dart';
+import 'theme/theme_notifier.dart';
 
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -86,11 +88,14 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
   try {
     final existing = await db.getAllSpecies();
     if (existing.isEmpty) {
-      await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-      await db.createSpecies('金太阳', nestlingEndDays: 45, juvenileEndDays: 120);
-      await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+      // 小型鹦鹉 — 生长周期较短
+      await db.createSpecies('虎皮鹦鹉', nestlingEndDays: 30, juvenileEndDays: 90);
+      await db.createSpecies('牡丹鹦鹉', nestlingEndDays: 35, juvenileEndDays: 100);
+      // 中型鹦鹉 — 生长周期中等
       await db.createSpecies('玄凤鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
-      await db.createSpecies('金刚鹦鹉', nestlingEndDays: 45, juvenileEndDays: 120);
+      await db.createSpecies('金太阳', nestlingEndDays: 50, juvenileEndDays: 130);
+      // 大型鹦鹉 — 生长周期较长
+      await db.createSpecies('金刚鹦鹉', nestlingEndDays: 60, juvenileEndDays: 180);
     }
   } catch (_) {
     // 旧数据库 schema 可能不兼容，忽略
@@ -116,6 +121,8 @@ final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   final db = ref.watch(databaseProvider);
   final service = AlertService(db);
   final alerts = await service.detectAll();
+  // 持久化未读异常 → 首页轻量查询可感知
+  await db.upsertUnreadAlerts(alerts);
   // 过滤已确认：同鸟 + 同类型当天已确认的不再显示
   final confirmed = await db.getConfirmedAlertKeys();
   return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}')).toList();
@@ -129,6 +136,8 @@ final alertCountProvider = Provider<int>((ref) {
 
 /// 首页轻量检查：最近 3 天是否有已检测但未确认的异常（不触发 detectAll）
 final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
+  ref.watch(weightSavedProvider); // 体重保存后重新检查
+  ref.watch(alertConfirmedVersionProvider); // 确认后重新检查
   final db = ref.watch(databaseProvider);
   final cutoff = DateTime.now().subtract(const Duration(days: 3));
   final rows = await (db.select(db.alertRecords)
@@ -208,5 +217,10 @@ final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
   final db = ref.watch(databaseProvider);
   if (!worker.isSelected) return [];
   return db.getByUser(worker.userId!);
+});
+
+/// 主题模式（SharedPreferences 持久化）
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+  return ThemeModeNotifier();
 });
 

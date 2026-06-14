@@ -4,17 +4,34 @@ class AppTheme {
   static const _seedColor = Color(0xFF6B8F71); // 森林绿
   static const _warmBrown = Color(0xFFC4956A); // 暖木色
 
-  // 预计算 ColorScheme，避免 build 时 fromSeed() 开销
+  // ── 预计算 ColorScheme ──
   static final ColorScheme _lightScheme = ColorScheme.fromSeed(
     seedColor: _seedColor,
     brightness: Brightness.light,
     secondary: _warmBrown,
   );
+
   static final ColorScheme _darkScheme = ColorScheme.fromSeed(
     seedColor: _seedColor,
     brightness: Brightness.dark,
     secondary: const Color(0xFFD4A87C),
   );
+
+  /// 状态语义色 — 获取与当前主题适配的颜色
+  static StatusColors statusColors(ColorScheme scheme) => StatusColors(
+        // 雏鸟：暖色（浅/深模式皆可辨识）
+        nestling: scheme.tertiary,
+        // 幼鸟：主色
+        juvenile: scheme.primary,
+        // 成鸟：次要色
+        adult: scheme.secondary,
+        // 成功/已完成：使用 primary（绿色系种子色）
+        success: scheme.primary,
+        // 错误/异常
+        error: scheme.error,
+        // 信息提示
+        info: scheme.primary,
+      );
 
   // ── Light Theme ──
   static final ThemeData lightTheme = _buildTheme(_lightScheme, Brightness.light);
@@ -266,4 +283,23 @@ class AppTheme {
       ),
     );
   }
+}
+
+/// 语义状态色 — 自动适配浅色/深色模式
+class StatusColors {
+  final Color nestling;
+  final Color juvenile;
+  final Color adult;
+  final Color success;
+  final Color error;
+  final Color info;
+
+  const StatusColors({
+    required this.nestling,
+    required this.juvenile,
+    required this.adult,
+    required this.success,
+    required this.error,
+    required this.info,
+  });
 }

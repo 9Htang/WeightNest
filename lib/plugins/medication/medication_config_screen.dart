@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/work_hours_config.dart';
+import '../../providers.dart';
+import '../../database/database.dart';
+import '../../screens/species/species_screen.dart';
 
 /// 喂药插件自己的时间窗口 key（覆盖全局工作时间）
 const _kMedStartHour = 'medication_work_start_hour';
@@ -370,6 +374,63 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
 
           const SizedBox(height: 16),
 
+          // ── 品种生长阶段参考 ──
+          Consumer(
+            builder: (context, ref, _) {
+              final spAsync = ref.watch(allSpeciesProvider);
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.pets, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text('品种生长阶段参考', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.edit, size: 14),
+                          label: const Text('管理品种', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SpeciesScreen()),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text('各品种的生长阶段划分，用于参考喂药时机的判断',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      const SizedBox(height: 12),
+                      spAsync.when(
+                        loading: () => const Center(child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(),
+                        )),
+                        error: (e, _) => Center(child: Text('加载失败: $e', style: const TextStyle(fontSize: 13))),
+                        data: (spList) {
+                          if (spList.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Center(child: Text('暂无品种数据', style: TextStyle(color: Colors.grey))),
+                            );
+                          }
+                          return Column(
+                            children: spList.map((s) => _SpeciesStageRow(species: s)).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 16),
+
           // 说明
           Card(
             color: Colors.grey.shade50,
@@ -459,6 +520,57 @@ class _TimeCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 品种生长阶段参考行（只读）
+class _SpeciesStageRow extends StatelessWidget {
+  final Specy species;
+  const _SpeciesStageRow({required this.species});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Row(
+        children: [
+          Icon(Icons.pets, size: 18, color: theme.colorScheme.primary.withAlpha(180)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(species.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+          _StageBadge(label: '雏鸟', days: '≤${species.nestlingEndDays}天', color: theme.colorScheme.tertiary),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+          const SizedBox(width: 2),
+          _StageBadge(label: '幼鸟', days: '≤${species.juvenileEndDays}天', color: theme.colorScheme.primary),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+          const SizedBox(width: 2),
+          _StageBadge(label: '成鸟', days: '>${species.juvenileEndDays}天', color: theme.colorScheme.secondary),
+        ],
+      ),
+    );
+  }
+}
+
+class _StageBadge extends StatelessWidget {
+  final String label;
+  final String days;
+  final Color color;
+  const _StageBadge({required this.label, required this.days, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: color.withAlpha(25),
+      ),
+      child: Text('$label$days', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
     );
   }
 }

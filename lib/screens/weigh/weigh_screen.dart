@@ -214,15 +214,16 @@ class _BirdInfoHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final lastWeight = state.latestWeights[bird.bird.id];
     final weighed = state.latestWeights.containsKey(bird.bird.id);
+    final scheme = theme.colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
+        color: scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: weighed
-              ? const Color(0xFF6B8F71).withAlpha(60)
-              : theme.colorScheme.outlineVariant.withAlpha(50),
+              ? scheme.primary.withAlpha(60)
+              : scheme.outlineVariant.withAlpha(50),
         ),
       ),
       child: Padding(
@@ -235,15 +236,15 @@ class _BirdInfoHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: weighed
-                    ? const Color(0xFF6B8F71).withAlpha(30)
-                    : const Color(0xFFC4956A).withAlpha(40),
+                    ? scheme.primary.withAlpha(30)
+                    : scheme.secondary.withAlpha(40),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.pets,
                 color: weighed
-                    ? const Color(0xFF6B8F71)
-                    : const Color(0xFFC4956A),
+                    ? scheme.primary
+                    : scheme.secondary,
               ),
             ),
             const SizedBox(width: 12),
@@ -468,7 +469,7 @@ class _NumPad extends StatelessWidget {
                       height: 60,
                       child: Material(
                         color: key == '⌫'
-                            ? const Color(0xFFC44F4F).withAlpha(25)
+                            ? theme.colorScheme.error.withAlpha(25)
                             : theme.colorScheme.surfaceContainerHighest
                                 .withAlpha(80),
                         borderRadius: BorderRadius.circular(14),

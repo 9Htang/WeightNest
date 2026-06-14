@@ -181,7 +181,7 @@ class WeighNumPad extends StatelessWidget {
                       height: 60,
                       child: Material(
                         color: key == '⌫'
-                            ? const Color(0xFFC44F4F).withAlpha(25)
+                            ? theme.colorScheme.error.withAlpha(25)
                             : theme.colorScheme.surfaceContainerHighest
                                 .withAlpha(80),
                         borderRadius: BorderRadius.circular(14),

@@ -301,6 +301,30 @@ class AlertService {
 
 /// 异常提醒确认持久化
 extension AlertRepository on AppDatabase {
+  /// 持久化新检测到的异常（isRead = false），供首页横幅查询
+  /// 同一天同一鸟+同一类型只保留一条未读记录
+  Future<void> upsertUnreadAlerts(List<AnomalyAlert> alerts) async {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    for (final a in alerts) {
+      final existing = await (select(alertRecords)
+        ..where((t) => t.birdId.equals(a.bird.bird.id) &
+            t.alertType.equals(a.type) &
+            t.createdAt.isBiggerOrEqualValue(dayStart)))
+        .getSingleOrNull();
+      if (existing == null) {
+        await into(alertRecords).insert(AlertRecordsCompanion.insert(
+          uuid: genUuid(),
+          birdId: a.bird.bird.id,
+          alertType: a.type,
+          description: a.description,
+          isRead: const Value(false),
+        ));
+      }
+      // 已存在则保留当前 isRead 状态（不覆盖用户已确认的记录）
+    }
+  }
+
   /// 确认单条提醒（当天同鸟+同类型去重）
   Future<void> confirmAlert(int birdId, String alertType, String description) async {
     final today = DateTime.now();

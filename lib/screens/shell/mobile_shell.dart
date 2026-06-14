@@ -6,6 +6,7 @@ import '../../database/database.dart';
 import '../../repositories/task_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../core/plugin_registry.dart';
+import '../../services/alert_service.dart';
 import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
@@ -70,6 +71,16 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
       await ref.read(databaseProvider).generateTodayTasks();
       // 4. 刷新任务列表（首帧查询时可能还没有生成的任务）
       ref.invalidate(todayTasksProvider);
+      // 5. 运行异常检测并持久化未读提醒（供首页横幅查询）
+      try {
+        final service = AlertService(ref.read(databaseProvider));
+        final alerts = await service.detectAll();
+        await ref.read(databaseProvider).upsertUnreadAlerts(alerts);
+        ref.invalidate(alertListProvider);
+        ref.invalidate(hasRecentAlertRecordsProvider);
+      } catch (_) {
+        // 检测失败不影响首页
+      }
     } catch (_) {
       // DB 异常时静默失败，首页在加载状态中显示错误
     }
@@ -357,17 +368,17 @@ class _StatsCardWarm extends ConsumerWidget {
                     icon: Icons.scale,
                     label: '待称重',
                     value: '$pending',
-                    color: const Color(0xFFC4956A)),
+                    color: scheme.secondary),
                 _StatItemWarm(
                     icon: Icons.check_circle,
                     label: '已完成',
                     value: '$done',
-                    color: const Color(0xFF6B8F71)),
+                    color: scheme.primary),
                 _StatItemWarm(
                     icon: Icons.pie_chart,
                     label: '完成率',
                     value: '$pct%',
-                    color: scheme.primary),
+                    color: scheme.tertiary),
               ],
             ),
             const SizedBox(height: 20),
@@ -377,7 +388,7 @@ class _StatsCardWarm extends ConsumerWidget {
                 value: total > 0 ? done / total : 0,
                 minHeight: 10,
                 backgroundColor: scheme.surfaceContainerHighest,
-                color: const Color(0xFF6B8F71),
+                color: scheme.primary,
               ),
             ),
             const SizedBox(height: 14),
@@ -462,11 +473,12 @@ class _AlertBannerWarm extends StatelessWidget {
     final theme = Theme.of(context);
     final text = count != null ? '$count 只鹦鹉存在异常' : '查看异常提醒';
 
+    final scheme = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFFC44F4F).withAlpha(20),
-        border: Border.all(color: const Color(0xFFC44F4F).withAlpha(60)),
+        color: scheme.error.withAlpha(20),
+        border: Border.all(color: scheme.error.withAlpha(60)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -481,20 +493,20 @@ class _AlertBannerWarm extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFC44F4F).withAlpha(30),
+                  color: scheme.error.withAlpha(30),
                 ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFC44F4F), size: 20),
+                child: Icon(Icons.warning_amber_rounded,
+                    color: scheme.error, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(text,
                     style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFFC44F4F))),
+                        color: scheme.error)),
               ),
               Icon(Icons.chevron_right,
-                  color: const Color(0xFFC44F4F).withAlpha(160)),
+                  color: scheme.error.withAlpha(160)),
             ],
           ),
         ),
@@ -539,10 +551,10 @@ class _RoomCardWarm extends ConsumerWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        color: const Color(0xFFC4956A).withAlpha(40),
+                        color: scheme.secondary.withAlpha(40),
                       ),
-                      child: const Icon(Icons.meeting_room_rounded,
-                          size: 18, color: Color(0xFFC4956A)),
+                      child: Icon(Icons.meeting_room_rounded,
+                          size: 18, color: scheme.secondary),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

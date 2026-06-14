@@ -4,6 +4,7 @@ import '../../core/plugin.dart';
 import '../../services/work_hours_config.dart';
 import '../../providers.dart';
 import '../../plugins/plugins.dart';
+import '../species/species_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +24,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── 主题设置 ──
+          const _ThemeCard(),
+
+          const SizedBox(height: 16),
+
           // ── 工作时间 ──
           workHoursAsync.when(
             loading: () => const Card(
@@ -35,6 +41,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onEndPick: () => _pickWorkTime(wh, false),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── 品种管理 ──
+          _SpeciesManagementCard(),
           const SizedBox(height: 16),
 
           // ── 插件管理 ──
@@ -61,6 +71,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+}
+
+/// 主题设置卡片
+class _ThemeCard extends ConsumerWidget {
+  const _ThemeCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.palette_outlined, size: 22),
+              SizedBox(width: 8),
+              Text('主题设置', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ]),
+            const SizedBox(height: 4),
+            Text('切换应用外观，即时生效并自动保存',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 16),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode, size: 18),
+                  label: Text('浅色'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode, size: 18),
+                  label: Text('深色'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.phone_android, size: 18),
+                  label: Text('跟随系统'),
+                ),
+              ],
+              selected: {themeMode},
+              onSelectionChanged: (v) {
+                ref.read(themeModeProvider.notifier).setTheme(v.first);
+              },
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 工作时间卡片
@@ -192,6 +260,59 @@ class _TimeCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 品种管理入口卡片
+class _SpeciesManagementCard extends ConsumerWidget {
+  const _SpeciesManagementCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final spAsync = ref.watch(allSpeciesProvider);
+    final count = spAsync.valueOrNull?.length ?? 0;
+
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SpeciesScreen()),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: theme.colorScheme.primaryContainer.withAlpha(120),
+                ),
+                child: Icon(Icons.pets, size: 22, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('品种管理', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(
+                      count > 0 ? '已添加 $count 个品种，点击管理' : '添加鹦鹉品种，设置生长阶段参数',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            ],
+          ),
         ),
       ),
     );
