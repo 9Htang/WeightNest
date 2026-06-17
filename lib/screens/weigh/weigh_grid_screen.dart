@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../database/database.dart';
 import '../../repositories/bird_repository.dart';
 
 import '../worker/worker_screen.dart';
@@ -125,6 +126,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                             column: col,
                             selectedBirdId: selected,
                             abnormalBirdIds: state.abnormalBirdIds,
+                            latestWeights: state.latestWeights,
                             theme: theme,
                             scheme: scheme,
                             onTapBird: (birdId) {
@@ -163,6 +165,7 @@ class _RoomColumnWidget extends StatelessWidget {
   final RoomColumn column;
   final int? selectedBirdId;
   final Set<int> abnormalBirdIds;
+  final Map<int, Weight?> latestWeights;
   final ThemeData theme;
   final ColorScheme scheme;
   final ValueChanged<int> onTapBird;
@@ -171,6 +174,7 @@ class _RoomColumnWidget extends StatelessWidget {
     required this.column,
     required this.selectedBirdId,
     required this.abnormalBirdIds,
+    required this.latestWeights,
     required this.theme,
     required this.scheme,
     required this.onTapBird,
@@ -225,6 +229,7 @@ class _RoomColumnWidget extends StatelessWidget {
                     group: group,
                     selectedBirdId: selectedBirdId,
                     abnormalBirdIds: abnormalBirdIds,
+                    latestWeights: latestWeights,
                     theme: theme,
                     scheme: scheme,
                     onTapBird: onTapBird,
@@ -247,6 +252,7 @@ class _GroupSection extends StatelessWidget {
   final BirdGroup group;
   final int? selectedBirdId;
   final Set<int> abnormalBirdIds;
+  final Map<int, Weight?> latestWeights;
   final ThemeData theme;
   final ColorScheme scheme;
   final ValueChanged<int> onTapBird;
@@ -255,6 +261,7 @@ class _GroupSection extends StatelessWidget {
     required this.group,
     required this.selectedBirdId,
     required this.abnormalBirdIds,
+    required this.latestWeights,
     required this.theme,
     required this.scheme,
     required this.onTapBird,
@@ -297,6 +304,7 @@ class _GroupSection extends StatelessWidget {
             bird: bird,
             isSelected: isSelected,
             isAbnormal: abnormalBirdIds.contains(bird.bird.id),
+            latestWeight: latestWeights[bird.bird.id],
             theme: theme,
             scheme: scheme,
             onTap: () => onTapBird(bird.bird.id),
@@ -315,6 +323,7 @@ class _BirdCell extends StatelessWidget {
   final BirdWithDetails bird;
   final bool isSelected;
   final bool isAbnormal;
+  final Weight? latestWeight;
   final ThemeData theme;
   final ColorScheme scheme;
   final VoidCallback onTap;
@@ -323,6 +332,7 @@ class _BirdCell extends StatelessWidget {
     required this.bird,
     required this.isSelected,
     required this.isAbnormal,
+    required this.latestWeight,
     required this.theme,
     required this.scheme,
     required this.onTap,
@@ -380,6 +390,18 @@ class _BirdCell extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (latestWeight != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  '${latestWeight!.weightG.toStringAsFixed(1)}g',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: (isSelected ? scheme.primary : scheme.onSurface).withAlpha(180),
+                  ),
+                ),
+              ),
             if (isSelected)
               Padding(
                 padding: const EdgeInsets.only(left: 4),

@@ -94,48 +94,50 @@ class BirdDetailScreen extends ConsumerWidget {
 
             const SizedBox(height: 12),
 
-            // 基准体重 & 断奶状态
-            _BaselineCard(bird: bird),
-
-            const SizedBox(height: 16),
+            // 基准体重 & 断奶状态（仅称重插件启用时显示）
+            if (pluginRegistry.getPlugin('weights')?.enabled == true) ...[
+              _BaselineCard(bird: bird),
+              const SizedBox(height: 16),
+            ],
 
             // 插件详情区（TabBar 切换体重趋势 / 喂药计划等）
             _PluginDetailTabs(birdId: bird.bird.id, weightsAsync: weightsAsync, theme: theme, initialPluginId: initialPluginId),
 
-            const SizedBox(height: 16),
-
-            // 历史记录
-            Text('历史记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            weightsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('加载失败')),
-              data: (weights) => weights.isEmpty
-                  ? const Center(child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('暂无体重记录'),
-                    ))
-                  : Column(
-                      children: weights.map((w) {
-                        return Dismissible(
-                          key: ValueKey('weight_${w.id}'),
-                          direction: DismissDirection.endToStart,
-                          confirmDismiss: (_) => _confirmDeleteWeight(context, ref, w, bird.bird.uuid),
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            color: Colors.red.shade400,
-                            child: const Icon(Icons.delete, color: Colors.white),
-                          ),
-                          child: _WeightRow(
-                            weight: w,
-                            theme: theme,
-                            onTap: () => _showEditWeightDialog(context, ref, w, bird.bird.uuid),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-            ),
+            // 历史记录（仅称重插件启用时显示）
+            if (pluginRegistry.getPlugin('weights')?.enabled == true) ...[
+              const SizedBox(height: 16),
+              Text('历史记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              weightsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('加载失败')),
+                data: (weights) => weights.isEmpty
+                    ? const Center(child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('暂无体重记录'),
+                      ))
+                    : Column(
+                        children: weights.map((w) {
+                          return Dismissible(
+                            key: ValueKey('weight_${w.id}'),
+                            direction: DismissDirection.endToStart,
+                            confirmDismiss: (_) => _confirmDeleteWeight(context, ref, w, bird.bird.uuid),
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              color: Colors.red.shade400,
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            child: _WeightRow(
+                              weight: w,
+                              theme: theme,
+                              onTap: () => _showEditWeightDialog(context, ref, w, bird.bird.uuid),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+            ],
           ],
         ),
       ),
@@ -965,7 +967,11 @@ class _PluginDetailTabs extends StatelessWidget {
     }
 
     if (sections.isEmpty) {
-      // 降级：无插件时显示原始体重图表
+      // 降级：无插件且称重已禁用时不显示任何内容
+      if (pluginRegistry.getPlugin('weights')?.enabled != true) {
+        return const SizedBox.shrink();
+      }
+      // 无插件但称重启用时显示原始体重图表
       return SizedBox(
         height: 260,
         child: weightsAsync.when(

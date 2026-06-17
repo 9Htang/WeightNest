@@ -42,6 +42,7 @@ class WeighGridState {
   final Weight? lastWeigh;
   final int todayCompleted;
   final Set<int> abnormalBirdIds; // 上次称重异常的鸟 ID 集合
+  final Map<int, Weight?> latestWeights; // 每只鸟的最新体重
 
   const WeighGridState({
     this.columns = const [],
@@ -54,6 +55,7 @@ class WeighGridState {
     this.lastWeigh,
     this.todayCompleted = 0,
     this.abnormalBirdIds = const {},
+    this.latestWeights = const {},
   });
 
   WeighGridState copyWith({
@@ -67,6 +69,7 @@ class WeighGridState {
     Weight? lastWeigh,
     int? todayCompleted,
     Set<int>? abnormalBirdIds,
+    Map<int, Weight?>? latestWeights,
     bool clearSelected = false,
     bool clearLastWeigh = false,
   }) =>
@@ -81,6 +84,7 @@ class WeighGridState {
         lastWeigh: clearLastWeigh ? null : (lastWeigh ?? this.lastWeigh),
         todayCompleted: todayCompleted ?? this.todayCompleted,
         abnormalBirdIds: abnormalBirdIds ?? this.abnormalBirdIds,
+        latestWeights: latestWeights ?? this.latestWeights,
       );
 }
 
@@ -194,6 +198,12 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     }
 
     state = state.copyWith(abnormalBirdIds: abnormalIds);
+
+    // 3.5 批量加载最新体重
+    if (birdOrder.isNotEmpty) {
+      final latestMap = await _db.getLatestByBirds(birdOrder);
+      state = state.copyWith(latestWeights: latestMap);
+    }
 
     // 4. 确定初始选中鸟
     int? targetBirdId = initialBirdId;
