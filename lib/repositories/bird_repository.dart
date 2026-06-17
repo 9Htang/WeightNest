@@ -1,4 +1,5 @@
-﻿import 'package:drift/drift.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -207,11 +208,40 @@ class BirdWithDetails {
 
   BirdWithDetails({required this.bird, required this.species, this.room, this.enclosure});
 
-  int get ageDays => DateTime.now().difference(bird.birthDate).inDays;
+  int get ageDays {
+    final days = DateTime.now().difference(bird.birthDate).inDays;
+    if (days < 0) {
+      debugPrint('[BirdWithDetails] ${bird.name}: birthDate is in the future, ageDays=$days — clamping to 0');
+      return 0;
+    }
+    return days;
+  }
 
   String get growthStage {
     if (ageDays <= species.nestlingEndDays) return '雏鸟';
     if (ageDays <= species.juvenileEndDays) return '幼鸟';
     return '成鸟';
   }
+
+  /// 有效称重间隔：鸟级覆盖 > 物种阶段默认
+  int get effectiveWeighIntervalDays => computeEffectiveWeighInterval(
+        birdOverrideDays: bird.weighIntervalDays,
+        species: species,
+        ageDays: ageDays,
+      );
+}
+
+/// 计算有效称重间隔（天）：鸟级覆盖优先，否则按生长阶段取物种默认。
+///
+/// 供 [AlertService] 和 [TaskRepository.generateTodayTasks] 共用，确保
+/// 告警系统和任务系统对同一只鸟使用相同间隔值。
+int computeEffectiveWeighInterval({
+  required int? birdOverrideDays,
+  required Specy species,
+  required int ageDays,
+}) {
+  if (birdOverrideDays != null) return birdOverrideDays;
+  if (ageDays <= species.nestlingEndDays) return species.nestlingWeighIntervalDays;
+  if (ageDays <= species.juvenileEndDays) return species.juvenileWeighIntervalDays;
+  return species.adultWeighIntervalDays;
 }

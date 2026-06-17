@@ -114,7 +114,11 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
 /// 异常提醒确认版本号 — 确认后 +1 触发 alertListProvider 刷新
 final alertConfirmedVersionProvider = StateProvider<int>((ref) => 0);
 
-/// 异常提醒详细列表（用于异常页面展示）
+/// 异常提醒详细列表（用于异常页面展示）。
+///
+/// 注意：无 birdId 过滤时调用 detectAll() 全量扫描所有鸟，
+/// 鸟群超过 ~50 只后每次体重保存都可能产生可感知延迟。
+/// 若需优化，可在 weightSavedProvider 触发时传入特定 birdId。
 final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   ref.watch(weightSavedProvider); // 体重保存后自动刷新
   ref.watch(alertConfirmedVersionProvider); // 确认后刷新

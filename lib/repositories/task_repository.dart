@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
+import 'bird_repository.dart';
 
 extension TaskRepository on AppDatabase {
   Future<List<TaskWithBird>> getTodayTasks(int? userId) {
@@ -123,170 +124,170 @@ extension TaskRepository on AppDatabase {
     final dayStart = DateTime(today.year, today.month, today.day);
     debugPrint('[TaskGen] start — ${today.toIso8601String().substring(0, 10)} force=$force');
 
+    // 防护：若 _lastGeneratedDay 为未来时间（时钟调整/系统挂起），重置为 null
+    if (_lastGeneratedDay != null && _lastGeneratedDay!.isAfter(dayStart)) {
+      debugPrint('[TaskGen] _lastGeneratedDay ($_lastGeneratedDay) is in the future, resetting');
+      _lastGeneratedDay = null;
+    }
+
     // 同一天已生成过任务则跳过（force=true 或跨天时重新生成）
     if (!force && _lastGeneratedDay != null && _lastGeneratedDay!.isAtSameMomentAs(dayStart)) {
       debugPrint('[TaskGen] same-day guard, skip (lastGenerated=$_lastGeneratedDay)');
       return 0;
     }
 
-    await cleanupDuplicateTasks();
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    // 包裹事务：cleanup + 修补/生成原子执行，防止崩溃导致任务丢失
+    final result = await transaction(() async {
+      await cleanupDuplicateTasks();
+      final dayEnd = dayStart.add(const Duration(days: 1));
 
-    // If not forced, check existing tasks and patch missing assignments
-    if (!force) {
-      final existingTasks = await (select(tasks)
-            ..where((t) => t.dueDate.isBiggerOrEqualValue(dayStart) &
-                t.dueDate.isSmallerThanValue(dayEnd)))
-          .get();
+      // If not forced, check existing tasks and patch missing assignments
+      if (!force) {
+        final existingTasks = await (select(tasks)
+              ..where((t) => t.dueDate.isBiggerOrEqualValue(dayStart) &
+                  t.dueDate.isSmallerThanValue(dayEnd)))
+            .get();
 
-      debugPrint('[TaskGen] existing tasks today: ${existingTasks.length}');
-      if (existingTasks.isNotEmpty) {
-        int patched = 0;
-        int upgraded = 0;
-        for (final task in existingTasks) {
-          // Patch missing assignedUserId
-          if (task.assignedUserId == null) {
-            final bird = await (select(birds)..where((b) => b.id.equals(task.birdId))).getSingleOrNull();
-            if (bird != null && bird.roomId != null) {
-              final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
-              if (room?.assignedUserId != null) {
+        debugPrint('[TaskGen] existing tasks today: ${existingTasks.length}');
+        if (existingTasks.isNotEmpty) {
+          int patched = 0;
+          int upgraded = 0;
+          for (final task in existingTasks) {
+            // Patch missing assignedUserId
+            if (task.assignedUserId == null) {
+              final bird = await (select(birds)..where((b) => b.id.equals(task.birdId))).getSingleOrNull();
+              if (bird != null && bird.roomId != null) {
+                final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
+                if (room?.assignedUserId != null) {
+                  await (update(tasks)..where((t) => t.id.equals(task.id)))
+                      .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(DateTime.now())));
+                  patched++;
+                }
+              }
+            }
+            // Upgrade pending task to completed if bird was weighed today
+            if (task.status == '待完成') {
+              final lastWeigh = await (select(weights)
+                    ..where((w) => w.birdId.equals(task.birdId) &
+                        w.recordedAt.isBiggerOrEqualValue(dayStart) &
+                        w.recordedAt.isSmallerThanValue(dayEnd))
+                    ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+                    ..limit(1))
+                  .getSingleOrNull();
+              if (lastWeigh != null) {
                 await (update(tasks)..where((t) => t.id.equals(task.id)))
-                    .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(DateTime.now())));
-                patched++;
+                    .write(TasksCompanion(
+                  status: const Value('已完成'),
+                  completedAt: Value(lastWeigh.recordedAt),
+                  completedBy: Value(lastWeigh.recordedBy),
+                  updatedAt: Value(DateTime.now()),
+                ));
+                upgraded++;
               }
             }
           }
-          // Upgrade pending task to completed if bird was weighed today
-          if (task.status == '待完成') {
-            final lastWeigh = await (select(weights)
-                  ..where((w) => w.birdId.equals(task.birdId) &
-                      w.recordedAt.isBiggerOrEqualValue(dayStart) &
-                      w.recordedAt.isSmallerThanValue(dayEnd))
-                  ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
-                  ..limit(1))
-                .getSingleOrNull();
-            if (lastWeigh != null) {
-              await (update(tasks)..where((t) => t.id.equals(task.id)))
-                  .write(TasksCompanion(
-                status: const Value('已完成'),
-                completedAt: Value(lastWeigh.recordedAt),
-                completedBy: Value(lastWeigh.recordedBy),
-                updatedAt: Value(DateTime.now()),
-              ));
-              upgraded++;
-            }
+          debugPrint('[TaskGen] existing tasks found, patched=$patched upgraded=$upgraded, skip generation');
+          return patched + upgraded;
+        }
+      }
+
+      int generated = 0;
+      final allBirds = await (select(birds).join([
+        innerJoin(species, species.id.equalsExp(birds.speciesId)),
+        leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
+      ])).get();
+
+      debugPrint('[TaskGen] total birds with species: ${allBirds.length}');
+
+      for (final row in allBirds) {
+        final bird = row.readTable(birds);
+        final sp = row.readTable(species);
+        final room = row.readTableOrNull(rooms);
+        final ageDays = today.difference(bird.birthDate).inDays;
+
+        final intervalDays = computeEffectiveWeighInterval(
+          birdOverrideDays: bird.weighIntervalDays,
+          species: sp,
+          ageDays: ageDays,
+        );
+        final stage = bird.weighIntervalDays != null ? 'manual' :
+            ageDays <= sp.nestlingEndDays ? 'nestling' :
+            ageDays <= sp.juvenileEndDays ? 'juvenile' : 'adult';
+
+        if (intervalDays <= 0) {
+          debugPrint('[TaskGen]   ${bird.name}: interval=$intervalDays, skip');
+          continue;
+        }
+
+        // Check last weigh date — create task if it's been >= intervalDays
+        final lastWeighList = await (select(weights)
+              ..where((w) => w.birdId.equals(bird.id))
+              ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+              ..limit(1))
+            .get();
+        final lastWeigh = lastWeighList.isNotEmpty ? lastWeighList.first : null;
+
+        final daysSinceLast = lastWeigh == null ? null
+            : today.difference(lastWeigh.recordedAt).inDays;
+        final needsTask = lastWeigh == null ||
+            daysSinceLast! >= intervalDays;
+
+        if (!needsTask) {
+          await into(tasks).insert(TasksCompanion.insert(
+            uuid: genUuid(),
+            birdId: bird.id,
+            roomId: Value(bird.roomId),
+            assignedUserId: Value(room?.assignedUserId),
+            dueDate: today,
+            status: const Value('已完成'),
+            completedAt: Value(lastWeigh.recordedAt),
+            completedBy: Value(lastWeigh.recordedBy),
+          ));
+          generated++;
+          debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) weighed today -> completed task');
+          continue;
+        }
+
+        // Check no existing task for this bird today (skip when forcing)
+        if (!force) {
+          final existingTaskList = await (select(tasks)
+                ..where((t) =>
+                    t.birdId.equals(bird.id) &
+                    t.dueDate.isBiggerOrEqualValue(dayStart) &
+                    t.dueDate.isSmallerThanValue(dayEnd))
+                ..limit(1))
+              .get();
+          if (existingTaskList.isNotEmpty) {
+            debugPrint('[TaskGen]   ${bird.name}: already has task for today, skip');
+            continue;
           }
         }
-        _lastGeneratedDay = dayStart;
-        debugPrint('[TaskGen] existing tasks found, patched=$patched upgraded=$upgraded, skip generation');
-        if (patched > 0 || upgraded > 0) return patched + upgraded;
-        return 0;
-      }
-    }
 
-    int generated = 0;
-    final allBirds = await (select(birds).join([
-      innerJoin(species, species.id.equalsExp(birds.speciesId)),
-      leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
-    ])).get();
-
-    debugPrint('[TaskGen] total birds with species: ${allBirds.length}');
-
-    for (final row in allBirds) {
-      final bird = row.readTable(birds);
-      final sp = row.readTable(species);
-      final room = row.readTableOrNull(rooms);
-      final ageDays = today.difference(bird.birthDate).inDays;
-
-      // Determine weigh interval: bird override > species stage default
-      int intervalDays;
-      String stage;
-      if (bird.weighIntervalDays != null) {
-        intervalDays = bird.weighIntervalDays!;
-        stage = 'manual';
-      } else if (ageDays <= sp.nestlingEndDays) {
-        intervalDays = sp.nestlingWeighIntervalDays;
-        stage = 'nestling';
-      } else if (ageDays <= sp.juvenileEndDays) {
-        intervalDays = sp.juvenileWeighIntervalDays;
-        stage = 'juvenile';
-      } else {
-        intervalDays = sp.adultWeighIntervalDays;
-        stage = 'adult';
-      }
-
-      if (intervalDays <= 0) {
-        debugPrint('[TaskGen]   ${bird.name}: interval=$intervalDays, skip');
-        continue;
-      }
-
-      // Check last weigh date — create task if it's been >= intervalDays
-      final lastWeighList = await (select(weights)
-            ..where((w) => w.birdId.equals(bird.id))
-            ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
-            ..limit(1))
-          .get();
-      final lastWeigh = lastWeighList.isNotEmpty ? lastWeighList.first : null;
-
-      final daysSinceLast = lastWeigh == null ? null
-          : today.difference(lastWeigh.recordedAt).inDays;
-      final needsTask = lastWeigh == null ||
-          daysSinceLast! >= intervalDays;
-
-      if (!needsTask) {
-        // Bird already weighed today within interval — create a completed task
         await into(tasks).insert(TasksCompanion.insert(
           uuid: genUuid(),
           birdId: bird.id,
           roomId: Value(bird.roomId),
           assignedUserId: Value(room?.assignedUserId),
           dueDate: today,
-          status: const Value('已完成'),
-          completedAt: Value(lastWeigh.recordedAt),
-          completedBy: Value(lastWeigh.recordedBy),
+          status: const Value('待完成'),
         ));
         generated++;
-        debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) weighed today -> completed task');
-        continue;
+        debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) -> task created');
       }
 
-      // Check no existing task for this bird today (skip when forcing)
-      if (!force) {
-        final existingTaskList = await (select(tasks)
-              ..where((t) =>
-                  t.birdId.equals(bird.id) &
-                  t.dueDate.isBiggerOrEqualValue(dayStart) &
-                  t.dueDate.isSmallerThanValue(dayEnd))
-              ..limit(1))
-            .get();
-        if (existingTaskList.isNotEmpty) {
-          debugPrint('[TaskGen]   ${bird.name}: already has task for today, skip');
-          continue;
-        }
-      }
+      // Mark overdue
+      await (update(tasks)
+            ..where((t) =>
+                t.dueDate.isSmallerThanValue(dayStart) &
+                t.status.equals('待完成')))
+          .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
 
-      await into(tasks).insert(TasksCompanion.insert(
-        uuid: genUuid(),
-        birdId: bird.id,
-        roomId: Value(bird.roomId),
-        assignedUserId: Value(room?.assignedUserId),
-        dueDate: today,
-        status: const Value('待完成'),
-      ));
-      generated++;
-      debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) -> task created');
-    }
-
-    // Mark overdue
-    await (update(tasks)
-          ..where((t) =>
-              t.dueDate.isSmallerThanValue(dayStart) &
-              t.status.equals('待完成')))
-        .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
+      debugPrint('[TaskGen] done — generated=$generated');
+      return generated;
+    });
 
     _lastGeneratedDay = dayStart;
-    debugPrint('[TaskGen] done — generated=$generated');
-    return generated;
+    return result;
     } finally {
       _generating = false;
     }

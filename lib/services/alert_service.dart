@@ -19,18 +19,41 @@ class AlertService {
   final AppDatabase _db;
   AlertService(this._db);
 
-  /// 检测所有异常——聚合插件告警 + 体重检测
-  Future<List<AnomalyAlert>> detectAll() async {
+  // ── 阈值常量 ──
+  static const double _warningDeviationPct = 10.0;
+  static const double _dangerDeviationPct = 15.0;
+  static const double _overdueWarningMultiplier = 1.5;
+  static const double _overdueDangerMultiplier = 3.0;
+  static const double _chronicTrendPct = 7.0;
+  static const double _chickGrowthHealthyRate = 0.08;
+  static const double _chickGrowthSlowRate = 0.03;
+  static const double _weaningWarningDropPct = 10.0;
+  static const double _weaningDangerDropPct = 15.0;
+  static const int _analysisWindowDays = 90;
+
+  /// 检测异常——聚合插件告警 + 体重检测。
+  ///
+  /// 若指定 [birdId]，仅检测该鸟；否则全量扫描（O(n) 于鸟群规模，
+  /// 每次称重保存均触发，鸟群大时考虑增量更新）。
+  Future<List<AnomalyAlert>> detectAll({int? birdId}) async {
     final alerts = <AnomalyAlert>[];
 
-    // 预加载所有鸟（插件告警 + 体重检测共用）
-    final allBirds = await _db.getAllWithDetails();
+    // 预加载鸟（插件告警 + 体重检测共用）——若 birdId 指定则只加载该鸟
+    final List<BirdWithDetails> allBirds;
+    if (birdId != null) {
+      final single = await _db.getWithDetails(birdId);
+      allBirds = single != null ? [single] : [];
+    } else {
+      allBirds = await _db.getAllWithDetails();
+    }
 
     // 1. 遍历插件告警（喂药漏喂等）
     for (final plugin in pluginRegistry.enabledPlugins) {
       try {
         final pluginAlerts = await plugin.detectAlerts(_db);
         for (final pa in pluginAlerts) {
+          // birdId 过滤：仅检测指定鸟
+          if (birdId != null && pa.birdId != birdId) continue;
           final bird = allBirds.cast<BirdWithDetails?>().firstWhere(
             (b) => b?.bird.id == pa.birdId,
             orElse: () => null,
@@ -49,8 +72,8 @@ class AlertService {
       }
     }
 
-    // 2. 体重异常检测（仅取最近90天数据，覆盖所有算法窗口）
-    final cutoff = DateTime.now().subtract(const Duration(days: 90));
+    // 2. 体重异常检测（仅取最近 _analysisWindowDays 天数据，覆盖所有算法窗口）
+    final cutoff = DateTime.now().subtract(Duration(days: _analysisWindowDays));
     for (final bird in allBirds) {
       final weights = await _db.getByBirdInRange(
         bird.bird.id,
@@ -58,12 +81,13 @@ class AlertService {
         to: DateTime.now(),
       );
 
+      // 90天无体重：鸟从未被称重或数据过期（安全网：intervalDays<=0 的鸟也会被此捕获）
       if (weights.isEmpty) {
         alerts.add(AnomalyAlert(
           bird: bird,
           type: '超期未称重',
-          description: '超过90天未记录体重',
-          severity: AlertSeverity.danger,
+          description: '超过90天未记录体重，请尽快称重',
+          severity: AlertSeverity.warning,
         ));
         continue;
       }
@@ -100,7 +124,7 @@ class AlertService {
   double _hoursBetween(DateTime a, DateTime b) =>
       b.difference(a).inMilliseconds / 3600000.0;
 
-  double _avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
+  static double _avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
 
   /// 计算 EWMA 序列，α=0.2（基线平滑）
   List<double> _ewma(List<double> values, {double alpha = 0.2}) {
@@ -112,23 +136,14 @@ class AlertService {
     return r;
   }
 
-  /// 获取鸟的有效称重间隔（天）
-  int _effectiveInterval(BirdWithDetails bird) {
-    if (bird.bird.weighIntervalDays != null) return bird.bird.weighIntervalDays!;
-    switch (bird.growthStage) {
-      case '雏鸟':
-        return bird.species.nestlingWeighIntervalDays;
-      case '幼鸟':
-        return bird.species.juvenileWeighIntervalDays;
-      default:
-        return bird.species.adultWeighIntervalDays;
-    }
-  }
+  /// 获取鸟的有效称重间隔（天）——委托给 [BirdWithDetails.effectiveWeighIntervalDays]
+  int _effectiveInterval(BirdWithDetails bird) => bird.effectiveWeighIntervalDays;
 
   // ==================== 断奶期检测 ====================
 
   /// 判断是否处于断奶期（手动覆盖优先，否则自动检测）
-  bool _isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
+  /// [weights] 需按 recordedAt ASC（最早在前）
+  static bool _isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
     // 手动覆盖
     if (bird.bird.weaningOverride == true) return true;
     if (bird.bird.weaningOverride == false) return false;
@@ -182,7 +197,7 @@ class AlertService {
     final latest = weights.last.weightG;
     final dropPct = (peak - latest) / peak * 100;
 
-    if (dropPct > 15) {
+    if (dropPct > _weaningDangerDropPct) {
       return [AnomalyAlert(
         bird: bird,
         type: '断奶期体重下降过多',
@@ -190,7 +205,7 @@ class AlertService {
         severity: AlertSeverity.danger,
       )];
     }
-    if (dropPct > 10) {
+    if (dropPct > _weaningWarningDropPct) {
       return [AnomalyAlert(
         bird: bird,
         type: '断奶期体重下降',
@@ -208,22 +223,42 @@ class AlertService {
     if (weights.length < 2) return false;
     final latest = weights.first.weightG;
 
-    // 断奶期 → 峰值下降检查
-    final inWeaning = bird.growthStage == '雏鸟' && _isWeaningPhaseStatic(bird, weights);
+    // 断奶期 → 峰值下降检查（reverse 为 ASC 后调用统一方法）
+    final inWeaning = bird.growthStage == '雏鸟' && _isWeaningPhase(bird, weights.reversed.toList());
     if (inWeaning) {
       final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
       final drop = (peak - latest) / peak * 100;
-      return drop > 10;
+      return drop > _weaningWarningDropPct;
     }
 
     switch (bird.growthStage) {
       case '雏鸟':
-        return latest < weights[1].weightG; // 下降即为异常
+        // 对齐 _chickGrowth：取最近 48h 体重，计算标准化 Log 增长率平均
+        // 若 < _chickGrowthSlowRate（增长减缓阈值）则标记异常
+        final now = DateTime.now();
+        final cutoff48h = now.subtract(const Duration(hours: 48));
+        final recent = weights
+            .where((w) => w.recordedAt.isAfter(cutoff48h))
+            .toList();
+        if (recent.length < 2) return false;
+        final asc = recent.reversed.toList(); // DESC → ASC
+        final rates = <double>[];
+        for (int i = 1; i < asc.length; i++) {
+          final h = asc[i].recordedAt.difference(asc[i - 1].recordedAt).inMilliseconds / 3600000.0;
+          if (h <= 0) continue;
+          if (asc[i - 1].weightG > 0 && asc[i].weightG > 0) {
+            final logR = log(asc[i].weightG / asc[i - 1].weightG);
+            rates.add(logR * (24 / h));
+          }
+        }
+        if (rates.isEmpty) return false;
+        final avgRate = rates.reduce((a, b) => a + b) / rates.length;
+        return avgRate < _chickGrowthSlowRate;
       case '幼鸟':
       case '成鸟':
         final manualB = bird.bird.manualBaselineG;
         if (manualB != null) {
-          return (latest - manualB).abs() / manualB > 0.10;
+          return (latest - manualB).abs() / manualB > _warningDeviationPct / 100;
         }
         // 自动 EWMA：用全部历史计算基线
         if (weights.length < 3) return false;
@@ -232,52 +267,9 @@ class AlertService {
         for (int i = 1; i < values.length; i++) {
           ema = 0.2 * values[i] + 0.8 * ema;
         }
-        return (latest - ema).abs() / ema > 0.10;
+        return (latest - ema).abs() / ema > _warningDeviationPct / 100;
     }
     return false;
-  }
-
-  /// 断奶期判断的静态版本，供 isLatestAbnormal 调用
-  /// weights 按 recordedAt DESC（最新在前）
-  static bool _isWeaningPhaseStatic(BirdWithDetails bird, List<Weight> weights) {
-    if (bird.bird.weaningOverride == true) return true;
-    if (bird.bird.weaningOverride == false) return false;
-
-    if (bird.ageDays < bird.species.nestlingEndDays - 5 ||
-        bird.ageDays > bird.species.juvenileEndDays) {
-      return false;
-    }
-
-    if (weights.length < 3) return false;
-
-    final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
-    final latest = weights.first.weightG;
-    if (latest >= peak * 0.95) return false;
-
-    int recentDrops = 0;
-    for (int i = 0; i < weights.length - 1 && i < 3; i++) {
-      if (weights[i].weightG < weights[i + 1].weightG) recentDrops++;
-    }
-    if (recentDrops < 2) return false;
-
-    if (bird.ageDays > bird.species.juvenileEndDays + 10) return false;
-
-    if (weights.length >= 3) {
-      final last3 = weights.sublist(0, 3);
-      final vals = last3.map((w) => w.weightG).toList();
-      final avg3 = vals.reduce((a, b) => a + b) / vals.length;
-      final range = vals.reduce((a, b) => a > b ? a : b) -
-          vals.reduce((a, b) => a < b ? a : b);
-      if (range / avg3 * 100 < 3 && vals.last <= vals.first) return false;
-    }
-
-    final subset = weights.take(weights.length ~/ 3).toList();
-    if (subset.isEmpty) return true;
-    final weaningMin =
-        subset.map((w) => w.weightG).reduce((a, b) => a < b ? a : b);
-    if (latest > weaningMin * 1.05) return false;
-
-    return true;
   }
 
   // ==================== 雏鸟算法 ====================
@@ -323,9 +315,9 @@ class AlertService {
 
     // Step A：48h 平均趋势
     bool hasDropAlert = false;
-    if (avgRate > 0.08) {
+    if (avgRate > _chickGrowthHealthyRate) {
       // 正常
-    } else if (avgRate > 0.03) {
+    } else if (avgRate > _chickGrowthSlowRate) {
       alerts.add(AnomalyAlert(
           bird: bird,
           type: '增长减缓',
@@ -390,7 +382,7 @@ class AlertService {
     final deviation = (latest - baseline) / baseline * 100; // + 偏高，- 偏低
 
     // 维度 A：单点偏离基线（急性）
-    if (deviation.abs() > 15) {
+    if (deviation.abs() > _dangerDeviationPct) {
       final dir = deviation > 0 ? '偏高' : '偏低';
       alerts.add(AnomalyAlert(
         bird: bird,
@@ -399,7 +391,7 @@ class AlertService {
             '$dir ${deviation.abs().toStringAsFixed(0)}%（${deviation > 0 ? "可能为产蛋、过肥或疾病" : "值得关注"}）',
         severity: AlertSeverity.danger,
       ));
-    } else if (deviation.abs() > 10) {
+    } else if (deviation.abs() > _warningDeviationPct) {
       final dir = deviation > 0 ? '偏高' : '偏低';
       alerts.add(AnomalyAlert(
         bird: bird,
@@ -423,7 +415,7 @@ class AlertService {
       final trend =
           (currentBaseline - earlyBaseline) / earlyBaseline * 100;
 
-      if (trend < -7) {
+      if (trend < -_chronicTrendPct) {
         alerts.add(AnomalyAlert(
           bird: bird,
           type: '体重持续下降',
@@ -431,7 +423,7 @@ class AlertService {
               '${currentBaseline.toStringAsFixed(1)}g（${trend.abs().toStringAsFixed(0)}%），持续下行值得关注',
           severity: AlertSeverity.warning,
         ));
-      } else if (trend > 7) {
+      } else if (trend > _chronicTrendPct) {
         alerts.add(AnomalyAlert(
           bird: bird,
           type: '体重持续上升',
@@ -452,8 +444,11 @@ class AlertService {
     final daysSince = DateTime.now().difference(latest.recordedAt).inDays;
     final interval = _effectiveInterval(bird);
 
-    // 超过间隔 3 倍 → danger
-    if (daysSince > interval * 3) {
+    // 异常配置保护：interval<=0 的鸟跳过超期检测（由 90 天兜底覆盖）
+    if (interval <= 0) return [];
+
+    // 超过间隔 _overdueDangerMultiplier 倍 → danger
+    if (daysSince > interval * _overdueDangerMultiplier) {
       return [AnomalyAlert(
         bird: bird,
         type: '超期未称重',
@@ -461,8 +456,8 @@ class AlertService {
         severity: AlertSeverity.danger,
       )];
     }
-    // 超过间隔 1.5 倍 → warning
-    if (daysSince > interval * 1.5) {
+    // 超过间隔 _overdueWarningMultiplier 倍 → warning
+    if (daysSince > interval * _overdueWarningMultiplier) {
       return [AnomalyAlert(
         bird: bird,
         type: '超期未称重',
