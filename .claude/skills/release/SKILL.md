@@ -57,19 +57,35 @@ Edit `pubspec.yaml` with the new version.
 
 ### Step 4: Build Release APK
 
-Always build the APK **before** committing:
+Always build the APK **before** committing. Clean first to avoid Gradle caching stale assets, then manually copy to releases directory and **verify the embedded version**:
 
 ```powershell
+flutter clean
 flutter build apk --release
 ```
 
-The `assembleRelease` task copies the APK to:
+Copy the APK to the releases directory (Gradle no longer does this automatically):
 
-```
-C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_vX.Y.Z.apk
+```powershell
+$ver = "X.Y.Z"  # new version
+Copy-Item "build\app\outputs\flutter-apk\app-release.apk" `
+    "C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_v$ver.apk" -Force
 ```
 
-Verify:
+**Verify the embedded pubspec.yaml version matches $ver** — if not, stop and investigate:
+
+```powershell
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$apk = "C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_v$ver.apk"
+$zip = [System.IO.Compression.ZipFile]::OpenRead($apk)
+$entry = $zip.Entries | Where-Object { $_.FullName -eq 'assets/flutter_assets/pubspec.yaml' }
+$stream = $entry.Open(); $reader = New-Object System.IO.StreamReader($stream)
+$embedded = ($reader.ReadToEnd() | Select-String '^version:\s*(.+)$').Matches.Groups[1].Value
+$reader.Close(); $stream.Close(); $zip.Dispose()
+if ($embedded -ne "$ver+$build") { throw "APK version mismatch: expected $ver+$build, got $embedded" }
+```
+
+Also verify the APK exists and its size:
 
 ```powershell
 Get-ChildItem "C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_v*.apk" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -101,15 +117,20 @@ git push origin feature/offline-mvp
 
 ### Step 8: Create GitHub Release
 
-Create tag and release on `feature/offline-mvp`:
+Create tag and release on `feature/offline-mvp`. **Use a temp ASCII filename** for upload — Chinese characters in paths get stripped by `gh`:
 
 ```powershell
-git tag -a "v$VERSION" -m "v$VERSION: <summary>"
-git push origin "v$VERSION"
-gh release create "v$VERSION" `
-  --title "v$VERSION 鹦鹉体重记录" `
+$ver = "X.Y.Z"
+$apkSrc = "C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_v$ver.apk"
+$apkTmp = "$env:TEMP\WeightNest-v$ver.apk"
+Copy-Item $apkSrc $apkTmp -Force
+git tag -a "v$ver" -m "v$ver: <summary>"
+git push origin "v$ver"
+gh release create "v$ver" `
+  --title "v$ver 鹦鹉体重记录" `
   --notes "<release notes>" `
-  "C:\Users\Cwb\.openclaw\workspace\releases\鹦鹉体重记录_v$VERSION.apk"
+  $apkTmp
+Remove-Item $apkTmp
 ```
 
 ## APK Output
