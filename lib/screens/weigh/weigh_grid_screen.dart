@@ -108,34 +108,59 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
             flex: selected != null ? 3 : 10,
             child: state.columns.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : Container(
-                    margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                      border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      controller: _scrollController,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: state.columns.map((col) {
-                          return _RoomColumnWidget(
-                            column: col,
-                            selectedBirdId: selected,
-                            abnormalBirdIds: state.abnormalBirdIds,
-                            latestWeights: state.latestWeights,
-                            theme: theme,
-                            scheme: scheme,
-                            onTapBird: (birdId) {
-                              ref.read(weighGridProvider.notifier).selectBird(birdId);
-                            },
-                          );
-                        }).toList(),
+                : Stack(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                        decoration: BoxDecoration(
+                          color: scheme.surface,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                          border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          controller: _scrollController,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: state.columns.map((col) {
+                              return _RoomColumnWidget(
+                                column: col,
+                                selectedBirdId: selected,
+                                abnormalBirdIds: state.abnormalBirdIds,
+                                weaningBirdIds: state.weaningBirdIds,
+                                latestWeights: state.latestWeights,
+                                theme: theme,
+                                scheme: scheme,
+                                onTapBird: (birdId) {
+                                  ref.read(weighGridProvider.notifier).selectBird(birdId);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (state.weaningBirdIds.isNotEmpty)
+                        Positioned(
+                          bottom: 6,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: scheme.surface,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.orange, width: 1.5),
+                            ),
+                            child: Text(
+                              '🟧 断奶期',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.orange.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
           ),
           // ── 填值面板 ──
@@ -165,6 +190,7 @@ class _RoomColumnWidget extends StatelessWidget {
   final RoomColumn column;
   final int? selectedBirdId;
   final Set<int> abnormalBirdIds;
+  final Set<int> weaningBirdIds;
   final Map<int, Weight?> latestWeights;
   final ThemeData theme;
   final ColorScheme scheme;
@@ -174,6 +200,7 @@ class _RoomColumnWidget extends StatelessWidget {
     required this.column,
     required this.selectedBirdId,
     required this.abnormalBirdIds,
+    required this.weaningBirdIds,
     required this.latestWeights,
     required this.theme,
     required this.scheme,
@@ -229,6 +256,7 @@ class _RoomColumnWidget extends StatelessWidget {
                     group: group,
                     selectedBirdId: selectedBirdId,
                     abnormalBirdIds: abnormalBirdIds,
+                    weaningBirdIds: weaningBirdIds,
                     latestWeights: latestWeights,
                     theme: theme,
                     scheme: scheme,
@@ -252,6 +280,7 @@ class _GroupSection extends StatelessWidget {
   final BirdGroup group;
   final int? selectedBirdId;
   final Set<int> abnormalBirdIds;
+  final Set<int> weaningBirdIds;
   final Map<int, Weight?> latestWeights;
   final ThemeData theme;
   final ColorScheme scheme;
@@ -261,6 +290,7 @@ class _GroupSection extends StatelessWidget {
     required this.group,
     required this.selectedBirdId,
     required this.abnormalBirdIds,
+    required this.weaningBirdIds,
     required this.latestWeights,
     required this.theme,
     required this.scheme,
@@ -304,6 +334,7 @@ class _GroupSection extends StatelessWidget {
             bird: bird,
             isSelected: isSelected,
             isAbnormal: abnormalBirdIds.contains(bird.bird.id),
+            isWeaning: weaningBirdIds.contains(bird.bird.id),
             latestWeight: latestWeights[bird.bird.id],
             theme: theme,
             scheme: scheme,
@@ -323,6 +354,7 @@ class _BirdCell extends StatelessWidget {
   final BirdWithDetails bird;
   final bool isSelected;
   final bool isAbnormal;
+  final bool isWeaning;
   final Weight? latestWeight;
   final ThemeData theme;
   final ColorScheme scheme;
@@ -332,6 +364,7 @@ class _BirdCell extends StatelessWidget {
     required this.bird,
     required this.isSelected,
     required this.isAbnormal,
+    required this.isWeaning,
     required this.latestWeight,
     required this.theme,
     required this.scheme,
@@ -353,9 +386,11 @@ class _BirdCell extends StatelessWidget {
               color: isSelected ? scheme.primary : Colors.transparent,
               width: 2.5,
             ),
+            top: isWeaning ? const BorderSide(color: Colors.orange, width: 2) : BorderSide.none,
+            right: isWeaning ? const BorderSide(color: Colors.orange, width: 2) : BorderSide.none,
             bottom: BorderSide(
-              color: scheme.outlineVariant.withAlpha(30),
-              width: 0.5,
+              color: isWeaning ? Colors.orange : scheme.outlineVariant.withAlpha(30),
+              width: isWeaning ? 2 : 0.5,
             ),
           ),
         ),

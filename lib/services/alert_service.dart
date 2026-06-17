@@ -93,7 +93,7 @@ class AlertService {
       }
 
       // 断奶期分支：进入断奶则仅用断奶逻辑
-      final inWeaning = bird.growthStage == '雏鸟' && _isWeaningPhase(bird, weights);
+      final inWeaning = bird.growthStage == '雏鸟' && isWeaningPhase(bird, weights);
       if (inWeaning) {
         alerts.addAll(_weaningAlerts(bird, weights));
       } else {
@@ -143,7 +143,7 @@ class AlertService {
 
   /// 判断是否处于断奶期（手动覆盖优先，否则自动检测）
   /// [weights] 需按 recordedAt ASC（最早在前）
-  static bool _isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
+  static bool isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
     // 手动覆盖
     if (bird.bird.weaningOverride == true) return true;
     if (bird.bird.weaningOverride == false) return false;
@@ -224,7 +224,7 @@ class AlertService {
     final latest = weights.first.weightG;
 
     // 断奶期 → 峰值下降检查（reverse 为 ASC 后调用统一方法）
-    final inWeaning = bird.growthStage == '雏鸟' && _isWeaningPhase(bird, weights.reversed.toList());
+    final inWeaning = bird.growthStage == '雏鸟' && isWeaningPhase(bird, weights.reversed.toList());
     if (inWeaning) {
       final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
       final drop = (peak - latest) / peak * 100;

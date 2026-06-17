@@ -1,0 +1,840 @@
+
+<h2 class="sr-only">WeightNest 称重任务算法测试工具 — 可配置鸟类参数并实时验证任务生成与告警逻辑</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0 16px; border-bottom: 0.5px solid var(--color-border-tertiary);
+  margin-bottom: 20px;
+}
+.toolbar-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+.toolbar-tabs { display: flex; gap: 4px; }
+.tab-btn {
+  font-size: 12px; padding: 5px 12px; border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary); background: transparent;
+  color: var(--color-text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.tab-btn.active {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary); border-color: var(--color-border-primary);
+}
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+.card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+}
+.card-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-text-tertiary); margin-bottom: 12px; font-weight: 500;
+}
+
+.field { margin-bottom: 12px; }
+.field label { font-size: 12px; color: var(--color-text-secondary); display: block; margin-bottom: 4px; }
+.field input, .field select {
+  width: 100%; font-size: 13px; padding: 6px 8px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+.field input[type=range] { padding: 0; border: none; background: transparent; }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input { flex: 1; }
+.range-val { font-size: 13px; font-weight: 500; min-width: 36px; text-align: right; color: var(--color-text-primary); }
+
+.result-header { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 8px; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 500;
+}
+.badge-success { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-warning { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-danger { background: var(--color-background-danger); color: var(--color-text-danger); }
+.badge-info { background: var(--color-background-info); color: var(--color-text-info); }
+.badge-neutral { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+
+.result-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); gap: 12px;
+}
+.result-row:last-child { border-bottom: none; }
+.result-key { font-size: 12px; color: var(--color-text-secondary); flex: 1; }
+.result-val { font-size: 13px; font-weight: 500; color: var(--color-text-primary); text-align: right; }
+
+.alert-item {
+  padding: 10px 12px; border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-tertiary);
+  margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px;
+}
+.alert-item.warn { border-color: var(--color-border-warning); background: var(--color-background-warning); }
+.alert-item.danger-item { border-color: var(--color-border-danger); background: var(--color-background-danger); }
+.alert-icon { font-size: 16px; margin-top: 1px; }
+.alert-text { font-size: 12px; color: var(--color-text-primary); line-height: 1.5; }
+.alert-title { font-weight: 500; margin-bottom: 2px; }
+.alert-desc { color: var(--color-text-secondary); }
+
+.timeline { margin-top: 4px; }
+.tl-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; position: relative; }
+.tl-row:not(:last-child)::before {
+  content: ''; position: absolute; left: 11px; top: 28px;
+  width: 1px; height: calc(100% - 12px);
+  background: var(--color-border-tertiary);
+}
+.tl-dot {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 500; z-index: 1; position: relative;
+}
+.tl-dot.todo { background: var(--color-background-info); color: var(--color-text-info); }
+.tl-dot.done { background: var(--color-background-success); color: var(--color-text-success); }
+.tl-dot.overdue { background: var(--color-background-danger); color: var(--color-text-danger); }
+.tl-dot.skip { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+.tl-content { flex: 1; padding-top: 2px; }
+.tl-day { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+.tl-detail { font-size: 11px; color: var(--color-text-secondary); margin-top: 1px; }
+
+.metric-card {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 12px 14px; text-align: center;
+}
+.metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.metric-sub { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+.wt-row {
+  display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
+}
+.wt-row input[type=number] {
+  width: 80px; font-size: 12px; padding: 5px 7px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+.wt-row .wt-day-label { font-size: 12px; color: var(--color-text-secondary); min-width: 48px; }
+.wt-bar-wrap { flex: 1; height: 12px; background: var(--color-background-secondary); border-radius: 99px; overflow: hidden; }
+.wt-bar { height: 100%; border-radius: 99px; transition: width 0.2s; }
+.wt-flag { font-size: 14px; }
+
+.run-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: transparent; color: var(--color-text-primary);
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.run-btn:hover { background: var(--color-background-secondary); }
+
+.section-sep { height: 1px; background: var(--color-border-tertiary); margin: 20px 0; }
+
+.conflict-box {
+  border: 0.5px solid var(--color-border-danger);
+  background: var(--color-background-danger);
+  border-radius: var(--border-radius-md);
+  padding: 10px 12px; margin-top: 8px;
+}
+.conflict-title { font-size: 12px; font-weight: 500; color: var(--color-text-danger); margin-bottom: 4px; }
+.conflict-desc { font-size: 11px; color: var(--color-text-danger); line-height: 1.5; }
+
+.ok-box {
+  border: 0.5px solid var(--color-border-success);
+  background: var(--color-background-success);
+  border-radius: var(--border-radius-md);
+  padding: 10px 12px; margin-top: 8px;
+}
+.ok-title { font-size: 12px; font-weight: 500; color: var(--color-text-success); margin-bottom: 2px; }
+.ok-desc { font-size: 11px; color: var(--color-text-success); }
+
+.chart-wrap { position: relative; width: 100%; height: 160px; margin-top: 12px; }
+</style>
+
+<div style="padding: 0 0 24px;">
+
+<div class="toolbar">
+  <span class="toolbar-title"><i class="ti ti-test-pipe" aria-hidden="true" style="font-size:16px;margin-right:6px;vertical-align:-2px;"></i>WeightNest 算法测试工具</span>
+  <div class="toolbar-tabs">
+    <button class="tab-btn active" onclick="switchTab('task')" id="tab-task">任务生成</button>
+    <button class="tab-btn" onclick="switchTab('alert')" id="tab-alert">告警逻辑</button>
+    <button class="tab-btn" onclick="switchTab('regression')" id="tab-regression">回归验证</button>
+  </div>
+</div>
+
+<!-- ===== 面板1: 任务生成 ===== -->
+<div class="panel active" id="panel-task">
+  <div class="grid-2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-label">鸟类参数</div>
+      <div class="field">
+        <label>物种阶段边界 — 雏鸟期结束（天）</label>
+        <div class="range-row">
+          <input type="range" min="20" max="90" value="45" id="nestlingEnd" oninput="syncVal('nestlingEnd','v_nestlingEnd');runTask()">
+          <span class="range-val" id="v_nestlingEnd">45</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>物种阶段边界 — 幼鸟期结束（天）</label>
+        <div class="range-row">
+          <input type="range" min="60" max="200" value="120" id="juvenileEnd" oninput="syncVal('juvenileEnd','v_juvenileEnd');runTask()">
+          <span class="range-val" id="v_juvenileEnd">120</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>当前鸟龄（天）</label>
+        <div class="range-row">
+          <input type="range" min="0" max="365" value="30" id="ageDays" oninput="syncVal('ageDays','v_ageDays');runTask()">
+          <span class="range-val" id="v_ageDays">30</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>鸟级别称重间隔覆盖（0 = 使用物种默认）</label>
+        <div class="range-row">
+          <input type="range" min="0" max="30" value="0" id="birdOverride" oninput="syncVal('birdOverride','v_birdOverride');runTask()">
+          <span class="range-val" id="v_birdOverride">0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>距上次称重天数（-1 = 从未称重）</label>
+        <div class="range-row">
+          <input type="range" min="-1" max="60" value="-1" id="daysSinceLast" oninput="syncVal('daysSinceLast','v_daysSinceLast');runTask()">
+          <span class="range-val" id="v_daysSinceLast">-1</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">物种默认间隔</div>
+        <div class="field">
+          <label>雏鸟期称重间隔（天）</label>
+          <div class="range-row">
+            <input type="range" min="1" max="7" value="1" id="nestlingInterval" oninput="syncVal('nestlingInterval','v_nestlingInterval');runTask()">
+            <span class="range-val" id="v_nestlingInterval">1</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>幼鸟期称重间隔（天）</label>
+          <div class="range-row">
+            <input type="range" min="1" max="14" value="3" id="juvenileInterval" oninput="syncVal('juvenileInterval','v_juvenileInterval');runTask()">
+            <span class="range-val" id="v_juvenileInterval">3</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>成鸟期称重间隔（天）</label>
+          <div class="range-row">
+            <input type="range" min="1" max="30" value="7" id="adultInterval" oninput="syncVal('adultInterval','v_adultInterval');runTask()">
+            <span class="range-val" id="v_adultInterval">7</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">任务生成结果</div>
+        <div id="task-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">未来30天任务时间线预览</div>
+    <div id="timeline-wrap" class="timeline"></div>
+  </div>
+</div>
+
+<!-- ===== 面板2: 告警逻辑 ===== -->
+<div class="panel" id="panel-alert">
+  <div class="grid-2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-label">体重序列输入（最近10次，克）</div>
+      <div id="weight-inputs"></div>
+      <div style="margin-top:8px;">
+        <button class="run-btn" onclick="generateSampleWeights()">
+          <i class="ti ti-refresh" aria-hidden="true"></i> 随机生成样本
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">鸟类状态</div>
+      <div class="field">
+        <label>当前鸟龄（天）</label>
+        <div class="range-row">
+          <input type="range" min="0" max="365" value="30" id="alertAge" oninput="syncVal('alertAge','v_alertAge');runAlert()">
+          <span class="range-val" id="v_alertAge">30</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>手动基线体重（0 = 使用EWMA自动基线）</label>
+        <div class="range-row">
+          <input type="range" min="0" max="1000" value="0" id="manualBaseline" oninput="syncVal('manualBaseline','v_manualBaseline');runAlert()">
+          <span class="range-val" id="v_manualBaseline">0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>告警偏差阈值 — warning（%）</label>
+        <div class="range-row">
+          <input type="range" min="5" max="25" value="10" id="warnThresh" oninput="syncVal('warnThresh','v_warnThresh');runAlert()">
+          <span class="range-val" id="v_warnThresh">10</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>告警偏差阈值 — danger（%）</label>
+        <div class="range-row">
+          <input type="range" min="10" max="40" value="15" id="dangerThresh" oninput="syncVal('dangerThresh','v_dangerThresh');runAlert()">
+          <span class="range-val" id="v_dangerThresh">15</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>物种阶段边界 — 断奶期结束（天）</label>
+        <div class="range-row">
+          <input type="range" min="10" max="60" value="30" id="weaningEnd" oninput="syncVal('weaningEnd','v_weaningEnd');runAlert()">
+          <span class="range-val" id="v_weaningEnd">30</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">体重趋势图</div>
+      <div class="chart-wrap">
+        <canvas id="weightChart" role="img" aria-label="体重趋势折线图"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">detectAll() 告警结果</div>
+      <div id="alert-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 面板3: 回归验证 ===== -->
+<div class="panel" id="panel-regression">
+  <div style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-label">问题#1 × #2 联动验证 — 阶段边界一致性</div>
+      <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
+        验证 generateTodayTasks 与 AlertService._effectiveInterval 对同一只鸟在边界日（第45天、第120天）是否判定一致。
+      </p>
+      <div class="field" style="max-width:300px;">
+        <label>测试鸟龄（天）</label>
+        <div class="range-row">
+          <input type="range" min="40" max="130" value="45" id="reg1Age" oninput="syncVal('reg1Age','v_reg1Age');runReg1()">
+          <span class="range-val" id="v_reg1Age">45</span>
+        </div>
+      </div>
+      <div id="reg1-result"></div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-label">问题#3 — 跨天时区竞态模拟</div>
+      <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
+        模拟在 UTC+8 环境下，_lastGeneratedDay 存储格式与比较逻辑是否对齐。
+      </p>
+      <div class="field">
+        <label>存储格式</label>
+        <select id="reg3Storage" onchange="runReg3()">
+          <option value="utc">UTC字符串 (2024-01-14T16:00:00Z)</option>
+          <option value="local">本地日期字符串 (2024-01-15)</option>
+          <option value="epoch">Unix时间戳</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>比较逻辑</label>
+        <select id="reg3Compare" onchange="runReg3()">
+          <option value="utc">UTC日期比较</option>
+          <option value="local" selected>本地日期比较</option>
+        </select>
+      </div>
+      <div id="reg3-result"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">问题#5 — detectAll 局部触发验证</div>
+      <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
+        验证局部计算结果合并到全局列表时，去重和保留逻辑是否正确。
+      </p>
+      <div class="field">
+        <label>全局告警列表中已有条目数</label>
+        <div class="range-row">
+          <input type="range" min="0" max="10" value="3" id="reg5Global" oninput="syncVal('reg5Global','v_reg5Global');runReg5()">
+          <span class="range-val" id="v_reg5Global">3</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>局部计算覆盖的鸟ID</label>
+        <input type="number" min="1" max="20" value="2" id="reg5BirdId" oninput="runReg5()" style="width:80px;font-size:13px;padding:5px 7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);">
+      </div>
+      <div id="reg5-result"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">问题#9 — 雏鸟48h变化率边界case</div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
+      验证只有1条记录时的返回值，以及48h窗口起点定义。
+    </p>
+    <div class="grid-3">
+      <div>
+        <div class="metric-label" style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px;">记录数 = 1</div>
+        <div id="reg9-one"></div>
+      </div>
+      <div>
+        <div class="metric-label" style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px;">48h窗口 — 以最新记录为基准</div>
+        <div id="reg9-latest"></div>
+      </div>
+      <div>
+        <div class="metric-label" style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px;">48h窗口 — 以今天为基准</div>
+        <div id="reg9-today"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let weightChart = null;
+let weightData = [120, 125, 122, 128, 131, 129, 135, 132, 138, 140];
+
+function syncVal(id, vid) {
+  document.getElementById(vid).textContent = document.getElementById(id).value;
+}
+
+function switchTab(name) {
+  ['task','alert','regression'].forEach(t => {
+    document.getElementById('panel-'+t).classList.toggle('active', t===name);
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+  });
+  if(name==='alert') { setTimeout(()=>renderWeightChart(), 50); }
+  if(name==='regression') { runReg1(); runReg3(); runReg5(); renderReg9(); }
+}
+
+function getStage(ageDays, nestlingEnd, juvenileEnd) {
+  if(ageDays <= nestlingEnd) return 'nestling';
+  if(ageDays <= juvenileEnd) return 'juvenile';
+  return 'adult';
+}
+
+function stageLabel(s) {
+  return {nestling:'雏鸟', juvenile:'幼鸟', adult:'成鸟'}[s];
+}
+
+function getInterval(ageDays, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, birdOverride) {
+  if(birdOverride > 0) return birdOverride;
+  const stage = getStage(ageDays, nestlingEnd, juvenileEnd);
+  if(stage==='nestling') return nestlingInt;
+  if(stage==='juvenile') return juvenileInt;
+  return adultInt;
+}
+
+function runTask() {
+  const nestlingEnd = +document.getElementById('nestlingEnd').value;
+  const juvenileEnd = +document.getElementById('juvenileEnd').value;
+  const ageDays = +document.getElementById('ageDays').value;
+  const birdOverride = +document.getElementById('birdOverride').value;
+  const daysSinceLast = +document.getElementById('daysSinceLast').value;
+  const nestlingInt = +document.getElementById('nestlingInterval').value;
+  const juvenileInt = +document.getElementById('juvenileInterval').value;
+  const adultInt = +document.getElementById('adultInterval').value;
+
+  const stage = getStage(ageDays, nestlingEnd, juvenileEnd);
+  const interval = getInterval(ageDays, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, birdOverride);
+  const neverWeighed = daysSinceLast === -1;
+  let taskStatus, taskReason;
+
+  if(interval <= 0) {
+    taskStatus = 'skip';
+    taskReason = 'intervalDays ≤ 0，跳过该鸟';
+  } else if(neverWeighed) {
+    taskStatus = 'todo';
+    taskReason = '从未称重，生成"待完成"任务';
+  } else if(daysSinceLast >= interval) {
+    taskStatus = 'todo';
+    taskReason = `距上次${daysSinceLast}天 ≥ 间隔${interval}天，生成"待完成"任务`;
+  } else {
+    taskStatus = 'done';
+    taskReason = `距上次${daysSinceLast}天 < 间隔${interval}天，生成"已完成"历史记录`;
+  }
+
+  const statusBadge = {
+    todo: '<span class="badge badge-info">待完成</span>',
+    done: '<span class="badge badge-success">已完成</span>',
+    skip: '<span class="badge badge-neutral">跳过</span>',
+  }[taskStatus];
+
+  const overdueWarningDays = Math.ceil(interval * 1.5);
+  const overdueDangerDays = interval * 3;
+
+  document.getElementById('task-results').innerHTML = `
+    <div class="result-row">
+      <span class="result-key">判定阶段</span>
+      <span class="result-val">${stageLabel(stage)}</span>
+    </div>
+    <div class="result-row">
+      <span class="result-key">有效称重间隔</span>
+      <span class="result-val">${interval <= 0 ? '<span class="badge badge-danger">无效</span>' : interval + ' 天' + (birdOverride>0?' <span class="badge badge-info" style="font-size:10px;">鸟级别覆盖</span>':'')}</span>
+    </div>
+    <div class="result-row">
+      <span class="result-key">今日任务</span>
+      <span class="result-val">${statusBadge}</span>
+    </div>
+    <div class="result-row">
+      <span class="result-key">判定依据</span>
+      <span class="result-val" style="font-size:11px;color:var(--color-text-secondary);max-width:200px;">${taskReason}</span>
+    </div>
+    ${interval > 0 ? `<div class="result-row">
+      <span class="result-key">告警升级阈值</span>
+      <span class="result-val" style="font-size:11px;"><span class="badge badge-warning">&gt;${overdueWarningDays}天警告</span> <span class="badge badge-danger" style="margin-left:4px;">&gt;${overdueDangerDays}天危险</span></span>
+    </div>` : ''}
+  `;
+
+  renderTimeline(ageDays, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, birdOverride, neverWeighed ? null : daysSinceLast);
+}
+
+function renderTimeline(ageDays, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, birdOverride, daysSinceLast) {
+  const days = 30;
+  let html = '';
+  let lastWeighDay = daysSinceLast === null ? null : -daysSinceLast;
+
+  for(let d = 0; d <= days; d += 1) {
+    const currentAge = ageDays + d;
+    const interval = getInterval(currentAge, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, birdOverride);
+    if(interval <= 0) continue;
+    if(d === 0 || d % interval === 0) {
+      let sinceWeigh = lastWeighDay === null ? 999 : d - lastWeighDay;
+      let status, label, detail;
+      if(d === 0) {
+        const needsTask = lastWeighDay === null || sinceWeigh >= interval;
+        status = needsTask ? 'todo' : 'done';
+        label = needsTask ? '待称重' : '已称重';
+        detail = needsTask ? '今日' : '在间隔内';
+      } else {
+        status = 'todo';
+        label = '待称重';
+        detail = `第 +${d} 天 · 鸟龄 ${currentAge} 天`;
+      }
+      const stageName = stageLabel(getStage(currentAge, nestlingEnd, juvenileEnd));
+      html += `<div class="tl-row">
+        <div class="tl-dot ${status}" aria-hidden="true">${d === 0 ? '今' : d}</div>
+        <div class="tl-content">
+          <div class="tl-day">${label} <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);">间隔${interval}天 · ${stageName}</span></div>
+          <div class="tl-detail">${detail}</div>
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('timeline-wrap').innerHTML = html;
+}
+
+function computeEWMA(weights) {
+  const alpha = 0.3;
+  let ewma = weights[0];
+  for(let i=1;i<weights.length;i++) ewma = alpha*weights[i] + (1-alpha)*ewma;
+  return ewma;
+}
+
+function buildWeightInputs() {
+  let html = '';
+  const max = Math.max(...weightData);
+  for(let i=0;i<10;i++) {
+    const w = weightData[i];
+    const pct = max > 0 ? (w/max*100).toFixed(1) : 0;
+    const barColor = '#378ADD';
+    html += `<div class="wt-row">
+      <span class="wt-day-label" style="font-size:11px;color:var(--color-text-secondary);">记录 ${i+1}</span>
+      <input type="number" min="0" max="5000" value="${w}" id="wt${i}" oninput="updateWeight(${i})" aria-label="记录${i+1}体重">
+      <div class="wt-bar-wrap"><div class="wt-bar" id="bar${i}" style="width:${pct}%;background:${barColor};"></div></div>
+    </div>`;
+  }
+  document.getElementById('weight-inputs').innerHTML = html;
+}
+
+function updateWeight(idx) {
+  weightData[idx] = +document.getElementById('wt'+idx).value || 0;
+  const max = Math.max(...weightData);
+  for(let i=0;i<10;i++) {
+    const pct = max > 0 ? (weightData[i]/max*100).toFixed(1) : 0;
+    const bar = document.getElementById('bar'+i);
+    if(bar) bar.style.width = pct+'%';
+  }
+  runAlert();
+  renderWeightChart();
+}
+
+function generateSampleWeights() {
+  const base = 100 + Math.random()*200;
+  const stage = document.getElementById('alertAge').value;
+  const trend = stage < 45 ? 1.03 : (stage < 120 ? 1.01 : 0.995);
+  weightData = [];
+  let cur = base;
+  for(let i=0;i<10;i++) {
+    cur = cur * trend * (0.97 + Math.random()*0.06);
+    weightData.push(Math.round(cur));
+  }
+  buildWeightInputs();
+  runAlert();
+  renderWeightChart();
+}
+
+function renderWeightChart() {
+  const ctx = document.getElementById('weightChart');
+  if(!ctx) return;
+  const ewma = computeEWMA(weightData);
+  const baselineVal = +document.getElementById('manualBaseline').value;
+  const baseline = baselineVal > 0 ? baselineVal : ewma;
+
+  if(weightChart) weightChart.destroy();
+  weightChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: weightData.map((_,i)=>`记录${i+1}`),
+      datasets: [
+        {
+          label: '体重(g)', data: weightData,
+          borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.08)',
+          tension: 0.3, pointRadius: 4, fill: true, borderWidth: 1.5
+        },
+        {
+          label: 'EWMA基线', data: Array(10).fill(Math.round(ewma)),
+          borderColor: '#1D9E75', borderDash: [4,3], pointRadius: 0, borderWidth: 1, fill: false
+        },
+        ...(baselineVal > 0 ? [{
+          label: '手动基线', data: Array(10).fill(baselineVal),
+          borderColor: '#BA7517', borderDash: [2,4], pointRadius: 0, borderWidth: 1, fill: false
+        }] : [])
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: false, ticks: { font: { size: 11 } } },
+        x: { ticks: { font: { size: 11 }, maxRotation: 0 } }
+      }
+    }
+  });
+}
+
+function runAlert() {
+  const weights = [...weightData];
+  const ageDays = +document.getElementById('alertAge').value;
+  const manualBaseline = +document.getElementById('manualBaseline').value;
+  const warnThresh = +document.getElementById('warnThresh').value / 100;
+  const dangerThresh = +document.getElementById('dangerThresh').value / 100;
+  const weaningEnd = +document.getElementById('weaningEnd').value;
+
+  const latest = weights[weights.length-1];
+  const prev = weights[weights.length-2];
+  const ewma = computeEWMA(weights);
+  const baseline = manualBaseline > 0 ? manualBaseline : ewma;
+  const deviation = Math.abs(latest - baseline) / baseline;
+  const isWeaning = ageDays <= weaningEnd;
+  const isNestling = ageDays <= 45;
+  const peakWeight = Math.max(...weights);
+
+  let alerts = [];
+
+  if(isWeaning) {
+    const dropFromPeak = (peakWeight - latest) / peakWeight;
+    if(dropFromPeak > dangerThresh) {
+      alerts.push({sev:'danger', title:'断奶期体重下降 — 危险', desc:`从峰值${peakWeight}g下降${(dropFromPeak*100).toFixed(1)}%，超过危险阈值${(dangerThresh*100)}%`});
+    } else if(dropFromPeak > warnThresh) {
+      alerts.push({sev:'warn', title:'断奶期体重下降 — 警告', desc:`从峰值${peakWeight}g下降${(dropFromPeak*100).toFixed(1)}%，超过警告阈值${(warnThresh*100)}%`});
+    }
+  } else if(isNestling) {
+    if(weights.length >= 2) {
+      const change48h = (latest - prev) / prev;
+      if(change48h < 0) {
+        alerts.push({sev:'danger', title:'雏鸟体重下降', desc:`最近一次(${latest}g) < 前一次(${prev}g)，变化率${(change48h*100).toFixed(1)}%`});
+      }
+    } else {
+      alerts.push({sev:'warn', title:'雏鸟数据不足', desc:'仅有1条记录，无法计算48h变化率，返回 false（视为正常）'});
+    }
+  } else {
+    if(deviation > dangerThresh) {
+      alerts.push({sev:'danger', title:'基线偏差 — 危险', desc:`偏差${(deviation*100).toFixed(1)}%，超过${(dangerThresh*100)}%阈值。基线: ${Math.round(baseline)}g，最新: ${latest}g`});
+    } else if(deviation > warnThresh) {
+      alerts.push({sev:'warn', title:'基线偏差 — 警告', desc:`偏差${(deviation*100).toFixed(1)}%，超过${(warnThresh*100)}%阈值`});
+    }
+    const trend3 = weights.slice(-3);
+    if(trend3.length === 3 && trend3[2] < trend3[1] && trend3[1] < trend3[0]) {
+      alerts.push({sev:'warn', title:'连续3次体重下降趋势', desc:`${trend3[0]}g → ${trend3[1]}g → ${trend3[2]}g`});
+    }
+  }
+
+  if(alerts.length === 0) {
+    document.getElementById('alert-results').innerHTML = `
+      <div class="ok-box">
+        <div class="ok-title"><i class="ti ti-circle-check" aria-hidden="true"></i> 无异常告警</div>
+        <div class="ok-desc">当前体重序列在正常范围内（偏差${(deviation*100).toFixed(1)}%，基线${Math.round(baseline)}g）</div>
+      </div>
+      <div class="result-row" style="margin-top:12px;">
+        <span class="result-key">EWMA基线</span><span class="result-val">${Math.round(ewma)} g</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">isLatestAbnormal</span><span class="result-val"><span class="badge badge-success">false</span></span>
+      </div>`;
+  } else {
+    const isAbnormal = alerts.some(a => a.sev === 'danger') || (isNestling && latest < prev);
+    document.getElementById('alert-results').innerHTML =
+      alerts.map(a => `<div class="alert-item ${a.sev}">
+        <i class="ti ${a.sev==='danger'?'ti-alert-circle':'ti-alert-triangle'} alert-icon" aria-hidden="true" style="color:var(--color-text-${a.sev==='danger'?'danger':'warning'})"></i>
+        <div class="alert-text">
+          <div class="alert-title">${a.title}</div>
+          <div class="alert-desc">${a.desc}</div>
+        </div>
+      </div>`).join('') +
+      `<div class="result-row" style="margin-top:8px;">
+        <span class="result-key">isLatestAbnormal</span>
+        <span class="result-val"><span class="badge ${isAbnormal?'badge-danger':'badge-warning'}">${isAbnormal?'true — 红标':'部分异常'}</span></span>
+      </div>`;
+  }
+
+  renderWeightChart();
+}
+
+function runReg1() {
+  const age = +document.getElementById('reg1Age').value;
+  const nestlingEnd = 45, juvenileEnd = 120;
+  const nestlingInt = 1, juvenileInt = 3, adultInt = 7;
+
+  const stageTask = getStage(age, nestlingEnd, juvenileEnd);
+  const intervalTask = getInterval(age, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, 0);
+  const stageAlert = getStage(age, nestlingEnd, juvenileEnd);
+  const intervalAlert = getInterval(age, nestlingEnd, juvenileEnd, nestlingInt, juvenileInt, adultInt, 0);
+
+  const consistent = stageTask === stageAlert && intervalTask === intervalAlert;
+  const isBoundary = age === nestlingEnd || age === juvenileEnd;
+
+  document.getElementById('reg1-result').innerHTML = `
+    <div class="grid-2" style="margin-top:12px;gap:12px;">
+      <div style="font-size:12px;">
+        <div style="color:var(--color-text-secondary);margin-bottom:4px;">generateTodayTasks</div>
+        <div>阶段：<strong>${stageLabel(stageTask)}</strong>，间隔：<strong>${intervalTask}天</strong></div>
+      </div>
+      <div style="font-size:12px;">
+        <div style="color:var(--color-text-secondary);margin-bottom:4px;">AlertService._effectiveInterval</div>
+        <div>阶段：<strong>${stageLabel(stageAlert)}</strong>，间隔：<strong>${intervalAlert}天</strong></div>
+      </div>
+    </div>
+    ${consistent
+      ? `<div class="ok-box" style="margin-top:10px;"><div class="ok-title"><i class="ti ti-circle-check" aria-hidden="true"></i> 判定一致${isBoundary?' — 边界日验证通过':''}</div></div>`
+      : `<div class="conflict-box" style="margin-top:10px;"><div class="conflict-title"><i class="ti ti-alert-circle" aria-hidden="true"></i> 判定分叉</div><div class="conflict-desc">两套逻辑对鸟龄第${age}天的判断不一致，存在维护风险。</div></div>`
+    }
+    ${isBoundary ? `<div style="margin-top:8px;font-size:11px;color:var(--color-text-secondary);">⚠ 当前为边界日（第${age}天），若共享函数参数取值时机不同（早一天 vs 晚一天），仍可能分叉。</div>` : ''}
+  `;
+}
+
+function runReg3() {
+  const storage = document.getElementById('reg3Storage').value;
+  const compare = document.getElementById('reg3Compare').value;
+
+  const scenarios = [
+    { time: '23:50 本地 / 15:50 UTC', localDate: '2024-01-15', utcDate: '2024-01-14' },
+    { time: '00:10 本地 / 16:10 UTC', localDate: '2024-01-16', utcDate: '2024-01-15' },
+  ];
+
+  let hasRisk = false;
+  let html = '<div style="margin-top:10px;">';
+  scenarios.forEach(s => {
+    let storedDay;
+    if(storage === 'utc') storedDay = s.utcDate;
+    else if(storage === 'local') storedDay = s.localDate;
+    else storedDay = '1705334400';
+
+    let compareDay = compare === 'utc' ? s.utcDate : s.localDate;
+    let match = storedDay === compareDay || storage === 'epoch';
+    if(storage === 'epoch') match = true;
+    const risk = !match;
+    if(risk) hasRisk = true;
+    html += `<div class="result-row">
+      <span class="result-key" style="font-size:11px;">${s.time}</span>
+      <span class="result-val"><span class="badge ${risk?'badge-danger':'badge-success'}">${risk?'时区错位':'对齐'}</span></span>
+    </div>`;
+  });
+  html += '</div>';
+
+  html += hasRisk
+    ? `<div class="conflict-box" style="margin-top:8px;"><div class="conflict-title">存在跨天竞态风险</div><div class="conflict-desc">存储格式(${storage})与比较逻辑(${compare})在UTC+8环境下23:00~01:00窗口期会产生日期不一致，导致任务跳过生成。建议统一使用本地日期字符串存储与比较。</div></div>`
+    : `<div class="ok-box" style="margin-top:8px;"><div class="ok-title">存储与比较对齐，无竞态风险</div></div>`;
+
+  document.getElementById('reg3-result').innerHTML = html;
+}
+
+function runReg5() {
+  const globalCount = +document.getElementById('reg5Global').value;
+  const birdId = +document.getElementById('reg5BirdId').value;
+
+  const globalAlerts = Array.from({length:globalCount},(_,i)=>({birdId: i+1, type:'overdue'}));
+  const birdExistsInGlobal = globalAlerts.some(a=>a.birdId===birdId);
+  const localResult = [{birdId, type:'deviation', sev:'warning'}];
+  const mergedReplace = localResult;
+  const mergedAppend = [...globalAlerts.filter(a=>a.birdId!==birdId), ...localResult];
+
+  document.getElementById('reg5-result').innerHTML = `
+    <div style="margin-top:10px;font-size:12px;">
+      <div class="result-row"><span class="result-key">全局列表条目数</span><span class="result-val">${globalCount}</span></div>
+      <div class="result-row"><span class="result-key">目标鸟ID=${birdId}已在全局列表</span><span class="result-val"><span class="badge ${birdExistsInGlobal?'badge-warning':'badge-neutral'}">${birdExistsInGlobal?'是':'否'}</span></span></div>
+      <div class="result-row"><span class="result-key">替换策略 — 合并后条目数</span><span class="result-val ${mergedReplace.length < globalCount ? 'badge-danger':''}">${mergedReplace.length} <span style="font-size:10px;color:var(--color-text-danger)">${mergedReplace.length < globalCount?'⚠ 丢失其他鸟的告警':''}</span></span></div>
+      <div class="result-row"><span class="result-key">增量合并策略 — 合并后条目数</span><span class="result-val">${mergedAppend.length}</span></div>
+    </div>
+    ${mergedReplace.length < globalCount
+      ? `<div class="conflict-box"><div class="conflict-title">替换策略有风险</div><div class="conflict-desc">局部计算结果直接替换全局列表，会丢失${globalCount - mergedReplace.length}条其他鸟的告警。必须使用增量合并策略，以birdId为键去重后追加。</div></div>`
+      : `<div class="ok-box"><div class="ok-title">无其他鸟的告警，两种策略等价</div></div>`
+    }
+  `;
+}
+
+function renderReg9() {
+  const weightsOne = [135];
+  const weightsTwo = [130, 135];
+  const weights48Latest = [128, 132, 130, 135];
+  const weights48Today = [128, 132, 130, 120];
+
+  document.getElementById('reg9-one').innerHTML = `
+    <div class="card" style="padding:10px 12px;">
+      <div style="font-size:12px;">仅1条记录：${weightsOne[0]}g</div>
+      <div class="result-row" style="margin-top:4px;">
+        <span class="result-key">48h变化率</span>
+        <span class="result-val"><span class="badge badge-neutral">无法计算</span></span>
+      </div>
+      <div class="ok-box" style="margin-top:8px;"><div class="ok-title">返回 false（正常）</div><div class="ok-desc">防止索引越界和误报，边界case已处理</div></div>
+    </div>`;
+
+  const change48L = ((weights48Latest[weights48Latest.length-1] - weights48Latest[weights48Latest.length-2]) / weights48Latest[weights48Latest.length-2] * 100).toFixed(1);
+  document.getElementById('reg9-latest').innerHTML = `
+    <div class="card" style="padding:10px 12px;">
+      <div style="font-size:12px;">序列：${weights48Latest.join(' → ')}g</div>
+      <div class="result-row"><span class="result-key">变化率</span><span class="result-val">${change48L}%</span></div>
+      <div class="ok-box" style="margin-top:8px;"><div class="ok-title">${change48L > 0 ? '正常增长' : '下降告警'}</div><div class="ok-desc">以最新记录时间-48h为窗口起点</div></div>
+    </div>`;
+
+  const change48T = ((weights48Today[weights48Today.length-1] - weights48Today[weights48Today.length-2]) / weights48Today[weights48Today.length-2] * 100).toFixed(1);
+  document.getElementById('reg9-today').innerHTML = `
+    <div class="card" style="padding:10px 12px;">
+      <div style="font-size:12px;">若补录数据：${weights48Today.join(' → ')}g</div>
+      <div class="result-row"><span class="result-key">变化率</span><span class="result-val">${change48T}%</span></div>
+      <div class="${change48T < 0 ? 'conflict-box':'ok-box'}" style="margin-top:8px;"><div class="${change48T<0?'conflict-title':'ok-title'}">${change48T < -5 ? '⚠ 下降告警 — 补录时起点定义影响结果' : '正常'}</div><div class="${change48T<0?'conflict-desc':'ok-desc'}">以今天为基准的48h窗口，可能错误纳入非连续数据点</div></div>
+    </div>`;
+}
+
+buildWeightInputs();
+runTask();
+runAlert();
+</script>

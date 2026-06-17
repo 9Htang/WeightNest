@@ -42,6 +42,7 @@ class WeighGridState {
   final Weight? lastWeigh;
   final int todayCompleted;
   final Set<int> abnormalBirdIds; // 上次称重异常的鸟 ID 集合
+  final Set<int> weaningBirdIds; // 处于断奶期的鸟 ID 集合
   final Map<int, Weight?> latestWeights; // 每只鸟的最新体重
 
   const WeighGridState({
@@ -55,6 +56,7 @@ class WeighGridState {
     this.lastWeigh,
     this.todayCompleted = 0,
     this.abnormalBirdIds = const {},
+    this.weaningBirdIds = const {},
     this.latestWeights = const {},
   });
 
@@ -69,6 +71,7 @@ class WeighGridState {
     Weight? lastWeigh,
     int? todayCompleted,
     Set<int>? abnormalBirdIds,
+    Set<int>? weaningBirdIds,
     Map<int, Weight?>? latestWeights,
     bool clearSelected = false,
     bool clearLastWeigh = false,
@@ -84,6 +87,7 @@ class WeighGridState {
         lastWeigh: clearLastWeigh ? null : (lastWeigh ?? this.lastWeigh),
         todayCompleted: todayCompleted ?? this.todayCompleted,
         abnormalBirdIds: abnormalBirdIds ?? this.abnormalBirdIds,
+        weaningBirdIds: weaningBirdIds ?? this.weaningBirdIds,
         latestWeights: latestWeights ?? this.latestWeights,
       );
 }
@@ -183,8 +187,9 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     state = state.copyWith(columns: columns, birdOrder: birdOrder);
 
-    // 3. 计算哪些鸟上次称重异常
+    // 3. 计算哪些鸟上次称重异常 + 断奶期检测
     final abnormalIds = <int>{};
+    final weaningIds = <int>{};
     final cutoff = DateTime.now().subtract(const Duration(days: 90));
     for (final bird in allBirds) {
       final weights = await _db.getByBirdInRange(
@@ -195,9 +200,12 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
       if (weights.isNotEmpty && AlertService.isLatestAbnormal(bird, weights)) {
         abnormalIds.add(bird.bird.id);
       }
+      if (AlertService.isWeaningPhase(bird, weights)) {
+        weaningIds.add(bird.bird.id);
+      }
     }
 
-    state = state.copyWith(abnormalBirdIds: abnormalIds);
+    state = state.copyWith(abnormalBirdIds: abnormalIds, weaningBirdIds: weaningIds);
 
     // 3.5 批量加载最新体重
     if (birdOrder.isNotEmpty) {
