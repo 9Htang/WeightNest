@@ -6,7 +6,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Enclosures, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, MedicationLogs],
+  tables: [Species, Users, Rooms, Enclosures, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, BreedingPairs, BreedingRecords, Eggs, MatingEvents],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -34,7 +34,6 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             // v4 → v5: medication tracking tables
             await m.createTable(medications);
-            await m.createTable(medicationLogs);
           }
           if (from < 6) {
             // v5 → v6: enclosures (containers within rooms)
@@ -45,6 +44,23 @@ class AppDatabase extends _$AppDatabase {
             // v6 → v7: baseline weight + weaning override
             await m.addColumn(birds, birds.manualBaselineG);
             await m.addColumn(birds, birds.weaningOverride);
+          }
+          if (from < 8) {
+            // v7 → v8: breeding plugin tables
+            await m.createTable(breedingPairs);
+            await m.createTable(breedingRecords);
+            await m.createTable(eggs);
+            await m.createTable(matingEvents);
+          }
+          if (from < 9) {
+            // v8 → v9: tasks.taskType + metadata; drop medicationLogs
+            await m.addColumn(tasks, tasks.taskType);
+            await m.addColumn(tasks, tasks.metadata);
+            await m.deleteTable('medication_logs');
+          }
+          if (from < 10) {
+            // v9 → v10: alert_records.severity
+            await m.addColumn(alertRecords, alertRecords.severity);
           }
         },
       );

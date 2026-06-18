@@ -80,7 +80,21 @@ abstract class FeaturePlugin {
 
   /// Detect anomalies contributed by this plugin.
   /// Called by AlertService.detectAll() — aggregated across all enabled plugins.
-  Future<List<PluginAlert>> detectAlerts(AppDatabase db) async => [];
+  /// [birdId] optionally limits detection to a single bird; null = scan all.
+  Future<List<PluginAlert>> detectAlerts(AppDatabase db, {int? birdId}) async => [];
+
+  // ── Slot G: 任务派发 ──
+
+  /// Detect tasks contributed by this plugin.
+  /// Called by TaskRepository.generateTodayTasks() — aggregated across all enabled plugins.
+  ///
+  /// A plugin may return multiple descriptors per bird (e.g. medication 3× daily).
+  /// Deduplication is handled by TaskRepository using (birdId, taskType, dueDate).
+  ///
+  /// If [birdId] is provided, only return descriptors for that bird (used for
+  /// event-driven task generation, e.g. after a new bird is created).
+  /// If null, scan all birds (used for daily batch generation).
+  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async => [];
 
   /// Register event handlers — subscribe to domain events from other plugins.
   void registerEvents(EventBus bus) {}
@@ -242,5 +256,28 @@ class PluginAlert {
     required this.type,
     required this.description,
     this.severity = AlertSeverity.warning,
+  });
+}
+
+// ── Task descriptors ──
+
+/// A task descriptor contributed by a plugin's [FeaturePlugin.detectTasks].
+///
+/// Multiple descriptors with the same [birdId] and [taskType] are allowed
+/// (e.g. medication 3× daily with different [dueDate] times).
+/// Deduplication is by (birdId, taskType, dueDate).
+class PluginTaskDescriptor {
+  final int birdId;
+  final String taskType;
+  final DateTime dueDate;
+  final String label;
+  final Map<String, String>? metadata;
+
+  const PluginTaskDescriptor({
+    required this.birdId,
+    required this.taskType,
+    required this.dueDate,
+    required this.label,
+    this.metadata,
   });
 }

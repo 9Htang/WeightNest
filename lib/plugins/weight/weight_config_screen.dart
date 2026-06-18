@@ -185,7 +185,7 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
     final juvenileCtrl = TextEditingController(text: '${species.juvenileWeighIntervalDays}');
     final adultCtrl = TextEditingController(text: '${species.adultWeighIntervalDays}');
 
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('${species.name} — 称重间隔'),
@@ -220,12 +220,7 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              nestlingCtrl.dispose();
-              juvenileCtrl.dispose();
-              adultCtrl.dispose();
-              Navigator.pop(ctx);
-            },
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('取消'),
           ),
           FilledButton(
@@ -237,17 +232,22 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
                 juvenileWeighIntervalDays: int.tryParse(juvenileCtrl.text),
                 adultWeighIntervalDays: int.tryParse(adultCtrl.text),
               );
-              nestlingCtrl.dispose();
-              juvenileCtrl.dispose();
-              adultCtrl.dispose();
-              ref.invalidate(allSpeciesProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx, true);
             },
             child: const Text('保存'),
           ),
         ],
       ),
-    );
+    ).then((saved) {
+      nestlingCtrl.dispose();
+      juvenileCtrl.dispose();
+      adultCtrl.dispose();
+      if (saved == true && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) ref.invalidate(allSpeciesProvider);
+        });
+      }
+    });
   }
 }
 

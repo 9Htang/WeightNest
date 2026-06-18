@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../core/plugin_registry.dart';
 import '../utils/uuid.dart';
 import 'bird_repository.dart';
 
@@ -89,13 +91,27 @@ extension TaskRepository on AppDatabase {
   static bool _generating = false;
   static DateTime? _lastGeneratedDay;
 
-  /// Remove duplicate tasks (same bird + same dueDate) keeping only the first.
+  /// Mark all past-due pending tasks as 逾期.
+  /// Called on every [generateTodayTasks] invocation, before the same-day guard,
+  /// so overdue marking always runs regardless of whether generation is skipped.
+  Future<void> _markOverdueTasks(DateTime dayStart) async {
+    await (update(tasks)
+          ..where((t) =>
+              t.dueDate.isSmallerThanValue(dayStart) &
+              t.status.equals('待完成')))
+        .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
+  }
+
+  /// Remove duplicate tasks (same bird + same taskType + same dueDate) keeping only the first.
   Future<void> cleanupDuplicateTasks() async {
     final allTasks = await (select(tasks)).get();
     final grouped = <String, List<Task>>{};
     for (final t in allTasks) {
-      final date = DateTime(t.dueDate.year, t.dueDate.month, t.dueDate.day);
-      final key = '${t.birdId}_${date.toIso8601String()}';
+      // Weigh tasks dedup by date only (dueDate should be midnight);
+      // medication tasks keep full timestamp — different time slots on the same day are legitimate.
+      final key = t.taskType == 'weigh'
+          ? '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String().substring(0, 10)}'
+          : '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String()}';
       grouped.putIfAbsent(key, () => []).add(t);
     }
     for (final entry in grouped.entries) {
@@ -110,9 +126,12 @@ extension TaskRepository on AppDatabase {
     }
   }
 
-  /// Generate today's weigh tasks based on per-bird interval and last weigh date.
+  /// Generate today's tasks by aggregating [FeaturePlugin.detectTasks] from all
+  /// enabled plugins. Each plugin contributes zero or more [PluginTaskDescriptor]s;
+  /// deduplication is by (birdId, taskType, dueDate).
+  ///
   /// Set [force] to true to skip existing-task guards and always create tasks.
-  /// Returns number of newly generated tasks.
+  /// Returns total number of patched + upgraded + newly generated tasks.
   Future<int> generateTodayTasks({bool force = false}) async {
     if (_generating) {
       debugPrint('[TaskGen] already generating, skip');
@@ -130,6 +149,9 @@ extension TaskRepository on AppDatabase {
       _lastGeneratedDay = null;
     }
 
+    // 逾期标记始终执行，不依赖同日守卫
+    await _markOverdueTasks(dayStart);
+
     // 同一天已生成过任务则跳过（force=true 或跨天时重新生成）
     if (!force && _lastGeneratedDay != null && _lastGeneratedDay!.isAtSameMomentAs(dayStart)) {
       debugPrint('[TaskGen] same-day guard, skip (lastGenerated=$_lastGeneratedDay)');
@@ -141,146 +163,103 @@ extension TaskRepository on AppDatabase {
       await cleanupDuplicateTasks();
       final dayEnd = dayStart.add(const Duration(days: 1));
 
-      // If not forced, check existing tasks and patch missing assignments
+      // Query existing tasks for today and build dedup key set.
+      // Key = birdId_taskType_dueDateIso — allows multiple tasks per bird
+      // (different types or different times of day for medication).
+      var existingKeys = <String>{};
       if (!force) {
         final existingTasks = await (select(tasks)
               ..where((t) => t.dueDate.isBiggerOrEqualValue(dayStart) &
                   t.dueDate.isSmallerThanValue(dayEnd)))
             .get();
 
+        existingKeys = existingTasks
+            .map((t) => '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String()}')
+            .toSet();
         debugPrint('[TaskGen] existing tasks today: ${existingTasks.length}');
-        if (existingTasks.isNotEmpty) {
-          int patched = 0;
-          int upgraded = 0;
-          for (final task in existingTasks) {
-            // Patch missing assignedUserId
-            if (task.assignedUserId == null) {
-              final bird = await (select(birds)..where((b) => b.id.equals(task.birdId))).getSingleOrNull();
-              if (bird != null && bird.roomId != null) {
-                final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
-                if (room?.assignedUserId != null) {
-                  await (update(tasks)..where((t) => t.id.equals(task.id)))
-                      .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(DateTime.now())));
-                  patched++;
-                }
-              }
-            }
-            // Upgrade pending task to completed if bird was weighed today
-            if (task.status == '待完成') {
-              final lastWeigh = await (select(weights)
-                    ..where((w) => w.birdId.equals(task.birdId) &
-                        w.recordedAt.isBiggerOrEqualValue(dayStart) &
-                        w.recordedAt.isSmallerThanValue(dayEnd))
-                    ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
-                    ..limit(1))
-                  .getSingleOrNull();
-              if (lastWeigh != null) {
+
+        // Patch / upgrade existing tasks
+        int patched = 0;
+        int upgraded = 0;
+        for (final task in existingTasks) {
+          // Patch missing assignedUserId
+          if (task.assignedUserId == null) {
+            final bird = await (select(birds)..where((b) => b.id.equals(task.birdId))).getSingleOrNull();
+            if (bird != null && bird.roomId != null) {
+              final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
+              if (room?.assignedUserId != null) {
                 await (update(tasks)..where((t) => t.id.equals(task.id)))
-                    .write(TasksCompanion(
-                  status: const Value('已完成'),
-                  completedAt: Value(lastWeigh.recordedAt),
-                  completedBy: Value(lastWeigh.recordedBy),
-                  updatedAt: Value(DateTime.now()),
-                ));
-                upgraded++;
+                    .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(DateTime.now())));
+                patched++;
               }
             }
           }
-          debugPrint('[TaskGen] existing tasks found, patched=$patched upgraded=$upgraded, skip generation');
-          return patched + upgraded;
-        }
-      }
-
-      int generated = 0;
-      final allBirds = await (select(birds).join([
-        innerJoin(species, species.id.equalsExp(birds.speciesId)),
-        leftOuterJoin(rooms, rooms.id.equalsExp(birds.roomId)),
-      ])).get();
-
-      debugPrint('[TaskGen] total birds with species: ${allBirds.length}');
-
-      for (final row in allBirds) {
-        final bird = row.readTable(birds);
-        final sp = row.readTable(species);
-        final room = row.readTableOrNull(rooms);
-        final ageDays = today.difference(bird.birthDate).inDays;
-
-        final intervalDays = computeEffectiveWeighInterval(
-          birdOverrideDays: bird.weighIntervalDays,
-          species: sp,
-          ageDays: ageDays,
-        );
-        final stage = bird.weighIntervalDays != null ? 'manual' :
-            ageDays <= sp.nestlingEndDays ? 'nestling' :
-            ageDays <= sp.juvenileEndDays ? 'juvenile' : 'adult';
-
-        if (intervalDays <= 0) {
-          debugPrint('[TaskGen]   ${bird.name}: interval=$intervalDays, skip');
-          continue;
-        }
-
-        // Check last weigh date — create task if it's been >= intervalDays
-        final lastWeighList = await (select(weights)
-              ..where((w) => w.birdId.equals(bird.id))
-              ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
-              ..limit(1))
-            .get();
-        final lastWeigh = lastWeighList.isNotEmpty ? lastWeighList.first : null;
-
-        final daysSinceLast = lastWeigh == null ? null
-            : today.difference(lastWeigh.recordedAt).inDays;
-        final needsTask = lastWeigh == null ||
-            daysSinceLast! >= intervalDays;
-
-        if (!needsTask) {
-          await into(tasks).insert(TasksCompanion.insert(
-            uuid: genUuid(),
-            birdId: bird.id,
-            roomId: Value(bird.roomId),
-            assignedUserId: Value(room?.assignedUserId),
-            dueDate: today,
-            status: const Value('已完成'),
-            completedAt: Value(lastWeigh.recordedAt),
-            completedBy: Value(lastWeigh.recordedBy),
-          ));
-          generated++;
-          debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) weighed today -> completed task');
-          continue;
-        }
-
-        // Check no existing task for this bird today (skip when forcing)
-        if (!force) {
-          final existingTaskList = await (select(tasks)
-                ..where((t) =>
-                    t.birdId.equals(bird.id) &
-                    t.dueDate.isBiggerOrEqualValue(dayStart) &
-                    t.dueDate.isSmallerThanValue(dayEnd))
-                ..limit(1))
-              .get();
-          if (existingTaskList.isNotEmpty) {
-            debugPrint('[TaskGen]   ${bird.name}: already has task for today, skip');
-            continue;
+          // Upgrade pending weigh task to completed if bird was weighed today
+          if (task.status == '待完成' && task.taskType == 'weigh') {
+            final lastWeigh = await (select(weights)
+                  ..where((w) => w.birdId.equals(task.birdId) &
+                      w.recordedAt.isBiggerOrEqualValue(dayStart) &
+                      w.recordedAt.isSmallerThanValue(dayEnd))
+                  ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+                  ..limit(1))
+                .getSingleOrNull();
+            if (lastWeigh != null) {
+              await (update(tasks)..where((t) => t.id.equals(task.id)))
+                  .write(TasksCompanion(
+                status: const Value('已完成'),
+                completedAt: Value(lastWeigh.recordedAt),
+                completedBy: Value(lastWeigh.recordedBy),
+                updatedAt: Value(DateTime.now()),
+              ));
+              upgraded++;
+            }
           }
         }
-
-        await into(tasks).insert(TasksCompanion.insert(
-          uuid: genUuid(),
-          birdId: bird.id,
-          roomId: Value(bird.roomId),
-          assignedUserId: Value(room?.assignedUserId),
-          dueDate: today,
-          status: const Value('待完成'),
-        ));
-        generated++;
-        debugPrint('[TaskGen]   ${bird.name} ($stage interval=$intervalDays d) -> task created');
+        if (patched > 0 || upgraded > 0) {
+          debugPrint('[TaskGen] patched=$patched upgraded=$upgraded');
+        }
       }
 
-      // Mark overdue
-      await (update(tasks)
-            ..where((t) =>
-                t.dueDate.isSmallerThanValue(dayStart) &
-                t.status.equals('待完成')))
-          .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
+      // ── Plugin-driven task generation ──
+      int generated = 0;
+      for (final plugin in pluginRegistry.enabledPlugins) {
+        try {
+          final descriptors = await plugin.detectTasks(this);
+          if (descriptors.isEmpty) continue;
+          debugPrint('[TaskGen] plugin ${plugin.id}: ${descriptors.length} task descriptors');
+
+          for (final d in descriptors) {
+            final key = '${d.birdId}_${d.taskType}_${d.dueDate.toIso8601String()}';
+            if (existingKeys.contains(key)) {
+              continue;
+            }
+
+            // Resolve bird and room for assignee
+            final bird = await (select(birds)..where((b) => b.id.equals(d.birdId))).getSingleOrNull();
+            if (bird == null) continue;
+            int? assignedUserId;
+            if (bird.roomId != null) {
+              final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
+              assignedUserId = room?.assignedUserId;
+            }
+
+            await into(tasks).insert(TasksCompanion.insert(
+              uuid: genUuid(),
+              birdId: d.birdId,
+              roomId: Value(bird.roomId),
+              assignedUserId: Value(assignedUserId),
+              taskType: Value(d.taskType),
+              dueDate: d.dueDate,
+              status: const Value('待完成'),
+              metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
+            ));
+            existingKeys.add(key); // prevent intra-run duplicates
+            generated++;
+          }
+        } catch (e) {
+          debugPrint('[TaskGen] plugin ${plugin.id} detectTasks failed: $e');
+        }
+      }
 
       debugPrint('[TaskGen] done — generated=$generated');
       return generated;
@@ -293,32 +272,67 @@ extension TaskRepository on AppDatabase {
     }
   }
 
-  /// Publish weigh tasks for specific birds unconditionally (admin override)
-  Future<int> publishTasksForBirds(List<int> birdIds) async {
+  /// Generate tasks for a specific bird by aggregating [FeaturePlugin.detectTasks]
+  /// from all enabled plugins. Each plugin is asked to produce tasks for the given
+  /// bird, and results are deduplicated against existing tasks for today.
+  ///
+  /// Returns the number of newly generated tasks.
+  Future<int> generateTasksForBird(int birdId) async {
     final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    // Build dedup key set from existing tasks for this bird today
+    final existingTasks = await (select(tasks)
+          ..where((t) => t.birdId.equals(birdId) &
+              t.dueDate.isBiggerOrEqualValue(dayStart) &
+              t.dueDate.isSmallerThanValue(dayEnd)))
+        .get();
+    final existingKeys = existingTasks
+        .map((t) => '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String()}')
+        .toSet();
+
     int generated = 0;
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      try {
+        final descriptors = await plugin.detectTasks(this, birdId: birdId);
+        if (descriptors.isEmpty) continue;
 
-    for (final birdId in birdIds) {
-      final bird = await (select(birds)..where((b) => b.id.equals(birdId))).getSingleOrNull();
-      if (bird == null) continue;
+        for (final d in descriptors) {
+          // Guard: only create tasks for the requested bird
+          if (d.birdId != birdId) continue;
 
-      // Get room assignment
-      int? assignedUserId;
-      if (bird.roomId != null) {
-        final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
-        assignedUserId = room?.assignedUserId;
+          final key = '${d.birdId}_${d.taskType}_${d.dueDate.toIso8601String()}';
+          if (existingKeys.contains(key)) continue;
+
+          // Resolve bird and room for assignee
+          final bird = await (select(birds)..where((b) => b.id.equals(d.birdId))).getSingleOrNull();
+          if (bird == null) continue;
+          int? assignedUserId;
+          if (bird.roomId != null) {
+            final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
+            assignedUserId = room?.assignedUserId;
+          }
+
+          await into(tasks).insert(TasksCompanion.insert(
+            uuid: genUuid(),
+            birdId: d.birdId,
+            roomId: Value(bird.roomId),
+            assignedUserId: Value(assignedUserId),
+            taskType: Value(d.taskType),
+            dueDate: d.dueDate,
+            status: const Value('待完成'),
+            metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
+          ));
+          existingKeys.add(key);
+          generated++;
+        }
+      } catch (e) {
+        debugPrint('[TaskGen] plugin ${plugin.id} detectTasks(birdId=$birdId) failed: $e');
       }
-
-      await into(tasks).insert(TasksCompanion.insert(
-        uuid: genUuid(),
-        birdId: bird.id,
-        roomId: Value(bird.roomId),
-        assignedUserId: Value(assignedUserId),
-        dueDate: today,
-        status: const Value('待完成'),
-      ));
-      generated++;
     }
+
+    debugPrint('[TaskGen] generateTasksForBird $birdId — generated=$generated');
     return generated;
   }
 

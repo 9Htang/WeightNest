@@ -93,7 +93,7 @@ extension BirdRepository on AppDatabase {
         .writeReturning(BirdsCompanion(
       name: name != null ? Value(name) : const Value.absent(),
       speciesId: speciesId != null ? Value(speciesId) : const Value.absent(),
-      roomId: roomId != null ? Value(roomId) : const Value.absent(),
+      roomId: Value(roomId),
       birthDate: birthDate != null ? Value(birthDate) : const Value.absent(),
       gender: gender != null ? Value(gender) : const Value.absent(),
       sortOrder: sortOrder != null ? Value(sortOrder) : const Value.absent(),
@@ -101,9 +101,9 @@ extension BirdRepository on AppDatabase {
       notes: notes != null ? Value(notes) : const Value.absent(),
       ringNumber: ringNumber != null ? Value(ringNumber) : const Value.absent(),
       weighIntervalDays: weighIntervalDays != null ? Value(weighIntervalDays) : const Value.absent(),
-      enclosureId: enclosureId != null ? Value(enclosureId) : const Value.absent(),
-      manualBaselineG: manualBaselineG != null ? Value(manualBaselineG) : const Value.absent(),
-      weaningOverride: weaningOverride != null ? Value(weaningOverride) : const Value.absent(),
+      enclosureId: Value(enclosureId),
+      manualBaselineG: Value(manualBaselineG),
+      weaningOverride: Value(weaningOverride),
       updatedAt: Value(DateTime.now()),
     ));
     return list.first;

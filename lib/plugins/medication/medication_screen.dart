@@ -14,7 +14,7 @@ class MedicationScreen extends StatefulWidget {
 
 class _MedicationScreenState extends State<MedicationScreen> {
   List<Medication> _plans = [];
-  List<MedicationLogData> _todayLogs = [];
+  List<MedTaskInfo> _todayLogs = [];
   bool _loading = true;
 
   @override
@@ -30,7 +30,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
         : <Medication>[];
     final logs = widget.birdId != null
         ? await db.getTodayLogs(widget.birdId!)
-        : <MedicationLogData>[];
+        : <MedTaskInfo>[];
     if (mounted) setState(() { _plans = plans; _todayLogs = logs; _loading = false; });
   }
 
@@ -88,8 +88,8 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
-  Widget _logCard(MedicationLogData d, ThemeData theme) {
-    final isLate = !d.isDone && !d.isSkipped && d.log.scheduledTime.isBefore(DateTime.now());
+  Widget _logCard(MedTaskInfo d, ThemeData theme) {
+    final isLate = !d.isDone && !d.isSkipped && d.task.dueDate.isBefore(DateTime.now());
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: d.isDone ? Colors.green.shade50
@@ -101,7 +101,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
           d.isDone ? Icons.check_circle : d.isSkipped ? Icons.cancel : Icons.access_time,
           color: d.isDone ? Colors.green : d.isSkipped ? Colors.grey : isLate ? Colors.red : Colors.orange,
         ),
-        title: Text('${d.medication.drugName} — ${d.medication.dosage}'),
+        title: Text('${d.drugName} — ${d.dosage}'),
         subtitle: Text('${d.timeLabel}  ·  ${d.statusLabel}${isLate ? "  ⚠️逾期" : ""}'),
         trailing: d.isDone || d.isSkipped ? null : Row(
           mainAxisSize: MainAxisSize.min,
@@ -110,7 +110,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
               icon: const Icon(Icons.check, color: Colors.green),
               tooltip: '已喂',
               onPressed: () async {
-                await widget.db.giveMedication(d.log.id);
+                await widget.db.giveMedication(d.task.id);
                 _load();
               },
             ),
@@ -118,7 +118,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
               icon: const Icon(Icons.close, color: Colors.grey),
               tooltip: '跳过',
               onPressed: () async {
-                await widget.db.skipMedication(d.log.id);
+                await widget.db.skipMedication(d.task.id);
                 _load();
               },
             ),

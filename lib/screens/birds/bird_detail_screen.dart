@@ -1,39 +1,73 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
-import '../../repositories/weight_repository.dart';
 import '../../repositories/enclosure_repository.dart';
+import '../../repositories/weight_repository.dart';
 import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
 
-class BirdDetailScreen extends ConsumerWidget {
+class BirdDetailScreen extends ConsumerStatefulWidget {
   final BirdWithDetails bird;
   final String? initialPluginId;
 
   const BirdDetailScreen({super.key, required this.bird, this.initialPluginId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BirdDetailScreen> createState() => _BirdDetailScreenState();
+}
+
+class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
+  late BirdWithDetails _bird;
+
+  @override
+  void initState() {
+    super.initState();
+    _bird = widget.bird;
+  }
+
+  /// 更新本地状态并持久化到数据库
+  Future<void> _save(Map<String, dynamic> fields) async {
+    final db = ref.read(databaseProvider);
+    await db.updateBird(
+      _bird.bird.id,
+      name: fields['name'] as String?,
+      speciesId: fields['speciesId'] as int?,
+      roomId: fields.containsKey('roomId') ? fields['roomId'] as int? : _bird.bird.roomId,
+      enclosureId: fields.containsKey('enclosureId') ? fields['enclosureId'] as int? : _bird.bird.enclosureId,
+      birthDate: fields['birthDate'] as DateTime?,
+      gender: fields['gender'] as String?,
+      status: fields['status'] as String?,
+      notes: fields['notes'] as String?,
+      ringNumber: fields['ringNumber'] as String?,
+      manualBaselineG: fields.containsKey('manualBaselineG') ? fields['manualBaselineG'] as double? : _bird.bird.manualBaselineG,
+      weaningOverride: fields.containsKey('weaningOverride') ? fields['weaningOverride'] as bool? : _bird.bird.weaningOverride,
+    );
+    // 刷新本地状态
+    final updated = await db.getAllWithDetails();
+    final fresh = updated.where((b) => b.bird.id == _bird.bird.id).firstOrNull;
+    if (fresh != null && mounted) {
+      setState(() => _bird = fresh);
+      ref.invalidate(allBirdsProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final weightsAsync = ref.watch(birdWeightsProvider(bird.bird.id));
+    final weightsAsync = ref.watch(birdWeightsProvider(_bird.bird.id));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(bird.bird.name),
+        title: Text(_bird.bird.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: '编辑',
-            onPressed: () => _showEditDialog(context, ref),
-          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: '删除',
-            onPressed: () => _confirmDelete(context, ref),
+            onPressed: () => _confirmDelete(context),
           ),
         ],
       ),
@@ -49,44 +83,39 @@ class BirdDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 56, height: 56,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(child: Text('🦜', style: TextStyle(fontSize: 28))),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(bird.bird.name,
-                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${bird.species.name} · ${bird.bird.gender} · ${bird.growthStage}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withAlpha(150)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    // 头部：头像 + 名称 + 副标题
+                    _EditableHeader(
+                      bird: _bird,
+                      onNameSaved: (name) => _save({'name': name}),
+                      onSpeciesChanged: (spId) => _save({'speciesId': spId}),
+                      onGenderChanged: (g) => _save({'gender': g}),
                     ),
                     const SizedBox(height: 12),
                     const Divider(),
-                    _InfoRow(label: '脚环号', value: bird.bird.ringNumber ?? '-'),
-                    _InfoRow(label: '出生天数', value: '${bird.ageDays} 天'),
-                    _InfoRow(label: '成长阶段', value: bird.growthStage),
-                    _InfoRow(label: '所在房间', value: bird.room?.name ?? '未分配'),
-                    _InfoRow(label: '所在容器', value: bird.enclosure?.name ?? '未分配'),
-                    _InfoRow(label: '状态', value: bird.bird.status),
-                    if (bird.bird.notes != null && bird.bird.notes!.isNotEmpty)
-                      _InfoRow(label: '备注', value: bird.bird.notes!),
+                    _InfoRow(label: '脚环号', value: _bird.bird.ringNumber ?? '-', onTap: () => _editText(
+                      label: '脚环号',
+                      initial: _bird.bird.ringNumber ?? '',
+                      hint: '选填',
+                      onSaved: (v) => _save({'ringNumber': v.isEmpty ? null : v}),
+                    )),
+                    _InfoRow(label: '出生天数', value: '${_bird.ageDays} 天'),
+                    _InfoRow(label: '成长阶段', value: _bird.growthStage),
+                    _InfoRow(label: '所在房间', value: _bird.room?.name ?? '未分配', onTap: () => _pickRoom()),
+                    _InfoRow(label: '所在容器', value: _bird.enclosure?.name ?? '未分配', onTap: () => _pickEnclosure()),
+                    _InfoRow(label: '状态', value: _bird.bird.status, onTap: () => _pickStatus()),
+                    _InfoRow(label: '出生日期', value: DateFormat('yyyy-MM-dd').format(_bird.bird.birthDate), onTap: () => _pickBirthDate()),
+                    _InfoRow(
+                      label: '备注',
+                      value: (_bird.bird.notes != null && _bird.bird.notes!.isNotEmpty) ? _bird.bird.notes! : '+ 添加备注',
+                      isHint: _bird.bird.notes == null || _bird.bird.notes!.isEmpty,
+                      onTap: () => _editText(
+                        label: '备注',
+                        initial: _bird.bird.notes ?? '',
+                        hint: '添加备注...',
+                        multiline: true,
+                        onSaved: (v) => _save({'notes': v.isEmpty ? null : v}),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -96,14 +125,18 @@ class BirdDetailScreen extends ConsumerWidget {
 
             // 基准体重 & 断奶状态（仅称重插件启用时显示）
             if (pluginRegistry.getPlugin('weights')?.enabled == true) ...[
-              _BaselineCard(bird: bird),
+              _BaselineCard(
+                bird: _bird,
+                onBaselineSaved: (v) => _save({'manualBaselineG': v}),
+                onWeaningChanged: (v) => _save({'weaningOverride': v}),
+              ),
               const SizedBox(height: 16),
             ],
 
-            // 插件详情区（TabBar 切换体重趋势 / 喂药计划等）
-            _PluginDetailTabs(birdId: bird.bird.id, weightsAsync: weightsAsync, theme: theme, initialPluginId: initialPluginId),
+            // 插件详情区
+            _PluginDetailTabs(birdId: _bird.bird.id, weightsAsync: weightsAsync, theme: theme, initialPluginId: widget.initialPluginId),
 
-            // 历史记录（仅称重插件启用时显示）
+            // 历史记录
             if (pluginRegistry.getPlugin('weights')?.enabled == true) ...[
               const SizedBox(height: 16),
               Text('历史记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -121,7 +154,7 @@ class BirdDetailScreen extends ConsumerWidget {
                           return Dismissible(
                             key: ValueKey('weight_${w.id}'),
                             direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) => _confirmDeleteWeight(context, ref, w, bird.bird.uuid),
+                            confirmDismiss: (_) => _confirmDeleteWeight(context, w, _bird.bird.uuid),
                             background: Container(
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 20),
@@ -131,7 +164,7 @@ class BirdDetailScreen extends ConsumerWidget {
                             child: _WeightRow(
                               weight: w,
                               theme: theme,
-                              onTap: () => _showEditWeightDialog(context, ref, w, bird.bird.uuid),
+                              onTap: () => _showEditWeightDialog(context, w, _bird.bird.uuid),
                             ),
                           );
                         }).toList(),
@@ -144,69 +177,200 @@ class BirdDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context, WidgetRef ref) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    try {
-      final spList = await ref.read(allSpeciesProvider.future);
-      final roomList = await ref.read(allRoomsProvider.future);
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      showDialog(
-        context: context,
-        builder: (ctx) => _EditBirdDialog(bird: bird, spList: spList, roomList: roomList),
-      ).then((_) async {
-        ref.invalidate(allBirdsProvider);
-        ref.invalidate(allRoomsProvider);
-        // Refetch bird to refresh the detail page
-        final db = ref.read(databaseProvider);
-        final updatedBirds = await db.getAllWithDetails();
-        final updatedBird = updatedBirds.where((b) => b.bird.id == bird.bird.id).firstOrNull;
-        if (updatedBird != null && context.mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: updatedBird)),
-          );
-        }
-      });
-    } catch (_) {
-      if (context.mounted) Navigator.pop(context);
-    }
-  }
+  // ═══════════════════════════════════════════════
+  // 行内编辑器
+  // ═══════════════════════════════════════════════
 
-  void _confirmDelete(BuildContext context, WidgetRef ref) {
+  /// 行内文本编辑（脚环号、备注）
+  void _editText({
+    required String label,
+    required String initial,
+    String hint = '',
+    bool multiline = false,
+    required void Function(String) onSaved,
+  }) {
+    final ctrl = TextEditingController(text: initial);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除「${bird.bird.name}」吗？\n此操作不可恢复。'),
+        title: Text(label),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: multiline ? 3 : 1,
+          decoration: InputDecoration(hintText: hint),
+          textInputAction: multiline ? TextInputAction.newline : TextInputAction.done,
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              await ref.read(databaseProvider).removeBird(bird.bird.id);
-              ref.invalidate(allBirdsProvider);
-              ref.invalidate(allRoomsProvider);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              }
+            onPressed: () {
+              Navigator.pop(ctx);
+              onSaved(ctrl.text.trim());
             },
-            child: const Text('删除'),
+            child: const Text('保存'),
           ),
         ],
       ),
     );
   }
 
-  Future<bool> _confirmDeleteWeight(BuildContext context, WidgetRef ref, Weight weight, String birdUuid) async {
+  /// 房间选择
+  Future<void> _pickRoom() async {
+    final roomList = await ref.read(allRoomsProvider.future);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('选择房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ListTile(
+              title: const Text('不分配'),
+              leading: const Icon(Icons.block),
+              selected: _bird.bird.roomId == null,
+              onTap: () { Navigator.pop(ctx); _save({'roomId': null, 'enclosureId': null}); },
+            ),
+            ...roomList.map((r) => ListTile(
+              title: Text(r.name),
+              selected: _bird.bird.roomId == r.id,
+              onTap: () { Navigator.pop(ctx); _save({'roomId': r.id, 'enclosureId': null}); },
+            )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 容器选择
+  Future<void> _pickEnclosure() async {
+    if (_bird.bird.roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先分配房间'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    final db = ref.read(databaseProvider);
+    final enclosures = await db.getEnclosuresByRoom(_bird.bird.roomId!);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('选择容器', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ListTile(
+              title: const Text('不放入容器'),
+              leading: const Icon(Icons.block),
+              selected: _bird.bird.enclosureId == null,
+              onTap: () { Navigator.pop(ctx); _save({'enclosureId': null}); },
+            ),
+            ...enclosures.map((e) => ListTile(
+              title: Text(e.name),
+              selected: _bird.bird.enclosureId == e.id,
+              onTap: () { Navigator.pop(ctx); _save({'enclosureId': e.id}); },
+            )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 状态选择
+  void _pickStatus() {
+    final presets = ['正常', '观察中', '治疗中', '隔离中'];
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('选择状态', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ...presets.map((s) => ListTile(
+              title: Text(s),
+              selected: _bird.bird.status == s,
+              onTap: () { Navigator.pop(ctx); _save({'status': s}); },
+            )),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('自定义...'),
+              onTap: () {
+                Navigator.pop(ctx);
+                final ctrl = TextEditingController();
+                showDialog(
+                  context: context,
+                  builder: (ctx2) => AlertDialog(
+                    title: const Text('自定义状态'),
+                    content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: '输入状态')),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('取消')),
+                      FilledButton(onPressed: () { Navigator.pop(ctx2); _save({'status': ctrl.text.trim()}); }, child: const Text('确定')),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 出生日期选择
+  Future<void> _pickBirthDate() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _bird.bird.birthDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (d != null && mounted) {
+      _save({'birthDate': d});
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // 删除相关
+  // ═══════════════════════════════════════════════
+
+  void _confirmDelete(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除「${_bird.bird.name}」吗？\n此操作不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await ref.read(databaseProvider).removeBird(_bird.bird.id);
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    ).then((deleted) {
+      if (deleted == true && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.invalidate(allBirdsProvider);
+            ref.invalidate(allRoomsProvider);
+          }
+        });
+        if (context.mounted) Navigator.pop(context);
+      }
+    });
+  }
+
+  Future<bool> _confirmDeleteWeight(BuildContext context, Weight weight, String birdUuid) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -229,7 +393,7 @@ class BirdDetailScreen extends ConsumerWidget {
     return result ?? false;
   }
 
-  void _showEditWeightDialog(BuildContext context, WidgetRef ref, Weight weight, String birdUuid) {
+  void _showEditWeightDialog(BuildContext context, Weight weight, String birdUuid) {
     showDialog(
       context: context,
       builder: (ctx) => _WeightEditDialog(weight: weight, onSave: (w, fasting, time) async {
@@ -241,360 +405,222 @@ class BirdDetailScreen extends ConsumerWidget {
   }
 }
 
-class _EditBirdDialog extends StatefulWidget {
-  final BirdWithDetails bird;
-  final List<Specy> spList;
-  final List<Room> roomList;
+// ═══════════════════════════════════════════════
+// 可编辑头部（名称 + 物种 + 性别）
+// ═══════════════════════════════════════════════
 
-  const _EditBirdDialog({required this.bird, required this.spList, required this.roomList});
+class _EditableHeader extends StatefulWidget {
+  final BirdWithDetails bird;
+  final void Function(String) onNameSaved;
+  final void Function(int) onSpeciesChanged;
+  final void Function(String) onGenderChanged;
+
+  const _EditableHeader({
+    required this.bird,
+    required this.onNameSaved,
+    required this.onSpeciesChanged,
+    required this.onGenderChanged,
+  });
 
   @override
-  State<_EditBirdDialog> createState() => _EditBirdDialogState();
+  State<_EditableHeader> createState() => _EditableHeaderState();
 }
 
-class _EditBirdDialogState extends State<_EditBirdDialog> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _ringCtrl;
-  late final TextEditingController _baselineCtrl;
-  late int? _selectedSpeciesId;
-  late int? _selectedRoomId;
-  late int? _selectedEnclosureId;
-  late String? _selectedEnclosureName;
-  late String _gender;
-  late DateTime _birthDate;
-  bool? _weaningOverride; // null=自动, true=强制断奶, false=强制正常
+class _EditableHeaderState extends State<_EditableHeader> {
+  bool _editingName = false;
+  late TextEditingController _nameCtrl;
+  bool _showGender = false;
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.bird.bird.name);
-    _ringCtrl = TextEditingController(text: widget.bird.bird.ringNumber ?? '');
-    _baselineCtrl = TextEditingController(
-        text: widget.bird.bird.manualBaselineG?.toStringAsFixed(1) ?? '');
-    _selectedSpeciesId = widget.bird.bird.speciesId;
-    _selectedRoomId = widget.bird.bird.roomId;
-    _selectedEnclosureId = widget.bird.bird.enclosureId;
-    _selectedEnclosureName = widget.bird.enclosure?.name;
-    _gender = widget.bird.bird.gender;
-    _birthDate = widget.bird.bird.birthDate;
-    _weaningOverride = widget.bird.bird.weaningOverride;
+  }
+
+  @override
+  void didUpdateWidget(_EditableHeader old) {
+    super.didUpdateWidget(old);
+    if (old.bird.bird.id != widget.bird.bird.id) {
+      _nameCtrl.text = widget.bird.bird.name;
+    }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _ringCtrl.dispose();
-    _baselineCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('编辑鹦鹉'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: '名称'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _ringCtrl,
-              decoration: const InputDecoration(labelText: '脚环号 (选填)'),
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  useRootNavigator: true,
-                  builder: (ctx) => SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('选择品种', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
-                        ...widget.spList.map((s) => ListTile(
-                          title: Text(s.name),
-                          selected: _selectedSpeciesId == s.id,
-                          onTap: () {
-                            setState(() => _selectedSpeciesId = s.id);
-                            Navigator.pop(ctx);
-                          },
-                        )),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                );
-              },
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '品种',
-                  suffixIcon: Icon(Icons.arrow_drop_down),
-                ),
-                child: Text(
-                  _selectedSpeciesId != null
-                      ? (widget.spList.any((s) => s.id == _selectedSpeciesId) ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name : "??")
-                      : '请选择品种',
-                  style: TextStyle(
-                    color: _selectedSpeciesId != null ? null : Colors.grey,
-                  ),
-                ),
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: const Center(child: Text('🦜', style: TextStyle(fontSize: 28))),
             ),
-            const SizedBox(height: 12),
-            // 房间选择
-            InkWell(
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  useRootNavigator: true,
-                  builder: (ctx) => SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 名称：点击进入编辑
+                  if (_editingName)
+                    Row(
                       children: [
-                        const Padding(padding: EdgeInsets.all(16), child: Text('房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        ListTile(title: const Text('不分配'), leading: const Icon(Icons.block), selected: _selectedRoomId == null, onTap: () { setState(() { _selectedRoomId = null; _selectedEnclosureId = null; _selectedEnclosureName = null; }); Navigator.pop(ctx); }),
-                        ...widget.roomList.map((r) => ListTile(title: Text(r.name), selected: _selectedRoomId == r.id, onTap: () { setState(() { _selectedRoomId = r.id; _selectedEnclosureId = null; _selectedEnclosureName = null; }); Navigator.pop(ctx); })),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                );
-              },
-              child: InputDecorator(
-                decoration: const InputDecoration(labelText: '房间', suffixIcon: Icon(Icons.arrow_drop_down)),
-                child: Text(_selectedRoomId != null ? (widget.roomList.any((r) => r.id == _selectedRoomId) ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name : "??") : '不分配', style: TextStyle(color: _selectedRoomId != null ? null : Colors.grey)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 容器选择 — 依赖房间
-            InkWell(
-              onTap: _selectedRoomId == null
-                  ? null
-                  : () async {
-                      final scope = ProviderScope.containerOf(context);
-                      final db = scope.read(databaseProvider);
-                      final enclosures =
-                          await db.getEnclosuresByRoom(_selectedRoomId!);
-                      if (!mounted) return;
-                      showModalBottomSheet(
-                        context: context,
-                        useRootNavigator: true,
-                        builder: (ctx) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('选择容器',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
-                              ),
-                              ListTile(
-                                title: const Text('不放入容器'),
-                                leading: const Icon(Icons.block),
-                                selected: _selectedEnclosureId == null,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedEnclosureId = null;
-                                    _selectedEnclosureName = null;
-                                  });
-                                  Navigator.pop(ctx);
-                                },
-                              ),
-                              ...enclosures.map((e) => ListTile(
-                                    title: Text(e.name),
-                                    selected:
-                                        _selectedEnclosureId == e.id,
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedEnclosureId = e.id;
-                                        _selectedEnclosureName = e.name;
-                                      });
-                                      Navigator.pop(ctx);
-                                    },
-                                  )),
-                              const SizedBox(height: 8),
-                            ],
+                        Expanded(
+                          child: TextField(
+                            controller: _nameCtrl,
+                            autofocus: true,
+                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 4)),
+                            onSubmitted: (_) => _confirmName(),
                           ),
                         ),
-                      );
-                    },
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: '容器 (选填)',
-                  suffixIcon: Icon(Icons.arrow_drop_down,
-                      color: _selectedRoomId == null
-                          ? Colors.grey.shade400
-                          : null),
-                ),
-                child: Text(
-                  _selectedEnclosureName ?? '不分配',
-                  style: TextStyle(
-                    color: _selectedRoomId == null
-                        ? Colors.grey.shade400
-                        : _selectedEnclosureId != null
-                            ? null
-                            : Colors.grey,
+                        IconButton(icon: const Icon(Icons.check, size: 20, color: Colors.green), onPressed: _confirmName, visualDensity: VisualDensity.compact),
+                        IconButton(icon: const Icon(Icons.close, size: 20, color: Colors.red), onPressed: () => setState(() { _editingName = false; _nameCtrl.text = widget.bird.bird.name; }), visualDensity: VisualDensity.compact),
+                      ],
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () => setState(() => _editingName = true),
+                      child: Text(widget.bird.bird.name,
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                  const SizedBox(height: 4),
+                  // 物种 + 性别 + 阶段
+                  GestureDetector(
+                    onTap: () => _pickSpecies(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${widget.bird.species.name} · ${widget.bird.bird.gender} · ${widget.bird.growthStage}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withAlpha(150)),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_drop_down, size: 16, color: theme.colorScheme.onSurface.withAlpha(100)),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            if (widget.bird.growthStage != '雏鸟') ...[
-              const SizedBox(height: 12),
-              // 基准体重
-              TextField(
-                controller: _baselineCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: '基准体重 (g)',
-                  hintText: '留空则自动推断',
-                  suffixText: 'g',
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text('设定了基准体重后，算法将以该值为基线判断异常偏离',
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withAlpha(100))),
-            ],
-            const SizedBox(height: 12),
-            // 断奶模式
-            Row(
-              children: [
-                const Text('断奶模式'),
-                const Spacer(),
-                Expanded(
-                  child: SegmentedButton<bool?>(
-                  segments: const [
-                    ButtonSegment(value: null, label: Text('自动'), icon: Icon(Icons.auto_mode, size: 16)),
-                    ButtonSegment(value: true, label: Text('断奶'), icon: Icon(Icons.baby_changing_station, size: 16)),
-                    ButtonSegment(value: false, label: Text('正常'), icon: Icon(Icons.pets, size: 16)),
-                  ],
-                  selected: {_weaningOverride},
-                  onSelectionChanged: (v) => setState(() => _weaningOverride = v.first),
-                  showSelectedIcon: false,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // 性别
-            Row(
-              children: ['公', '母', '未知'].map((g) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
-                  child: ChoiceChip(
-                    label: Text(g),
-                    selected: _gender == g,
-                    onSelected: (v) => setState(() => _gender = g),
-                  ),
-                ),
-              )).toList(),
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: _birthDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
-                );
-                if (d != null && mounted) setState(() => _birthDate = d);
-              },
-              child: InputDecorator(
-                decoration: const InputDecoration(labelText: '出生日期'),
-                child: Text(
-                  '${_birthDate.year}-${_birthDate.month.toString().padLeft(2, '0')}-${_birthDate.day.toString().padLeft(2, '0')}',
-                ),
+                  const SizedBox(height: 6),
+                  // 性别切换
+                  if (_showGender) ...[
+                    const SizedBox(height: 4),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: '公', label: Text('公')),
+                        ButtonSegment(value: '母', label: Text('母')),
+                        ButtonSegment(value: '未知', label: Text('未知')),
+                      ],
+                      selected: {widget.bird.bird.gender},
+                      onSelectionChanged: (v) {
+                        widget.onGenderChanged(v.first);
+                        setState(() => _showGender = false);
+                      },
+                      showSelectedIcon: false,
+                      style: ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    ),
+                  ] else
+                    TextButton.icon(
+                      onPressed: () => setState(() => _showGender = true),
+                      icon: const Icon(Icons.edit, size: 14),
+                      label: const Text('修改性别', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                    ),
+                ],
               ),
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            final name = _nameCtrl.text.trim();
-            if (name.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入名称'), behavior: SnackBarBehavior.floating),
-              );
-              return;
-            }
-            if (_selectedSpeciesId == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请选择品种'), behavior: SnackBarBehavior.floating),
-              );
-              return;
-            }
-            final db = ProviderScope.containerOf(context).read(databaseProvider);
-            final baselineText = _baselineCtrl.text.trim();
-            final baseline = baselineText.isEmpty ? null : double.tryParse(baselineText);
-            await db.updateBird(
-              widget.bird.bird.id,
-              name: name,
-              speciesId: _selectedSpeciesId,
-              roomId: _selectedRoomId,
-              birthDate: _birthDate,
-              ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
-              gender: _gender,
-              manualBaselineG: baseline,
-              weaningOverride: _weaningOverride,
-            );
-            // Enclosure needs explicit handling: Value(null) clears it,
-            // Value.absent() would silently keep the old value
-            if (_selectedEnclosureId != widget.bird.bird.enclosureId) {
-              await db.setBirdEnclosure(widget.bird.bird.id, _selectedEnclosureId);
-            }
-            if (mounted) Navigator.pop(context);
-          },
-          child: const Text('保存'),
-        ),
       ],
+    );
+  }
+
+  void _confirmName() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    widget.onNameSaved(name);
+    setState(() => _editingName = false);
+  }
+
+  Future<void> _pickSpecies(BuildContext context) async {
+    final spList = await ProviderScope.containerOf(context).read(allSpeciesProvider.future);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('选择品种', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ...spList.map((s) => ListTile(
+              title: Text(s.name),
+              selected: widget.bird.bird.speciesId == s.id,
+              onTap: () { Navigator.pop(ctx); widget.onSpeciesChanged(s.id); },
+            )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 }
 
+// ═══════════════════════════════════════════════
+// 信息行
+// ═══════════════════════════════════════════════
+
 class _InfoRow extends StatelessWidget {
-  final String label, value;
-  const _InfoRow({required this.label, required this.value});
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final bool isHint;
+
+  const _InfoRow({required this.label, required this.value, this.onTap, this.isHint = false});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final theme = Theme.of(context);
+    final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(width: 60, child: Text(label,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(120), fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),
+            style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(120), fontSize: 13))),
+          Expanded(child: Text(value, style: TextStyle(fontSize: 15, color: isHint ? Colors.grey : null))),
+          if (onTap != null)
+            Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.onSurface.withAlpha(60)),
         ],
       ),
     );
+    if (onTap != null) {
+      return InkWell(onTap: onTap, child: child);
+    }
+    return child;
   }
 }
 
-/// 基准体重 & 断奶状态卡片
+// ═══════════════════════════════════════════════
+// 基准体重 & 断奶状态卡片（可编辑）
+// ═══════════════════════════════════════════════
+
 class _BaselineCard extends ConsumerWidget {
   final BirdWithDetails bird;
-  const _BaselineCard({required this.bird});
+  final void Function(double?) onBaselineSaved;
+  final void Function(bool?) onWeaningChanged;
+
+  const _BaselineCard({required this.bird, required this.onBaselineSaved, required this.onWeaningChanged});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -623,7 +649,6 @@ class _BaselineCard extends ConsumerWidget {
     } else if (weaningOverride == false) {
       weaningStatus = '强制正常';
     } else {
-      // 自动检测断奶
       final ageOk = bird.ageDays >= bird.species.nestlingEndDays - 5 &&
           bird.ageDays <= bird.species.juvenileEndDays;
       if (!ageOk) {
@@ -653,42 +678,134 @@ class _BaselineCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (bird.growthStage != '雏鸟')
-              Row(
-                children: [
-                  Icon(Icons.monitor_weight_outlined, size: 18,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: 6),
-                  Text('基准体重', style: theme.textTheme.labelLarge),
-                  const Spacer(),
-                  Text('$baselineLabel ${baseline > 0 ? baseline.toStringAsFixed(1) + 'g' : '-'}',
-                      style: TextStyle(fontSize: 13, color: theme.colorScheme.primary)),
-                ],
+              InkWell(
+                onTap: () => _editBaseline(context),
+                child: Row(
+                  children: [
+                    Icon(Icons.monitor_weight_outlined, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text('基准体重', style: theme.textTheme.labelLarge),
+                    const Spacer(),
+                    Text('$baselineLabel ${baseline > 0 ? baseline.toStringAsFixed(1) + 'g' : '-'}',
+                        style: TextStyle(fontSize: 13, color: theme.colorScheme.primary)),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withAlpha(60)),
+                  ],
+                ),
               ),
             if (bird.growthStage != '雏鸟')
               const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.baby_changing_station_outlined, size: 18,
-                    color: weaningStatus.contains('断奶')
-                        ? Colors.orange
-                        : theme.colorScheme.onSurface.withAlpha(120)),
-                const SizedBox(width: 6),
-                Text('断奶状态', style: theme.textTheme.labelLarge),
-                const Spacer(),
-                Text(weaningStatus,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: weaningStatus.contains('断奶')
-                            ? Colors.orange
-                            : theme.colorScheme.onSurface.withAlpha(150))),
-              ],
+            InkWell(
+              onTap: () => _pickWeaning(context),
+              child: Row(
+                children: [
+                  Icon(Icons.baby_changing_station_outlined, size: 18,
+                      color: weaningStatus.contains('断奶')
+                          ? Colors.orange
+                          : theme.colorScheme.onSurface.withAlpha(120)),
+                  const SizedBox(width: 6),
+                  Text('断奶状态', style: theme.textTheme.labelLarge),
+                  const Spacer(),
+                  Text(weaningStatus,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: weaningStatus.contains('断奶')
+                              ? Colors.orange
+                              : theme.colorScheme.onSurface.withAlpha(150))),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withAlpha(60)),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  void _editBaseline(BuildContext context) {
+    final ctrl = TextEditingController(
+      text: bird.bird.manualBaselineG?.toStringAsFixed(1) ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('基准体重'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: '基准体重 (g)',
+            hintText: '留空则自动推断',
+            suffixText: 'g',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final text = ctrl.text.trim();
+              if (text.isEmpty) {
+                onBaselineSaved(null); // 恢复自动推断
+              } else {
+                final v = double.tryParse(text);
+                if (v == null || v <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请输入大于 0 的有效体重'), behavior: SnackBarBehavior.floating),
+                  );
+                  return;
+                }
+                onBaselineSaved(v);
+              }
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickWeaning(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('断奶模式', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ListTile(
+              leading: const Icon(Icons.auto_mode),
+              title: const Text('自动检测'),
+              subtitle: const Text('由算法根据体重变化自动判断'),
+              selected: bird.bird.weaningOverride == null,
+              onTap: () { Navigator.pop(ctx); onWeaningChanged(null); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.baby_changing_station),
+              title: const Text('断奶期'),
+              subtitle: const Text('强制标记为断奶状态'),
+              selected: bird.bird.weaningOverride == true,
+              onTap: () { Navigator.pop(ctx); onWeaningChanged(true); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.pets),
+              title: const Text('正常'),
+              subtitle: const Text('强制标记为非断奶状态（已断奶）'),
+              selected: bird.bird.weaningOverride == false,
+              onTap: () { Navigator.pop(ctx); onWeaningChanged(false); },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+// ═══════════════════════════════════════════════
+// 以下保持不变：体重行、图表、插件Tab、体重编辑
+// ═══════════════════════════════════════════════
 
 class _WeightRow extends StatelessWidget {
   final Weight weight;
@@ -733,16 +850,13 @@ class _WeightRow extends StatelessWidget {
   }
 }
 
-/// 简单折线图（用 CustomPaint 实现，避免依赖 fl_chart）
 class _WeightChart extends StatelessWidget {
   final List<Weight> weights;
-
   const _WeightChart({required this.weights});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 按时间升序
     final sorted = List<Weight>.from(weights)..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
     final minW = (sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 5);
     final maxW = (sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 5);
@@ -760,7 +874,6 @@ class _WeightChart extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Y 轴标签
               Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -771,7 +884,6 @@ class _WeightChart extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 4),
-              // 图表
               Expanded(
                 child: Column(
                   children: [
@@ -780,15 +892,9 @@ class _WeightChart extends StatelessWidget {
                         size: const Size(double.infinity, double.infinity),
                         painter: _ChartPainter(
                           points: (() {
-                            if (sorted.length == 1) {
-                              return [const Offset(0.5, 0.5)];
-                            }
-                            // 时间轴比例：用实际时间戳映射 X 位置
+                            if (sorted.length == 1) return [const Offset(0.5, 0.5)];
                             final firstTime = sorted.first.recordedAt.millisecondsSinceEpoch.toDouble();
                             final lastTime = sorted.last.recordedAt.millisecondsSinceEpoch.toDouble();
-                            var span = (lastTime - firstTime) / 1000 / 3600; // 小时
-                            // 上限：最小跨度 12 小时，避免挤压
-                            if (span < 12) span = 12;
                             return sorted.map((w) {
                               final t = w.recordedAt.millisecondsSinceEpoch.toDouble();
                               final x = sorted.length > 1
@@ -806,7 +912,6 @@ class _WeightChart extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // X 轴标签——首尾 + 中间 2 个关键日期
                     SizedBox(
                       height: 14,
                       child: CustomPaint(
@@ -845,50 +950,29 @@ class _ChartPainter extends CustomPainter {
   final Color lineColor;
   final Color dotColor;
 
-  _ChartPainter({
-    required this.points,
-    required this.values,
-    required this.dates,
-    required this.lineColor,
-    required this.dotColor,
-  });
+  _ChartPainter({required this.points, required this.values, required this.dates, required this.lineColor, required this.dotColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
-
-    // 逐段绘制，根据升降用不同颜色
     for (int i = 1; i < points.length; i++) {
       final prev = points[i - 1];
       final curr = points[i];
-
-      // values[i-1] 是旧值, values[i] 是新值
-      // 如果新值 >= 旧值 → 正常/增长 → 绿色；否则 → 下降 → 红色
       final isUp = values[i] >= values[i - 1];
       final segmentPaint = Paint()
         ..color = isUp ? Colors.green : Colors.red
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
-
       final path = Path();
       final midX = (prev.dx + curr.dx) / 2 * size.width;
       path.moveTo(prev.dx * size.width, prev.dy * size.height);
-      path.cubicTo(
-        midX, prev.dy * size.height,
-        midX, curr.dy * size.height,
-        curr.dx * size.width, curr.dy * size.height,
-      );
+      path.cubicTo(midX, prev.dy * size.height, midX, curr.dy * size.height, curr.dx * size.width, curr.dy * size.height);
       canvas.drawPath(path, segmentPaint);
     }
-
-    // 数据点
     final dotPaint = Paint()..color = dotColor..style = PaintingStyle.fill;
     for (final p in points) {
-      canvas.drawCircle(
-        Offset(p.dx * size.width, p.dy * size.height),
-        4, dotPaint,
-      );
+      canvas.drawCircle(Offset(p.dx * size.width, p.dy * size.height), 4, dotPaint);
     }
   }
 
@@ -897,7 +981,6 @@ class _ChartPainter extends CustomPainter {
       oldDelegate.points != points || oldDelegate.lineColor != lineColor || oldDelegate.dotColor != dotColor;
 }
 
-/// 日期标签画笔——在 X 轴关键位置画日期
 class _DateLabelPainter extends CustomPainter {
   final List<String> dates;
   final List<Offset> points;
@@ -907,7 +990,6 @@ class _DateLabelPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
-    // 显示首尾 + 中间 2 个（均匀间隔）
     final indices = <int>[0, points.length - 1];
     if (points.length > 3) indices.insert(1, points.length ~/ 3);
     if (points.length > 4) indices.insert(2, points.length * 2 ~/ 3);
@@ -927,54 +1009,66 @@ class _DateLabelPainter extends CustomPainter {
       oldDelegate.dates != dates || oldDelegate.points != points;
 }
 
-/// 动态渲染插件 DetailSection 的 TabBar 组件
-class _PluginDetailTabs extends StatelessWidget {
+class _PluginDetailTabs extends StatefulWidget {
   final int birdId;
   final AsyncValue<List<Weight>> weightsAsync;
   final ThemeData theme;
   final String? initialPluginId;
 
-  const _PluginDetailTabs({
-    required this.birdId,
-    required this.weightsAsync,
-    required this.theme,
-    this.initialPluginId,
-  });
+  const _PluginDetailTabs({required this.birdId, required this.weightsAsync, required this.theme, this.initialPluginId});
 
   @override
-  Widget build(BuildContext context) {
-    // 收集所有已启用插件的详情 sections，同时记录插件 ID → 首个 tab 索引映射
+  State<_PluginDetailTabs> createState() => _PluginDetailTabsState();
+}
+
+class _PluginDetailTabsState extends State<_PluginDetailTabs> {
+  int _selectedIndex = 0;
+  List<DetailSection> _sections = [];
+  Map<String, int> _pluginFirstTab = {};
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initSections();
+      _initialized = true;
+    }
+  }
+
+  void _initSections() {
     final sections = <DetailSection>[];
-    final pluginFirstTab = <String, int>{}; // pluginId → first tab index
+    final pluginFirstTab = <String, int>{};
     for (final plugin in pluginRegistry.enabledPlugins) {
-      final pluginSections = plugin.buildDetailSections(birdId);
-      if (pluginSections.isNotEmpty) {
-        pluginFirstTab[plugin.id] = sections.length;
-      }
+      final pluginSections = plugin.buildDetailSections(widget.birdId);
+      if (pluginSections.isNotEmpty) pluginFirstTab[plugin.id] = sections.length;
       sections.addAll(pluginSections);
     }
     sections.sort((a, b) => a.priority.compareTo(b.priority));
 
-    // 重建排序后的映射（排序可能打乱了顺序）
-    // 简化：取各 plugin 中 priority 最小的 section 在排序列表中的位置
     pluginFirstTab.clear();
     for (final plugin in pluginRegistry.enabledPlugins) {
-      final pluginSections = plugin.buildDetailSections(birdId);
+      final pluginSections = plugin.buildDetailSections(widget.birdId);
       if (pluginSections.isEmpty) continue;
       final minPriority = pluginSections.map((s) => s.priority).reduce((a, b) => a < b ? a : b);
       final idx = sections.indexWhere((s) => s.priority == minPriority);
       if (idx >= 0) pluginFirstTab[plugin.id] = idx;
     }
 
-    if (sections.isEmpty) {
-      // 降级：无插件且称重已禁用时不显示任何内容
-      if (pluginRegistry.getPlugin('weights')?.enabled != true) {
-        return const SizedBox.shrink();
-      }
-      // 无插件但称重启用时显示原始体重图表
+    _sections = sections;
+    _pluginFirstTab = pluginFirstTab;
+    if (widget.initialPluginId != null) {
+      _selectedIndex = (pluginFirstTab[widget.initialPluginId] ?? 0).clamp(0, sections.length - 1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_sections.isEmpty) {
+      if (pluginRegistry.getPlugin('weights')?.enabled != true) return const SizedBox.shrink();
       return SizedBox(
         height: 260,
-        child: weightsAsync.when(
+        child: widget.weightsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('加载失败')),
           data: (weights) => _buildWeightChart(weights),
@@ -982,50 +1076,52 @@ class _PluginDetailTabs extends StatelessWidget {
       );
     }
 
-    if (sections.length == 1) {
-      // 仅一个 section 时不显示 TabBar
-      return sections.first.child;
-    }
+    if (_sections.length == 1) return _sections.first.child;
 
-    // 计算初始 tab 索引
-    final initialIdx = initialPluginId != null
-        ? (pluginFirstTab[initialPluginId] ?? 0)
-        : 0;
-
-    // 多个 section → TabBar + TabBarView
-    return DefaultTabController(
-      length: sections.length,
-      initialIndex: initialIdx.clamp(0, sections.length - 1),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TabBar(
-            isScrollable: false,
-            tabs: sections.map((s) => Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (s.icon != null) ...[
-                    Icon(s.icon, size: 16),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(s.title),
-                ],
-              ),
-            )).toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            children: List.generate(_sections.length, (i) {
+              final s = _sections[i];
+              final selected = i == _selectedIndex;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (s.icon != null) ...[
+                        Icon(s.icon, size: 16, color: selected ? widget.theme.colorScheme.primary : null),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(s.title, style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                  selected: selected,
+                  onSelected: (v) {
+                    if (v) setState(() => _selectedIndex = i);
+                  },
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              );
+            }),
           ),
-          SizedBox(
-            // 给 TabBarView 一个合理的默认高度；各 section 内部可自行撑开
-            height: 400,
-            child: TabBarView(
-              children: sections.map((s) => SingleChildScrollView(
-                padding: const EdgeInsets.only(top: 8),
-                child: s.child,
-              )).toList(),
-            ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 400,
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: _sections.map((s) => SingleChildScrollView(child: s.child)).toList(),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1035,23 +1131,15 @@ class _PluginDetailTabs extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${weights.first.weightG.toStringAsFixed(1)}g',
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+            Text('${weights.first.weightG.toStringAsFixed(1)}g',
+              style: widget.theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold, color: widget.theme.colorScheme.primary)),
             const SizedBox(height: 4),
-            Text('仅有一条记录，再称一次即可显示趋势',
-              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+            Text('仅有一条记录，再称一次即可显示趋势', style: widget.theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
           ],
         ),
       );
     }
-    if (weights.length < 2) {
-      return const Center(child: Text('暂无记录'));
-    }
+    if (weights.length < 2) return const Center(child: Text('暂无记录'));
     return _WeightChart(weights: weights);
   }
 }
@@ -1098,33 +1186,18 @@ class _WeightEditDialogState extends State<_WeightEditDialog> {
             decoration: const InputDecoration(labelText: '体重 (g)', suffixText: 'g'),
           ),
           const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('空腹'),
-            value: _isFasting,
-            onChanged: (v) => setState(() => _isFasting = v),
-          ),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('空腹'), value: _isFasting, onChanged: (v) => setState(() => _isFasting = v)),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('记录时间'),
             subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_recordedAt)),
             trailing: const Icon(Icons.access_time),
             onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _recordedAt,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-              );
+              final date = await showDatePicker(context: context, initialDate: _recordedAt, firstDate: DateTime(2020), lastDate: DateTime.now());
               if (date == null || !mounted) return;
-              final time = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.fromDateTime(_recordedAt),
-              );
+              final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_recordedAt));
               if (time == null) return;
-              setState(() {
-                _recordedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-              });
+              setState(() => _recordedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
             },
           ),
         ],

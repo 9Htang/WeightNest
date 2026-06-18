@@ -4,6 +4,7 @@ import '../../providers.dart';
 import '../../core/plugin_registry.dart';
 import '../../repositories/bird_repository.dart';
 import '../../repositories/enclosure_repository.dart';
+import '../../repositories/task_repository.dart';
 import '../../database/database.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_grid_screen.dart';
@@ -194,13 +195,20 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       final roomList = await ref.read(allRoomsProvider.future);
       if (!context.mounted) return;
       Navigator.pop(context); // close loading
-      showDialog(
+
+      final birdId = await showDialog<int>(
         context: context,
         builder: (ctx) => _AddBirdDialog(spList: spList, roomList: roomList),
-      ).then((_) {
-        ref.invalidate(allBirdsProvider);
-        ref.invalidate(allRoomsProvider);
-      });
+      );
+
+      if (birdId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.invalidate(allBirdsProvider);
+          ref.invalidate(allRoomsProvider);
+        });
+        await ref.read(databaseProvider).generateTasksForBird(birdId);
+        ref.invalidate(todayTasksProvider);
+      }
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
@@ -502,7 +510,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               return;
             }
             final db = ProviderScope.containerOf(context).read(databaseProvider);
-            await db.createBird(
+            final bird = await db.createBird(
               name: name,
               speciesId: _selectedSpeciesId!,
               birthDate: _birthDate,
@@ -511,7 +519,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
-            if (mounted) Navigator.pop(context);
+            if (mounted) Navigator.pop(context, bird.id);
           },
           child: const Text('创建'),
         ),

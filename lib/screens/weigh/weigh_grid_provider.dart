@@ -6,7 +6,7 @@ import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../repositories/enclosure_repository.dart';
-import '../../services/alert_service.dart';
+import '../../plugins/weight/weight_plugin.dart';
 import '../../repositories/room_repository.dart';
 
 /// 表格列中的编组 — 容器标题 + 下属鸟列表
@@ -197,10 +197,10 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
         from: cutoff,
         to: DateTime.now(),
       );
-      if (weights.isNotEmpty && AlertService.isLatestAbnormal(bird, weights)) {
+      if (weights.isNotEmpty && isLatestAbnormal(bird, weights.reversed.toList())) {
         abnormalIds.add(bird.bird.id);
       }
-      if (AlertService.isWeaningPhase(bird, weights)) {
+      if (isWeaningPhase(bird, weights)) {
         weaningIds.add(bird.bird.id);
       }
     }
@@ -322,7 +322,7 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     state = state.copyWith(isSaving: true);
 
     final now = DateTime.now();
-    await _db.addWeight(
+    final savedWeight = await _db.addWeight(
       birdId: birdId,
       weightG: w,
       recordedAt: now,
@@ -343,9 +343,14 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     final done = allTodayTasks.where((t) => t.task.status == '已完成').length +
         (pendingTask != null ? 1 : 0);
 
+    // 即时更新最新体重显示，无需重新加载整个页面
+    final updatedLatestWeights = Map<int, Weight?>.from(state.latestWeights);
+    updatedLatestWeights[birdId] = savedWeight;
+
     state = state.copyWith(
       isSaving: false,
       todayCompleted: done,
+      latestWeights: updatedLatestWeights,
     );
 
     // 自动跳下一只

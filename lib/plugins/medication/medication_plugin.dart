@@ -103,27 +103,82 @@ class MedicationPlugin extends FeaturePlugin {
   @override
   WidgetBuilder? get settingsBuilder => (_) => const MedicationConfigScreen();
 
-  // ── Slot F: 告警检测 ──
+  // ── Slot G: 任务派发 ──
 
   @override
-  Future<List<PluginAlert>> detectAlerts(AppDatabase db) async {
-    final alerts = <PluginAlert>[];
+  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async {
+    final descriptors = <PluginTaskDescriptor>[];
     try {
       final today = DateTime.now();
-      final allLogs = await db.getAllTodayLogs();
-      for (final log in allLogs) {
-        if (!log.isDone && !log.isSkipped && log.log.scheduledTime.isBefore(today)) {
-          final birdName = log.birdName ?? '未知';
-          alerts.add(PluginAlert(
-            birdId: log.log.birdId,
-            type: 'missed_medication',
-            description: '$birdName ${log.medication.drugName} ${log.timeLabel} 未按时喂药 (${log.medication.dosage})',
-            severity: AlertSeverity.warning,
+
+      var query = db.select(db.medications)
+            ..where((t) => t.active.equals(true));
+      if (birdId != null) {
+        query = query..where((t) => t.birdId.equals(birdId));
+      }
+      final meds = await query.get();
+
+      for (final med in meds) {
+        if (today.isBefore(med.startDate)) continue;
+        if (med.endDate != null && today.isAfter(med.endDate!)) continue;
+
+        final slots = await distributedTimeSlots(med.timesPerDay);
+        for (final slot in slots) {
+          final dueDate = DateTime(today.year, today.month, today.day, slot.hour, slot.minute);
+          descriptors.add(PluginTaskDescriptor(
+            birdId: med.birdId,
+            taskType: 'medication',
+            dueDate: dueDate,
+            label: '${med.drugName} ${med.dosage}',
+            metadata: {
+              'medicationId': med.id.toString(),
+              'drugName': med.drugName,
+              'dosage': med.dosage,
+            },
           ));
         }
       }
-    } catch (_) {
-      // 查询失败时返回空
+    } catch (e) {
+      debugPrint('[MedicationPlugin] detectTasks failed: $e');
+    }
+    return descriptors;
+  }
+
+  // ── Slot F: 告警检测 ──
+
+  @override
+  Future<List<PluginAlert>> detectAlerts(AppDatabase db, {int? birdId}) async {
+    final alerts = <PluginAlert>[];
+    try {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+
+      // 查询今日待完成但已超时的喂药任务
+      final allMedTasks = await (db.select(db.tasks)
+            ..where((t) => t.taskType.equals('medication')))
+          .get();
+      final missedTasks = allMedTasks.where((t) =>
+          t.status == '待完成' &&
+          !t.dueDate.isBefore(dayStart) &&
+          t.dueDate.isBefore(now)).toList();
+
+      for (final task in missedTasks) {
+        if (birdId != null && task.birdId != birdId) continue;
+        final medInfo = MedTaskInfo.fromTask(task);
+        final birdRow = await (db.select(db.birds)
+              ..where((b) => b.id.equals(task.birdId))
+              ..limit(1))
+            .getSingleOrNull();
+        final birdName = birdRow?.name ?? '未知';
+        alerts.add(PluginAlert(
+          birdId: task.birdId,
+          type: 'missed_medication',
+          description: '$birdName ${medInfo.drugName} ${medInfo.timeLabel} 未按时喂药 (${medInfo.dosage})',
+          severity: AlertSeverity.warning,
+        ));
+      }
+    } catch (e) {
+      debugPrint('[MedicationPlugin] detectAlerts failed: $e');
     }
     return alerts;
   }

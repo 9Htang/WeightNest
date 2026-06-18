@@ -5,6 +5,74 @@ import '../../database/database.dart';
 import '../../repositories/enclosure_repository.dart';
 import '../../core/plugin_registry.dart';
 
+// 提取独立的输入对话框
+class _EnclosureTextInputDialog extends StatefulWidget {
+  final String title;
+  final String? labelText;
+  final String? hintText;
+  final String? initialValue;
+  final Future<void> Function(String name) onSave;
+
+  const _EnclosureTextInputDialog({
+    required this.title,
+    this.labelText,
+    this.hintText,
+    this.initialValue,
+    required this.onSave,
+  });
+
+  @override
+  State<_EnclosureTextInputDialog> createState() => _EnclosureTextInputDialogState();
+}
+
+class _EnclosureTextInputDialogState extends State<_EnclosureTextInputDialog> {
+  late final TextEditingController _controller;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : () async {
+            final name = _controller.text.trim();
+            if (name.isEmpty) return;
+            setState(() => _saving = true); // 防抖
+            await widget.onSave(name);
+            if (mounted) Navigator.pop(context, true);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
 /// 容器管理页面（房间内的保温箱、飞行笼等）
 class EnclosureManagementScreen extends ConsumerStatefulWidget {
   final int roomId;
@@ -23,9 +91,11 @@ class EnclosureManagementScreen extends ConsumerStatefulWidget {
 
 class _EnclosureManagementScreenState
     extends ConsumerState<EnclosureManagementScreen> {
+  List<EnclosureWithCount>? _reorderedEnclosures; // 本地缓存拖拽结果
+
   @override
   Widget build(BuildContext context) {
-    ref.watch(pluginToggleVersionProvider); // 插件开关时重建称重按钮
+    ref.watch(pluginToggleVersionProvider);
     final enclosuresAsync =
         ref.watch(roomEnclosuresWithCountsProvider(widget.roomId));
 
@@ -33,7 +103,6 @@ class _EnclosureManagementScreenState
       appBar: AppBar(
         title: Text('容器管理 - ${widget.roomName}'),
         actions: [
-          // 房间级称重按钮（插件提供）
           ...(() {
             final roomAction = pluginRegistry.enabledPlugins
                 .map((p) => p.roomWeighAction)
@@ -63,135 +132,127 @@ class _EnclosureManagementScreenState
       body: enclosuresAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
-        data: (enclosures) => enclosures.isEmpty
-            ? const Center(child: Text('暂无容器，点击右下角 + 添加'))
-            : ReorderableListView.builder(
-                itemCount: enclosures.length,
-                onReorder: (oldIndex, newIndex) async {
-                  if (newIndex > oldIndex) newIndex--;
-                  final reordered =
-                      List<EnclosureWithCount>.from(enclosures);
-                  final item = reordered.removeAt(oldIndex);
-                  reordered.insert(newIndex, item);
-                  setState(() {
-                    enclosures
-                      ..clear()
-                      ..addAll(reordered);
-                  });
-                  final db = ref.read(databaseProvider);
-                  final map = <int, int>{};
-                  for (int i = 0; i < reordered.length; i++) {
-                    map[reordered[i].enclosure.id] = i;
-                  }
-                  await db.updateEnclosureSortOrders(map);
-                  ref.invalidate(roomEnclosuresWithCountsProvider);
-                },
-                itemBuilder: (context, i) {
-                  final e = enclosures[i];
-                  // 查找插件提供的容器称重操作
-                  final encAction = pluginRegistry.enabledPlugins
-                      .map((p) => p.enclosureWeighAction)
-                      .firstWhere((a) => a != null, orElse: () => null);
-                  return Card(
-                    key: ValueKey(e.enclosure.id),
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 3),
-                    child: ListTile(
-                      leading: const Icon(Icons.inventory_2_outlined),
-                      title: Text(e.enclosure.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600)),
-                      subtitle: Text('${e.birdCount} 只鹦鹉'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (encAction != null)
-                            IconButton(
-                              icon: Icon(encAction.icon, size: 20),
-                              tooltip: encAction.tooltip,
-                              color: Theme.of(context).colorScheme.primary,
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => encAction.builder(e.enclosure.id),
-                                  ),
-                                );
+        data: (enclosures) {
+          final displayEnclosures = _reorderedEnclosures ?? enclosures;
+          return displayEnclosures.isEmpty
+              ? const Center(child: Text('暂无容器，点击右下角 + 添加'))
+              : ReorderableListView.builder(
+                  itemCount: displayEnclosures.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    if (newIndex > oldIndex) newIndex--;
+                    final reordered =
+                        List<EnclosureWithCount>.from(displayEnclosures);
+                    final item = reordered.removeAt(oldIndex);
+                    reordered.insert(newIndex, item);
+
+                    // 1. 立即更新本地视图，维持UI流畅
+                    setState(() => _reorderedEnclosures = reordered);
+
+                    // 2. 后台静默更新数据库
+                    final db = ref.read(databaseProvider);
+                    final map = <int, int>{};
+                    for (int i = 0; i < reordered.length; i++) {
+                      map[reordered[i].enclosure.id] = i;
+                    }
+                    await db.updateEnclosureSortOrders(map);
+
+                    // 3. 延迟到下一帧再刷新 Provider，避免打断动画
+                    if (!mounted) return;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      ref.invalidate(roomEnclosuresWithCountsProvider);
+                      setState(() => _reorderedEnclosures = null);
+                    });
+                  },
+                  itemBuilder: (context, i) {
+                    final e = displayEnclosures[i];
+                    final encAction = pluginRegistry.enabledPlugins
+                        .map((p) => p.enclosureWeighAction)
+                        .firstWhere((a) => a != null, orElse: () => null);
+                    return Card(
+                      key: ValueKey(e.enclosure.id),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 3),
+                      child: ListTile(
+                        leading: const Icon(Icons.inventory_2_outlined),
+                        title: Text(e.enclosure.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600)),
+                        subtitle: Text('${e.birdCount} 只鹦鹉'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (encAction != null)
+                              IconButton(
+                                icon: Icon(encAction.icon, size: 20),
+                                tooltip: encAction.tooltip,
+                                color: Theme.of(context).colorScheme.primary,
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => encAction.builder(e.enclosure.id),
+                                    ),
+                                  );
+                                },
+                              ),
+                            PopupMenuButton(
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                    value: 'edit', child: Text('编辑')),
+                                const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('删除',
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                              onSelected: (v) {
+                                if (v == 'edit')
+                                  _showEditDialog(context, e.enclosure);
+                                if (v == 'delete')
+                                  _confirmDelete(context, e);
                               },
                             ),
-                          PopupMenuButton(
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                  value: 'edit', child: Text('编辑')),
-                              const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('删除',
-                                      style: TextStyle(color: Colors.red))),
-                            ],
-                            onSelected: (v) {
-                              if (v == 'edit')
-                                _showEditDialog(context, e.enclosure);
-                              if (v == 'delete')
-                                _confirmDelete(context, e);
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                );
+        },
       ),
     );
   }
 
   void _showEditDialog(BuildContext context, Enclosure? existing) {
-    final nameCtrl =
-        TextEditingController(text: existing?.name ?? '');
-
-    showDialog(
+    final db = ref.read(databaseProvider);
+    showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(existing != null ? '编辑容器' : '新增容器'),
-          content: TextField(
-            controller: nameCtrl,
-            decoration: const InputDecoration(
-                labelText: '容器名称', hintText: '如：1号保温箱、飞行笼'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = nameCtrl.text.trim();
-                if (name.isEmpty) return;
-                final db = ref.read(databaseProvider);
-                if (existing != null) {
-                  await db.updateEnclosure(existing.id, name: name);
-                } else {
-                  await db.createEnclosure(name, widget.roomId);
-                }
-                ref.invalidate(roomEnclosuresProvider);
-                ref.invalidate(roomEnclosuresWithCountsProvider);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
-    );
+      builder: (ctx) => _EnclosureTextInputDialog(
+        title: existing != null ? '编辑容器' : '新增容器',
+        labelText: '容器名称',
+        hintText: '如：1号保温箱、飞行笼',
+        initialValue: existing?.name,
+        onSave: (name) async {
+          if (existing != null) {
+            await db.updateEnclosure(existing.id, name: name);
+          } else {
+            await db.createEnclosure(name, widget.roomId);
+          }
+        },
+      ),
+    ).then((saved) {
+      if (saved == true && mounted) {
+        ref.invalidate(roomEnclosuresWithCountsProvider(widget.roomId));
+      }
+    });
   }
 
   void _confirmDelete(BuildContext context, EnclosureWithCount e) {
     final hasBirds = e.birdCount > 0;
+    final db = ref.read(databaseProvider);
 
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
@@ -200,22 +261,22 @@ class _EnclosureManagementScreenState
             : '删除容器「${e.enclosure.name}」？'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await ref
-                  .read(databaseProvider)
-                  .removeEnclosure(e.enclosure.id);
-              ref.invalidate(roomEnclosuresProvider);
-              ref.invalidate(roomEnclosuresWithCountsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+              await db.removeEnclosure(e.enclosure.id);
+              if (ctx.mounted) Navigator.pop(ctx, true);
             },
             child: const Text('删除'),
           ),
         ],
       ),
-    );
+    ).then((deleted) {
+      if (deleted == true && mounted) {
+        ref.invalidate(roomEnclosuresWithCountsProvider(widget.roomId));
+      }
+    });
   }
 }

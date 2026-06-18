@@ -123,7 +123,7 @@ class _MedicationDayView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<MedicationLogData>>(
+    return FutureBuilder<List<MedTaskInfo>>(
       future: _fetchLogs(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -145,35 +145,18 @@ class _MedicationDayView extends StatelessWidget {
     );
   }
 
-  Future<List<MedicationLogData>> _fetchLogs() async {
+  Future<List<MedTaskInfo>> _fetchLogs() async {
     if (birdId != null) {
-      // For a single bird, use the day's logs
-      // Query all today logs and filter by bird will already be handled
       return db.getTodayLogs(birdId!);
     }
-    // For all birds, we fetch each bird's medications
-    // Simplified: query logs for the day
-    final dayStart = DateTime(day.year, day.month, day.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    final rows = await (db.select(db.medicationLogs).join([
-      innerJoin(db.medications, db.medications.id.equalsExp(db.medicationLogs.medicationId)),
-    ])
-      ..where(db.medicationLogs.scheduledTime.isBiggerOrEqualValue(dayStart) &
-          db.medicationLogs.scheduledTime.isSmallerThanValue(dayEnd))
-      ..orderBy([OrderingTerm.asc(db.medicationLogs.scheduledTime)])).get();
-
-    return rows.map((r) => MedicationLogData(
-      log: r.readTable(db.medicationLogs),
-      medication: r.readTable(db.medications),
-    )).toList();
+    return db.getAllTodayLogs();
   }
 
-  Widget _buildLogList(BuildContext context, List<MedicationLogData> logs) {
+  Widget _buildLogList(BuildContext context, List<MedTaskInfo> logs) {
     final theme = Theme.of(context);
-    final grouped = <int, List<MedicationLogData>>{};
+    final grouped = <int, List<MedTaskInfo>>{};
     for (final l in logs) {
-      grouped.putIfAbsent(l.medication.birdId, () => []).add(l);
+      grouped.putIfAbsent(l.task.birdId, () => []).add(l);
     }
 
     return ListView(
@@ -181,7 +164,7 @@ class _MedicationDayView extends StatelessWidget {
       children: grouped.entries.expand((entry) {
         final birdId = entry.key;
         final items = entry.value;
-        final drug = items.first.medication.drugName;
+        final drug = items.first.drugName;
         final doneCount = items.where((l) => l.isDone).length;
         final totalCount = items.length;
 
@@ -199,9 +182,9 @@ class _MedicationDayView extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('$drug  ·  ${items.first.medication.dosage}',
+                        Text('$drug  ·  ${items.first.dosage}',
                             style: theme.textTheme.titleSmall),
-                        Text('鹦鹉 #$birdId  ·  ${items.first.medication.drugType}',
+                        Text('鹦鹉 #$birdId',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                       ]),
                     ),
@@ -211,11 +194,11 @@ class _MedicationDayView extends StatelessWidget {
                   ]),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: items.map((l) {
-                    final isLate = !l.isDone && !l.isSkipped && l.log.scheduledTime.isBefore(DateTime.now());
+                    final isLate = !l.isDone && !l.isSkipped && l.task.dueDate.isBefore(DateTime.now());
                     return InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: (l.isDone || l.isSkipped) ? null : () async {
-                        await db.giveMedication(l.log.id);
+                        await db.giveMedication(l.task.id);
                         onChanged();
                       },
                       child: Container(

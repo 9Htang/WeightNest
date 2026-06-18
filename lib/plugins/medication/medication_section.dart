@@ -43,7 +43,7 @@ class _MedicationSectionState extends State<MedicationSection> {
       builder: (context, medSnapshot) {
         final meds = medSnapshot.data ?? [];
 
-        return FutureBuilder<List<MedicationLogData>>(
+        return FutureBuilder<List<MedTaskInfo>>(
           key: ValueKey('logs_$_refreshKey'),
           future: _db.getTodayLogs(widget.birdId),
           builder: (context, logSnapshot) {
@@ -101,8 +101,8 @@ class _MedicationSectionState extends State<MedicationSection> {
                   const SizedBox(height: 8),
                   ...logs.map((l) => _TodayLogItem(
                         data: l,
-                        onGive: () => _db.giveMedication(l.log.id).then((_) => _reload()),
-                        onSkip: () => _db.skipMedication(l.log.id).then((_) => _reload()),
+                        onGive: () => _db.giveMedication(l.task.id).then((_) => _reload()),
+                        onSkip: () => _db.skipMedication(l.task.id).then((_) => _reload()),
                       )),
                 ],
               ],
@@ -247,7 +247,7 @@ class _MedicationCard extends StatelessWidget {
 
 /// 今日喂药记录条目
 class _TodayLogItem extends StatelessWidget {
-  final MedicationLogData data;
+  final MedTaskInfo data;
   final VoidCallback onGive;
   final VoidCallback onSkip;
 
@@ -256,7 +256,7 @@ class _TodayLogItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLate = !data.isDone && !data.isSkipped && data.log.scheduledTime.isBefore(DateTime.now());
+    final isLate = !data.isDone && !data.isSkipped && data.task.dueDate.isBefore(DateTime.now());
 
     Color bgColor;
     if (data.isDone) {
@@ -292,7 +292,7 @@ class _TodayLogItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${data.timeLabel}  ${data.medication.drugName}  ${data.medication.dosage}',
+                  '${data.timeLabel}  ${data.drugName}  ${data.dosage}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,

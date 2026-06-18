@@ -3350,6 +3350,15 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   late final GeneratedColumn<int> assignedUserId = GeneratedColumn<int>(
       'assigned_user_id', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _taskTypeMeta =
+      const VerificationMeta('taskType');
+  @override
+  late final GeneratedColumn<String> taskType = GeneratedColumn<String>(
+      'task_type', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('weigh'));
   static const VerificationMeta _dueDateMeta =
       const VerificationMeta('dueDate');
   @override
@@ -3376,6 +3385,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   late final GeneratedColumn<int> completedBy = GeneratedColumn<int>(
       'completed_by', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _metadataMeta =
+      const VerificationMeta('metadata');
+  @override
+  late final GeneratedColumn<String> metadata = GeneratedColumn<String>(
+      'metadata', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -3399,10 +3414,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         birdId,
         roomId,
         assignedUserId,
+        taskType,
         dueDate,
         status,
         completedAt,
         completedBy,
+        metadata,
         createdAt,
         updatedAt
       ];
@@ -3441,6 +3458,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           assignedUserId.isAcceptableOrUnknown(
               data['assigned_user_id']!, _assignedUserIdMeta));
     }
+    if (data.containsKey('task_type')) {
+      context.handle(_taskTypeMeta,
+          taskType.isAcceptableOrUnknown(data['task_type']!, _taskTypeMeta));
+    }
     if (data.containsKey('due_date')) {
       context.handle(_dueDateMeta,
           dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta));
@@ -3462,6 +3483,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           _completedByMeta,
           completedBy.isAcceptableOrUnknown(
               data['completed_by']!, _completedByMeta));
+    }
+    if (data.containsKey('metadata')) {
+      context.handle(_metadataMeta,
+          metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -3490,6 +3515,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           .read(DriftSqlType.int, data['${effectivePrefix}room_id']),
       assignedUserId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}assigned_user_id']),
+      taskType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}task_type'])!,
       dueDate: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}due_date'])!,
       status: attachedDatabase.typeMapping
@@ -3498,6 +3525,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}completed_at']),
       completedBy: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}completed_by']),
+      metadata: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}metadata']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -3524,10 +3553,13 @@ class Task extends DataClass implements Insertable<Task> {
   /// 指派人
   final int? assignedUserId;
 
-  /// 任务日期
+  /// 任务类型：weigh / medication / ...
+  final String taskType;
+
+  /// 任务日期（weigh 为当天零点，medication 为具体喂药时间）
   final DateTime dueDate;
 
-  /// 任务状态：待完成/已完成/逾期
+  /// 任务状态：待完成/已完成/逾期/已跳过
   final String status;
 
   /// 完成时间
@@ -3535,6 +3567,9 @@ class Task extends DataClass implements Insertable<Task> {
 
   /// 完成人
   final int? completedBy;
+
+  /// 插件私有数据（JSON），如喂药任务存 drugName/dosage/medicationId
+  final String? metadata;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Task(
@@ -3543,10 +3578,12 @@ class Task extends DataClass implements Insertable<Task> {
       required this.birdId,
       this.roomId,
       this.assignedUserId,
+      required this.taskType,
       required this.dueDate,
       required this.status,
       this.completedAt,
       this.completedBy,
+      this.metadata,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -3561,6 +3598,7 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || assignedUserId != null) {
       map['assigned_user_id'] = Variable<int>(assignedUserId);
     }
+    map['task_type'] = Variable<String>(taskType);
     map['due_date'] = Variable<DateTime>(dueDate);
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || completedAt != null) {
@@ -3568,6 +3606,9 @@ class Task extends DataClass implements Insertable<Task> {
     }
     if (!nullToAbsent || completedBy != null) {
       map['completed_by'] = Variable<int>(completedBy);
+    }
+    if (!nullToAbsent || metadata != null) {
+      map['metadata'] = Variable<String>(metadata);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -3584,6 +3625,7 @@ class Task extends DataClass implements Insertable<Task> {
       assignedUserId: assignedUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedUserId),
+      taskType: Value(taskType),
       dueDate: Value(dueDate),
       status: Value(status),
       completedAt: completedAt == null && nullToAbsent
@@ -3592,6 +3634,9 @@ class Task extends DataClass implements Insertable<Task> {
       completedBy: completedBy == null && nullToAbsent
           ? const Value.absent()
           : Value(completedBy),
+      metadata: metadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metadata),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -3606,10 +3651,12 @@ class Task extends DataClass implements Insertable<Task> {
       birdId: serializer.fromJson<int>(json['birdId']),
       roomId: serializer.fromJson<int?>(json['roomId']),
       assignedUserId: serializer.fromJson<int?>(json['assignedUserId']),
+      taskType: serializer.fromJson<String>(json['taskType']),
       dueDate: serializer.fromJson<DateTime>(json['dueDate']),
       status: serializer.fromJson<String>(json['status']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       completedBy: serializer.fromJson<int?>(json['completedBy']),
+      metadata: serializer.fromJson<String?>(json['metadata']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -3623,10 +3670,12 @@ class Task extends DataClass implements Insertable<Task> {
       'birdId': serializer.toJson<int>(birdId),
       'roomId': serializer.toJson<int?>(roomId),
       'assignedUserId': serializer.toJson<int?>(assignedUserId),
+      'taskType': serializer.toJson<String>(taskType),
       'dueDate': serializer.toJson<DateTime>(dueDate),
       'status': serializer.toJson<String>(status),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'completedBy': serializer.toJson<int?>(completedBy),
+      'metadata': serializer.toJson<String?>(metadata),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -3638,10 +3687,12 @@ class Task extends DataClass implements Insertable<Task> {
           int? birdId,
           Value<int?> roomId = const Value.absent(),
           Value<int?> assignedUserId = const Value.absent(),
+          String? taskType,
           DateTime? dueDate,
           String? status,
           Value<DateTime?> completedAt = const Value.absent(),
           Value<int?> completedBy = const Value.absent(),
+          Value<String?> metadata = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       Task(
@@ -3651,10 +3702,12 @@ class Task extends DataClass implements Insertable<Task> {
         roomId: roomId.present ? roomId.value : this.roomId,
         assignedUserId:
             assignedUserId.present ? assignedUserId.value : this.assignedUserId,
+        taskType: taskType ?? this.taskType,
         dueDate: dueDate ?? this.dueDate,
         status: status ?? this.status,
         completedAt: completedAt.present ? completedAt.value : this.completedAt,
         completedBy: completedBy.present ? completedBy.value : this.completedBy,
+        metadata: metadata.present ? metadata.value : this.metadata,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -3667,12 +3720,14 @@ class Task extends DataClass implements Insertable<Task> {
       assignedUserId: data.assignedUserId.present
           ? data.assignedUserId.value
           : this.assignedUserId,
+      taskType: data.taskType.present ? data.taskType.value : this.taskType,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       status: data.status.present ? data.status.value : this.status,
       completedAt:
           data.completedAt.present ? data.completedAt.value : this.completedAt,
       completedBy:
           data.completedBy.present ? data.completedBy.value : this.completedBy,
+      metadata: data.metadata.present ? data.metadata.value : this.metadata,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -3686,10 +3741,12 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('birdId: $birdId, ')
           ..write('roomId: $roomId, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('taskType: $taskType, ')
           ..write('dueDate: $dueDate, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('completedBy: $completedBy, ')
+          ..write('metadata: $metadata, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -3697,8 +3754,20 @@ class Task extends DataClass implements Insertable<Task> {
   }
 
   @override
-  int get hashCode => Object.hash(id, uuid, birdId, roomId, assignedUserId,
-      dueDate, status, completedAt, completedBy, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+      id,
+      uuid,
+      birdId,
+      roomId,
+      assignedUserId,
+      taskType,
+      dueDate,
+      status,
+      completedAt,
+      completedBy,
+      metadata,
+      createdAt,
+      updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3708,10 +3777,12 @@ class Task extends DataClass implements Insertable<Task> {
           other.birdId == this.birdId &&
           other.roomId == this.roomId &&
           other.assignedUserId == this.assignedUserId &&
+          other.taskType == this.taskType &&
           other.dueDate == this.dueDate &&
           other.status == this.status &&
           other.completedAt == this.completedAt &&
           other.completedBy == this.completedBy &&
+          other.metadata == this.metadata &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -3722,10 +3793,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<int> birdId;
   final Value<int?> roomId;
   final Value<int?> assignedUserId;
+  final Value<String> taskType;
   final Value<DateTime> dueDate;
   final Value<String> status;
   final Value<DateTime?> completedAt;
   final Value<int?> completedBy;
+  final Value<String?> metadata;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const TasksCompanion({
@@ -3734,10 +3807,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.birdId = const Value.absent(),
     this.roomId = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.taskType = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.completedBy = const Value.absent(),
+    this.metadata = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -3747,10 +3822,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
     required int birdId,
     this.roomId = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.taskType = const Value.absent(),
     required DateTime dueDate,
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.completedBy = const Value.absent(),
+    this.metadata = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   })  : uuid = Value(uuid),
@@ -3762,10 +3839,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<int>? birdId,
     Expression<int>? roomId,
     Expression<int>? assignedUserId,
+    Expression<String>? taskType,
     Expression<DateTime>? dueDate,
     Expression<String>? status,
     Expression<DateTime>? completedAt,
     Expression<int>? completedBy,
+    Expression<String>? metadata,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -3775,10 +3854,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (birdId != null) 'bird_id': birdId,
       if (roomId != null) 'room_id': roomId,
       if (assignedUserId != null) 'assigned_user_id': assignedUserId,
+      if (taskType != null) 'task_type': taskType,
       if (dueDate != null) 'due_date': dueDate,
       if (status != null) 'status': status,
       if (completedAt != null) 'completed_at': completedAt,
       if (completedBy != null) 'completed_by': completedBy,
+      if (metadata != null) 'metadata': metadata,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -3790,10 +3871,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
       Value<int>? birdId,
       Value<int?>? roomId,
       Value<int?>? assignedUserId,
+      Value<String>? taskType,
       Value<DateTime>? dueDate,
       Value<String>? status,
       Value<DateTime?>? completedAt,
       Value<int?>? completedBy,
+      Value<String?>? metadata,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
     return TasksCompanion(
@@ -3802,10 +3885,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
       birdId: birdId ?? this.birdId,
       roomId: roomId ?? this.roomId,
       assignedUserId: assignedUserId ?? this.assignedUserId,
+      taskType: taskType ?? this.taskType,
       dueDate: dueDate ?? this.dueDate,
       status: status ?? this.status,
       completedAt: completedAt ?? this.completedAt,
       completedBy: completedBy ?? this.completedBy,
+      metadata: metadata ?? this.metadata,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -3829,6 +3914,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (assignedUserId.present) {
       map['assigned_user_id'] = Variable<int>(assignedUserId.value);
     }
+    if (taskType.present) {
+      map['task_type'] = Variable<String>(taskType.value);
+    }
     if (dueDate.present) {
       map['due_date'] = Variable<DateTime>(dueDate.value);
     }
@@ -3840,6 +3928,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     }
     if (completedBy.present) {
       map['completed_by'] = Variable<int>(completedBy.value);
+    }
+    if (metadata.present) {
+      map['metadata'] = Variable<String>(metadata.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -3858,10 +3949,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('birdId: $birdId, ')
           ..write('roomId: $roomId, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('taskType: $taskType, ')
           ..write('dueDate: $dueDate, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('completedBy: $completedBy, ')
+          ..write('metadata: $metadata, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -3915,6 +4008,14 @@ class $AlertRecordsTable extends AlertRecords
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
       type: DriftSqlType.string,
       requiredDuringInsert: true);
+  static const VerificationMeta _severityMeta =
+      const VerificationMeta('severity');
+  @override
+  late final GeneratedColumn<String> severity = GeneratedColumn<String>(
+      'severity', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 10),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
   static const VerificationMeta _isReadMeta = const VerificationMeta('isRead');
   @override
   late final GeneratedColumn<bool> isRead = GeneratedColumn<bool>(
@@ -3963,6 +4064,7 @@ class $AlertRecordsTable extends AlertRecords
         birdId,
         alertType,
         description,
+        severity,
         isRead,
         isResolved,
         createdAt,
@@ -4008,6 +4110,12 @@ class $AlertRecordsTable extends AlertRecords
     } else if (isInserting) {
       context.missing(_descriptionMeta);
     }
+    if (data.containsKey('severity')) {
+      context.handle(_severityMeta,
+          severity.isAcceptableOrUnknown(data['severity']!, _severityMeta));
+    } else if (isInserting) {
+      context.missing(_severityMeta);
+    }
     if (data.containsKey('is_read')) {
       context.handle(_isReadMeta,
           isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta));
@@ -4051,6 +4159,8 @@ class $AlertRecordsTable extends AlertRecords
           .read(DriftSqlType.string, data['${effectivePrefix}alert_type'])!,
       description: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}description'])!,
+      severity: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}severity'])!,
       isRead: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_read'])!,
       isResolved: attachedDatabase.typeMapping
@@ -4083,6 +4193,9 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
   /// 提醒详情
   final String description;
 
+  /// 严重程度: warning / danger
+  final String severity;
+
   /// 是否已读
   final bool isRead;
 
@@ -4097,6 +4210,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
       required this.birdId,
       required this.alertType,
       required this.description,
+      required this.severity,
       required this.isRead,
       required this.isResolved,
       required this.createdAt,
@@ -4110,6 +4224,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
     map['bird_id'] = Variable<int>(birdId);
     map['alert_type'] = Variable<String>(alertType);
     map['description'] = Variable<String>(description);
+    map['severity'] = Variable<String>(severity);
     map['is_read'] = Variable<bool>(isRead);
     map['is_resolved'] = Variable<bool>(isResolved);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -4127,6 +4242,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
       birdId: Value(birdId),
       alertType: Value(alertType),
       description: Value(description),
+      severity: Value(severity),
       isRead: Value(isRead),
       isResolved: Value(isResolved),
       createdAt: Value(createdAt),
@@ -4146,6 +4262,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
       birdId: serializer.fromJson<int>(json['birdId']),
       alertType: serializer.fromJson<String>(json['alertType']),
       description: serializer.fromJson<String>(json['description']),
+      severity: serializer.fromJson<String>(json['severity']),
       isRead: serializer.fromJson<bool>(json['isRead']),
       isResolved: serializer.fromJson<bool>(json['isResolved']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -4162,6 +4279,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
       'birdId': serializer.toJson<int>(birdId),
       'alertType': serializer.toJson<String>(alertType),
       'description': serializer.toJson<String>(description),
+      'severity': serializer.toJson<String>(severity),
       'isRead': serializer.toJson<bool>(isRead),
       'isResolved': serializer.toJson<bool>(isResolved),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -4176,6 +4294,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
           int? birdId,
           String? alertType,
           String? description,
+          String? severity,
           bool? isRead,
           bool? isResolved,
           DateTime? createdAt,
@@ -4187,6 +4306,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
         birdId: birdId ?? this.birdId,
         alertType: alertType ?? this.alertType,
         description: description ?? this.description,
+        severity: severity ?? this.severity,
         isRead: isRead ?? this.isRead,
         isResolved: isResolved ?? this.isResolved,
         createdAt: createdAt ?? this.createdAt,
@@ -4201,6 +4321,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
       alertType: data.alertType.present ? data.alertType.value : this.alertType,
       description:
           data.description.present ? data.description.value : this.description,
+      severity: data.severity.present ? data.severity.value : this.severity,
       isRead: data.isRead.present ? data.isRead.value : this.isRead,
       isResolved:
           data.isResolved.present ? data.isResolved.value : this.isResolved,
@@ -4219,6 +4340,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
           ..write('birdId: $birdId, ')
           ..write('alertType: $alertType, ')
           ..write('description: $description, ')
+          ..write('severity: $severity, ')
           ..write('isRead: $isRead, ')
           ..write('isResolved: $isResolved, ')
           ..write('createdAt: $createdAt, ')
@@ -4230,7 +4352,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
 
   @override
   int get hashCode => Object.hash(id, uuid, birdId, alertType, description,
-      isRead, isResolved, createdAt, updatedAt, resolvedAt);
+      severity, isRead, isResolved, createdAt, updatedAt, resolvedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4240,6 +4362,7 @@ class AlertRecord extends DataClass implements Insertable<AlertRecord> {
           other.birdId == this.birdId &&
           other.alertType == this.alertType &&
           other.description == this.description &&
+          other.severity == this.severity &&
           other.isRead == this.isRead &&
           other.isResolved == this.isResolved &&
           other.createdAt == this.createdAt &&
@@ -4253,6 +4376,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
   final Value<int> birdId;
   final Value<String> alertType;
   final Value<String> description;
+  final Value<String> severity;
   final Value<bool> isRead;
   final Value<bool> isResolved;
   final Value<DateTime> createdAt;
@@ -4264,6 +4388,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
     this.birdId = const Value.absent(),
     this.alertType = const Value.absent(),
     this.description = const Value.absent(),
+    this.severity = const Value.absent(),
     this.isRead = const Value.absent(),
     this.isResolved = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4276,6 +4401,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
     required int birdId,
     required String alertType,
     required String description,
+    required String severity,
     this.isRead = const Value.absent(),
     this.isResolved = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4284,13 +4410,15 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
   })  : uuid = Value(uuid),
         birdId = Value(birdId),
         alertType = Value(alertType),
-        description = Value(description);
+        description = Value(description),
+        severity = Value(severity);
   static Insertable<AlertRecord> custom({
     Expression<int>? id,
     Expression<String>? uuid,
     Expression<int>? birdId,
     Expression<String>? alertType,
     Expression<String>? description,
+    Expression<String>? severity,
     Expression<bool>? isRead,
     Expression<bool>? isResolved,
     Expression<DateTime>? createdAt,
@@ -4303,6 +4431,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
       if (birdId != null) 'bird_id': birdId,
       if (alertType != null) 'alert_type': alertType,
       if (description != null) 'description': description,
+      if (severity != null) 'severity': severity,
       if (isRead != null) 'is_read': isRead,
       if (isResolved != null) 'is_resolved': isResolved,
       if (createdAt != null) 'created_at': createdAt,
@@ -4317,6 +4446,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
       Value<int>? birdId,
       Value<String>? alertType,
       Value<String>? description,
+      Value<String>? severity,
       Value<bool>? isRead,
       Value<bool>? isResolved,
       Value<DateTime>? createdAt,
@@ -4328,6 +4458,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
       birdId: birdId ?? this.birdId,
       alertType: alertType ?? this.alertType,
       description: description ?? this.description,
+      severity: severity ?? this.severity,
       isRead: isRead ?? this.isRead,
       isResolved: isResolved ?? this.isResolved,
       createdAt: createdAt ?? this.createdAt,
@@ -4353,6 +4484,9 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
+    }
+    if (severity.present) {
+      map['severity'] = Variable<String>(severity.value);
     }
     if (isRead.present) {
       map['is_read'] = Variable<bool>(isRead.value);
@@ -4380,6 +4514,7 @@ class AlertRecordsCompanion extends UpdateCompanion<AlertRecord> {
           ..write('birdId: $birdId, ')
           ..write('alertType: $alertType, ')
           ..write('description: $description, ')
+          ..write('severity: $severity, ')
           ..write('isRead: $isRead, ')
           ..write('isResolved: $isResolved, ')
           ..write('createdAt: $createdAt, ')
@@ -5561,12 +5696,12 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
   }
 }
 
-class $MedicationLogsTable extends MedicationLogs
-    with TableInfo<$MedicationLogsTable, MedicationLog> {
+class $BreedingPairsTable extends BreedingPairs
+    with TableInfo<$BreedingPairsTable, BreedingPair> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $MedicationLogsTable(this.attachedDatabase, [this._alias]);
+  $BreedingPairsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -5576,51 +5711,1603 @@ class $MedicationLogsTable extends MedicationLogs
       requiredDuringInsert: false,
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _medicationIdMeta =
-      const VerificationMeta('medicationId');
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
   @override
-  late final GeneratedColumn<int> medicationId = GeneratedColumn<int>(
-      'medication_id', aliasedName, false,
-      type: DriftSqlType.int,
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
       requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES medications (id) ON DELETE CASCADE'));
-  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _maleBirdIdMeta =
+      const VerificationMeta('maleBirdId');
   @override
-  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
-      'bird_id', aliasedName, false,
+  late final GeneratedColumn<int> maleBirdId = GeneratedColumn<int>(
+      'male_bird_id', aliasedName, false,
       type: DriftSqlType.int,
       requiredDuringInsert: true,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES birds (id) ON DELETE CASCADE'));
-  static const VerificationMeta _scheduledTimeMeta =
-      const VerificationMeta('scheduledTime');
+  static const VerificationMeta _femaleBirdIdMeta =
+      const VerificationMeta('femaleBirdId');
   @override
-  late final GeneratedColumn<DateTime> scheduledTime =
-      GeneratedColumn<DateTime>('scheduled_time', aliasedName, false,
-          type: DriftSqlType.dateTime, requiredDuringInsert: true);
-  static const VerificationMeta _givenAtMeta =
-      const VerificationMeta('givenAt');
+  late final GeneratedColumn<int> femaleBirdId = GeneratedColumn<int>(
+      'female_bird_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE CASCADE'));
+  static const VerificationMeta _pairNameMeta =
+      const VerificationMeta('pairName');
   @override
-  late final GeneratedColumn<DateTime> givenAt = GeneratedColumn<DateTime>(
-      'given_at', aliasedName, true,
-      type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _givenByMeta =
-      const VerificationMeta('givenBy');
+  late final GeneratedColumn<String> pairName = GeneratedColumn<String>(
+      'pair_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  late final GeneratedColumn<int> givenBy = GeneratedColumn<int>(
-      'given_by', aliasedName, true,
-      type: DriftSqlType.int, requiredDuringInsert: false);
-  static const VerificationMeta _skippedMeta =
-      const VerificationMeta('skipped');
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('active'));
+  static const VerificationMeta _pairedDateMeta =
+      const VerificationMeta('pairedDate');
   @override
-  late final GeneratedColumn<bool> skipped = GeneratedColumn<bool>(
-      'skipped', aliasedName, false,
-      type: DriftSqlType.bool,
+  late final GeneratedColumn<DateTime> pairedDate = GeneratedColumn<DateTime>(
+      'paired_date', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _separatedDateMeta =
+      const VerificationMeta('separatedDate');
+  @override
+  late final GeneratedColumn<DateTime> separatedDate =
+      GeneratedColumn<DateTime>('separated_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        maleBirdId,
+        femaleBirdId,
+        pairName,
+        status,
+        pairedDate,
+        separatedDate,
+        notes,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'breeding_pairs';
+  @override
+  VerificationContext validateIntegrity(Insertable<BreedingPair> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('male_bird_id')) {
+      context.handle(
+          _maleBirdIdMeta,
+          maleBirdId.isAcceptableOrUnknown(
+              data['male_bird_id']!, _maleBirdIdMeta));
+    } else if (isInserting) {
+      context.missing(_maleBirdIdMeta);
+    }
+    if (data.containsKey('female_bird_id')) {
+      context.handle(
+          _femaleBirdIdMeta,
+          femaleBirdId.isAcceptableOrUnknown(
+              data['female_bird_id']!, _femaleBirdIdMeta));
+    } else if (isInserting) {
+      context.missing(_femaleBirdIdMeta);
+    }
+    if (data.containsKey('pair_name')) {
+      context.handle(_pairNameMeta,
+          pairName.isAcceptableOrUnknown(data['pair_name']!, _pairNameMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('paired_date')) {
+      context.handle(
+          _pairedDateMeta,
+          pairedDate.isAcceptableOrUnknown(
+              data['paired_date']!, _pairedDateMeta));
+    }
+    if (data.containsKey('separated_date')) {
+      context.handle(
+          _separatedDateMeta,
+          separatedDate.isAcceptableOrUnknown(
+              data['separated_date']!, _separatedDateMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BreedingPair map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BreedingPair(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      maleBirdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}male_bird_id'])!,
+      femaleBirdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}female_bird_id'])!,
+      pairName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}pair_name']),
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      pairedDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}paired_date'])!,
+      separatedDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}separated_date']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $BreedingPairsTable createAlias(String alias) {
+    return $BreedingPairsTable(attachedDatabase, alias);
+  }
+}
+
+class BreedingPair extends DataClass implements Insertable<BreedingPair> {
+  final int id;
+  final String uuid;
+
+  /// 公鸟
+  final int maleBirdId;
+
+  /// 母鸟
+  final int femaleBirdId;
+
+  /// 配对名称（可选，如 "蓝公×绿母"）
+  final String? pairName;
+
+  /// 状态：active / separated
+  final String status;
+  final DateTime pairedDate;
+  final DateTime? separatedDate;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const BreedingPair(
+      {required this.id,
+      required this.uuid,
+      required this.maleBirdId,
+      required this.femaleBirdId,
+      this.pairName,
+      required this.status,
+      required this.pairedDate,
+      this.separatedDate,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['male_bird_id'] = Variable<int>(maleBirdId);
+    map['female_bird_id'] = Variable<int>(femaleBirdId);
+    if (!nullToAbsent || pairName != null) {
+      map['pair_name'] = Variable<String>(pairName);
+    }
+    map['status'] = Variable<String>(status);
+    map['paired_date'] = Variable<DateTime>(pairedDate);
+    if (!nullToAbsent || separatedDate != null) {
+      map['separated_date'] = Variable<DateTime>(separatedDate);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  BreedingPairsCompanion toCompanion(bool nullToAbsent) {
+    return BreedingPairsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      maleBirdId: Value(maleBirdId),
+      femaleBirdId: Value(femaleBirdId),
+      pairName: pairName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairName),
+      status: Value(status),
+      pairedDate: Value(pairedDate),
+      separatedDate: separatedDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(separatedDate),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BreedingPair.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BreedingPair(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      maleBirdId: serializer.fromJson<int>(json['maleBirdId']),
+      femaleBirdId: serializer.fromJson<int>(json['femaleBirdId']),
+      pairName: serializer.fromJson<String?>(json['pairName']),
+      status: serializer.fromJson<String>(json['status']),
+      pairedDate: serializer.fromJson<DateTime>(json['pairedDate']),
+      separatedDate: serializer.fromJson<DateTime?>(json['separatedDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'maleBirdId': serializer.toJson<int>(maleBirdId),
+      'femaleBirdId': serializer.toJson<int>(femaleBirdId),
+      'pairName': serializer.toJson<String?>(pairName),
+      'status': serializer.toJson<String>(status),
+      'pairedDate': serializer.toJson<DateTime>(pairedDate),
+      'separatedDate': serializer.toJson<DateTime?>(separatedDate),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  BreedingPair copyWith(
+          {int? id,
+          String? uuid,
+          int? maleBirdId,
+          int? femaleBirdId,
+          Value<String?> pairName = const Value.absent(),
+          String? status,
+          DateTime? pairedDate,
+          Value<DateTime?> separatedDate = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      BreedingPair(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        maleBirdId: maleBirdId ?? this.maleBirdId,
+        femaleBirdId: femaleBirdId ?? this.femaleBirdId,
+        pairName: pairName.present ? pairName.value : this.pairName,
+        status: status ?? this.status,
+        pairedDate: pairedDate ?? this.pairedDate,
+        separatedDate:
+            separatedDate.present ? separatedDate.value : this.separatedDate,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  BreedingPair copyWithCompanion(BreedingPairsCompanion data) {
+    return BreedingPair(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      maleBirdId:
+          data.maleBirdId.present ? data.maleBirdId.value : this.maleBirdId,
+      femaleBirdId: data.femaleBirdId.present
+          ? data.femaleBirdId.value
+          : this.femaleBirdId,
+      pairName: data.pairName.present ? data.pairName.value : this.pairName,
+      status: data.status.present ? data.status.value : this.status,
+      pairedDate:
+          data.pairedDate.present ? data.pairedDate.value : this.pairedDate,
+      separatedDate: data.separatedDate.present
+          ? data.separatedDate.value
+          : this.separatedDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BreedingPair(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('maleBirdId: $maleBirdId, ')
+          ..write('femaleBirdId: $femaleBirdId, ')
+          ..write('pairName: $pairName, ')
+          ..write('status: $status, ')
+          ..write('pairedDate: $pairedDate, ')
+          ..write('separatedDate: $separatedDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uuid, maleBirdId, femaleBirdId, pairName,
+      status, pairedDate, separatedDate, notes, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BreedingPair &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.maleBirdId == this.maleBirdId &&
+          other.femaleBirdId == this.femaleBirdId &&
+          other.pairName == this.pairName &&
+          other.status == this.status &&
+          other.pairedDate == this.pairedDate &&
+          other.separatedDate == this.separatedDate &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BreedingPairsCompanion extends UpdateCompanion<BreedingPair> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> maleBirdId;
+  final Value<int> femaleBirdId;
+  final Value<String?> pairName;
+  final Value<String> status;
+  final Value<DateTime> pairedDate;
+  final Value<DateTime?> separatedDate;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const BreedingPairsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.maleBirdId = const Value.absent(),
+    this.femaleBirdId = const Value.absent(),
+    this.pairName = const Value.absent(),
+    this.status = const Value.absent(),
+    this.pairedDate = const Value.absent(),
+    this.separatedDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  BreedingPairsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int maleBirdId,
+    required int femaleBirdId,
+    this.pairName = const Value.absent(),
+    this.status = const Value.absent(),
+    this.pairedDate = const Value.absent(),
+    this.separatedDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        maleBirdId = Value(maleBirdId),
+        femaleBirdId = Value(femaleBirdId);
+  static Insertable<BreedingPair> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? maleBirdId,
+    Expression<int>? femaleBirdId,
+    Expression<String>? pairName,
+    Expression<String>? status,
+    Expression<DateTime>? pairedDate,
+    Expression<DateTime>? separatedDate,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (maleBirdId != null) 'male_bird_id': maleBirdId,
+      if (femaleBirdId != null) 'female_bird_id': femaleBirdId,
+      if (pairName != null) 'pair_name': pairName,
+      if (status != null) 'status': status,
+      if (pairedDate != null) 'paired_date': pairedDate,
+      if (separatedDate != null) 'separated_date': separatedDate,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  BreedingPairsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? maleBirdId,
+      Value<int>? femaleBirdId,
+      Value<String?>? pairName,
+      Value<String>? status,
+      Value<DateTime>? pairedDate,
+      Value<DateTime?>? separatedDate,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return BreedingPairsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      maleBirdId: maleBirdId ?? this.maleBirdId,
+      femaleBirdId: femaleBirdId ?? this.femaleBirdId,
+      pairName: pairName ?? this.pairName,
+      status: status ?? this.status,
+      pairedDate: pairedDate ?? this.pairedDate,
+      separatedDate: separatedDate ?? this.separatedDate,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (maleBirdId.present) {
+      map['male_bird_id'] = Variable<int>(maleBirdId.value);
+    }
+    if (femaleBirdId.present) {
+      map['female_bird_id'] = Variable<int>(femaleBirdId.value);
+    }
+    if (pairName.present) {
+      map['pair_name'] = Variable<String>(pairName.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (pairedDate.present) {
+      map['paired_date'] = Variable<DateTime>(pairedDate.value);
+    }
+    if (separatedDate.present) {
+      map['separated_date'] = Variable<DateTime>(separatedDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BreedingPairsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('maleBirdId: $maleBirdId, ')
+          ..write('femaleBirdId: $femaleBirdId, ')
+          ..write('pairName: $pairName, ')
+          ..write('status: $status, ')
+          ..write('pairedDate: $pairedDate, ')
+          ..write('separatedDate: $separatedDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BreedingRecordsTable extends BreedingRecords
+    with TableInfo<$BreedingRecordsTable, BreedingRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BreedingRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultConstraints:
-          GeneratedColumn.constraintIsAlways('CHECK ("skipped" IN (0, 1))'),
-      defaultValue: const Constant(false));
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _pairIdMeta = const VerificationMeta('pairId');
+  @override
+  late final GeneratedColumn<int> pairId = GeneratedColumn<int>(
+      'pair_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES breeding_pairs (id) ON DELETE CASCADE'));
+  static const VerificationMeta _stageMeta = const VerificationMeta('stage');
+  @override
+  late final GeneratedColumn<String> stage = GeneratedColumn<String>(
+      'stage', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('配对'));
+  static const VerificationMeta _startDateMeta =
+      const VerificationMeta('startDate');
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+      'start_date', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _endDateMeta =
+      const VerificationMeta('endDate');
+  @override
+  late final GeneratedColumn<DateTime> endDate = GeneratedColumn<DateTime>(
+      'end_date', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _endReasonMeta =
+      const VerificationMeta('endReason');
+  @override
+  late final GeneratedColumn<String> endReason = GeneratedColumn<String>(
+      'end_reason', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        pairId,
+        stage,
+        startDate,
+        endDate,
+        endReason,
+        notes,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'breeding_records';
+  @override
+  VerificationContext validateIntegrity(Insertable<BreedingRecord> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('pair_id')) {
+      context.handle(_pairIdMeta,
+          pairId.isAcceptableOrUnknown(data['pair_id']!, _pairIdMeta));
+    } else if (isInserting) {
+      context.missing(_pairIdMeta);
+    }
+    if (data.containsKey('stage')) {
+      context.handle(
+          _stageMeta, stage.isAcceptableOrUnknown(data['stage']!, _stageMeta));
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(_startDateMeta,
+          startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta));
+    }
+    if (data.containsKey('end_date')) {
+      context.handle(_endDateMeta,
+          endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta));
+    }
+    if (data.containsKey('end_reason')) {
+      context.handle(_endReasonMeta,
+          endReason.isAcceptableOrUnknown(data['end_reason']!, _endReasonMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BreedingRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BreedingRecord(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      pairId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}pair_id'])!,
+      stage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stage'])!,
+      startDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}start_date'])!,
+      endDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}end_date']),
+      endReason: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}end_reason']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $BreedingRecordsTable createAlias(String alias) {
+    return $BreedingRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class BreedingRecord extends DataClass implements Insertable<BreedingRecord> {
+  final int id;
+  final String uuid;
+
+  /// 关联配对
+  final int pairId;
+
+  /// 阶段：配对/产蛋/孵化/育雏/已完结
+  final String stage;
+  final DateTime startDate;
+  final DateTime? endDate;
+
+  /// 完结原因（正常完结/亲鸟弃窝/人工掏窝/其他）
+  final String? endReason;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const BreedingRecord(
+      {required this.id,
+      required this.uuid,
+      required this.pairId,
+      required this.stage,
+      required this.startDate,
+      this.endDate,
+      this.endReason,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['pair_id'] = Variable<int>(pairId);
+    map['stage'] = Variable<String>(stage);
+    map['start_date'] = Variable<DateTime>(startDate);
+    if (!nullToAbsent || endDate != null) {
+      map['end_date'] = Variable<DateTime>(endDate);
+    }
+    if (!nullToAbsent || endReason != null) {
+      map['end_reason'] = Variable<String>(endReason);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  BreedingRecordsCompanion toCompanion(bool nullToAbsent) {
+    return BreedingRecordsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      pairId: Value(pairId),
+      stage: Value(stage),
+      startDate: Value(startDate),
+      endDate: endDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endDate),
+      endReason: endReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endReason),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BreedingRecord.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BreedingRecord(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      pairId: serializer.fromJson<int>(json['pairId']),
+      stage: serializer.fromJson<String>(json['stage']),
+      startDate: serializer.fromJson<DateTime>(json['startDate']),
+      endDate: serializer.fromJson<DateTime?>(json['endDate']),
+      endReason: serializer.fromJson<String?>(json['endReason']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'pairId': serializer.toJson<int>(pairId),
+      'stage': serializer.toJson<String>(stage),
+      'startDate': serializer.toJson<DateTime>(startDate),
+      'endDate': serializer.toJson<DateTime?>(endDate),
+      'endReason': serializer.toJson<String?>(endReason),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  BreedingRecord copyWith(
+          {int? id,
+          String? uuid,
+          int? pairId,
+          String? stage,
+          DateTime? startDate,
+          Value<DateTime?> endDate = const Value.absent(),
+          Value<String?> endReason = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      BreedingRecord(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        pairId: pairId ?? this.pairId,
+        stage: stage ?? this.stage,
+        startDate: startDate ?? this.startDate,
+        endDate: endDate.present ? endDate.value : this.endDate,
+        endReason: endReason.present ? endReason.value : this.endReason,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  BreedingRecord copyWithCompanion(BreedingRecordsCompanion data) {
+    return BreedingRecord(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      pairId: data.pairId.present ? data.pairId.value : this.pairId,
+      stage: data.stage.present ? data.stage.value : this.stage,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
+      endReason: data.endReason.present ? data.endReason.value : this.endReason,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BreedingRecord(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('pairId: $pairId, ')
+          ..write('stage: $stage, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('endReason: $endReason, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uuid, pairId, stage, startDate, endDate,
+      endReason, notes, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BreedingRecord &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.pairId == this.pairId &&
+          other.stage == this.stage &&
+          other.startDate == this.startDate &&
+          other.endDate == this.endDate &&
+          other.endReason == this.endReason &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BreedingRecordsCompanion extends UpdateCompanion<BreedingRecord> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> pairId;
+  final Value<String> stage;
+  final Value<DateTime> startDate;
+  final Value<DateTime?> endDate;
+  final Value<String?> endReason;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const BreedingRecordsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.pairId = const Value.absent(),
+    this.stage = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
+    this.endReason = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  BreedingRecordsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int pairId,
+    this.stage = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
+    this.endReason = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        pairId = Value(pairId);
+  static Insertable<BreedingRecord> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? pairId,
+    Expression<String>? stage,
+    Expression<DateTime>? startDate,
+    Expression<DateTime>? endDate,
+    Expression<String>? endReason,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (pairId != null) 'pair_id': pairId,
+      if (stage != null) 'stage': stage,
+      if (startDate != null) 'start_date': startDate,
+      if (endDate != null) 'end_date': endDate,
+      if (endReason != null) 'end_reason': endReason,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  BreedingRecordsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? pairId,
+      Value<String>? stage,
+      Value<DateTime>? startDate,
+      Value<DateTime?>? endDate,
+      Value<String?>? endReason,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return BreedingRecordsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      pairId: pairId ?? this.pairId,
+      stage: stage ?? this.stage,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      endReason: endReason ?? this.endReason,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (pairId.present) {
+      map['pair_id'] = Variable<int>(pairId.value);
+    }
+    if (stage.present) {
+      map['stage'] = Variable<String>(stage.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (endDate.present) {
+      map['end_date'] = Variable<DateTime>(endDate.value);
+    }
+    if (endReason.present) {
+      map['end_reason'] = Variable<String>(endReason.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BreedingRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('pairId: $pairId, ')
+          ..write('stage: $stage, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('endReason: $endReason, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $EggsTable extends Eggs with TableInfo<$EggsTable, Egg> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EggsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _breedingRecordIdMeta =
+      const VerificationMeta('breedingRecordId');
+  @override
+  late final GeneratedColumn<int> breedingRecordId = GeneratedColumn<int>(
+      'breeding_record_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES breeding_records (id) ON DELETE CASCADE'));
+  static const VerificationMeta _laidDateMeta =
+      const VerificationMeta('laidDate');
+  @override
+  late final GeneratedColumn<DateTime> laidDate = GeneratedColumn<DateTime>(
+      'laid_date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _hatchDateMeta =
+      const VerificationMeta('hatchDate');
+  @override
+  late final GeneratedColumn<DateTime> hatchDate = GeneratedColumn<DateTime>(
+      'hatch_date', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('孵化中'));
+  static const VerificationMeta _chickBirdIdMeta =
+      const VerificationMeta('chickBirdId');
+  @override
+  late final GeneratedColumn<int> chickBirdId = GeneratedColumn<int>(
+      'chick_bird_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE SET NULL'));
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        breedingRecordId,
+        laidDate,
+        hatchDate,
+        status,
+        chickBirdId,
+        notes,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'eggs';
+  @override
+  VerificationContext validateIntegrity(Insertable<Egg> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('breeding_record_id')) {
+      context.handle(
+          _breedingRecordIdMeta,
+          breedingRecordId.isAcceptableOrUnknown(
+              data['breeding_record_id']!, _breedingRecordIdMeta));
+    } else if (isInserting) {
+      context.missing(_breedingRecordIdMeta);
+    }
+    if (data.containsKey('laid_date')) {
+      context.handle(_laidDateMeta,
+          laidDate.isAcceptableOrUnknown(data['laid_date']!, _laidDateMeta));
+    } else if (isInserting) {
+      context.missing(_laidDateMeta);
+    }
+    if (data.containsKey('hatch_date')) {
+      context.handle(_hatchDateMeta,
+          hatchDate.isAcceptableOrUnknown(data['hatch_date']!, _hatchDateMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('chick_bird_id')) {
+      context.handle(
+          _chickBirdIdMeta,
+          chickBirdId.isAcceptableOrUnknown(
+              data['chick_bird_id']!, _chickBirdIdMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Egg map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Egg(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      breedingRecordId: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}breeding_record_id'])!,
+      laidDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}laid_date'])!,
+      hatchDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}hatch_date']),
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      chickBirdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}chick_bird_id']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $EggsTable createAlias(String alias) {
+    return $EggsTable(attachedDatabase, alias);
+  }
+}
+
+class Egg extends DataClass implements Insertable<Egg> {
+  final int id;
+  final String uuid;
+
+  /// 关联繁育记录
+  final int breedingRecordId;
+  final DateTime laidDate;
+  final DateTime? hatchDate;
+
+  /// 状态：孵化中/已出壳/未受精/损坏
+  final String status;
+
+  /// 出壳后关联的雏鸟
+  final int? chickBirdId;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const Egg(
+      {required this.id,
+      required this.uuid,
+      required this.breedingRecordId,
+      required this.laidDate,
+      this.hatchDate,
+      required this.status,
+      this.chickBirdId,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['breeding_record_id'] = Variable<int>(breedingRecordId);
+    map['laid_date'] = Variable<DateTime>(laidDate);
+    if (!nullToAbsent || hatchDate != null) {
+      map['hatch_date'] = Variable<DateTime>(hatchDate);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || chickBirdId != null) {
+      map['chick_bird_id'] = Variable<int>(chickBirdId);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  EggsCompanion toCompanion(bool nullToAbsent) {
+    return EggsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      breedingRecordId: Value(breedingRecordId),
+      laidDate: Value(laidDate),
+      hatchDate: hatchDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hatchDate),
+      status: Value(status),
+      chickBirdId: chickBirdId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(chickBirdId),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory Egg.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Egg(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      breedingRecordId: serializer.fromJson<int>(json['breedingRecordId']),
+      laidDate: serializer.fromJson<DateTime>(json['laidDate']),
+      hatchDate: serializer.fromJson<DateTime?>(json['hatchDate']),
+      status: serializer.fromJson<String>(json['status']),
+      chickBirdId: serializer.fromJson<int?>(json['chickBirdId']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'breedingRecordId': serializer.toJson<int>(breedingRecordId),
+      'laidDate': serializer.toJson<DateTime>(laidDate),
+      'hatchDate': serializer.toJson<DateTime?>(hatchDate),
+      'status': serializer.toJson<String>(status),
+      'chickBirdId': serializer.toJson<int?>(chickBirdId),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  Egg copyWith(
+          {int? id,
+          String? uuid,
+          int? breedingRecordId,
+          DateTime? laidDate,
+          Value<DateTime?> hatchDate = const Value.absent(),
+          String? status,
+          Value<int?> chickBirdId = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      Egg(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        breedingRecordId: breedingRecordId ?? this.breedingRecordId,
+        laidDate: laidDate ?? this.laidDate,
+        hatchDate: hatchDate.present ? hatchDate.value : this.hatchDate,
+        status: status ?? this.status,
+        chickBirdId: chickBirdId.present ? chickBirdId.value : this.chickBirdId,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  Egg copyWithCompanion(EggsCompanion data) {
+    return Egg(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      breedingRecordId: data.breedingRecordId.present
+          ? data.breedingRecordId.value
+          : this.breedingRecordId,
+      laidDate: data.laidDate.present ? data.laidDate.value : this.laidDate,
+      hatchDate: data.hatchDate.present ? data.hatchDate.value : this.hatchDate,
+      status: data.status.present ? data.status.value : this.status,
+      chickBirdId:
+          data.chickBirdId.present ? data.chickBirdId.value : this.chickBirdId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Egg(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('breedingRecordId: $breedingRecordId, ')
+          ..write('laidDate: $laidDate, ')
+          ..write('hatchDate: $hatchDate, ')
+          ..write('status: $status, ')
+          ..write('chickBirdId: $chickBirdId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uuid, breedingRecordId, laidDate,
+      hatchDate, status, chickBirdId, notes, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Egg &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.breedingRecordId == this.breedingRecordId &&
+          other.laidDate == this.laidDate &&
+          other.hatchDate == this.hatchDate &&
+          other.status == this.status &&
+          other.chickBirdId == this.chickBirdId &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class EggsCompanion extends UpdateCompanion<Egg> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> breedingRecordId;
+  final Value<DateTime> laidDate;
+  final Value<DateTime?> hatchDate;
+  final Value<String> status;
+  final Value<int?> chickBirdId;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const EggsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.breedingRecordId = const Value.absent(),
+    this.laidDate = const Value.absent(),
+    this.hatchDate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.chickBirdId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  EggsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int breedingRecordId,
+    required DateTime laidDate,
+    this.hatchDate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.chickBirdId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        breedingRecordId = Value(breedingRecordId),
+        laidDate = Value(laidDate);
+  static Insertable<Egg> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? breedingRecordId,
+    Expression<DateTime>? laidDate,
+    Expression<DateTime>? hatchDate,
+    Expression<String>? status,
+    Expression<int>? chickBirdId,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (breedingRecordId != null) 'breeding_record_id': breedingRecordId,
+      if (laidDate != null) 'laid_date': laidDate,
+      if (hatchDate != null) 'hatch_date': hatchDate,
+      if (status != null) 'status': status,
+      if (chickBirdId != null) 'chick_bird_id': chickBirdId,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  EggsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? breedingRecordId,
+      Value<DateTime>? laidDate,
+      Value<DateTime?>? hatchDate,
+      Value<String>? status,
+      Value<int?>? chickBirdId,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return EggsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      breedingRecordId: breedingRecordId ?? this.breedingRecordId,
+      laidDate: laidDate ?? this.laidDate,
+      hatchDate: hatchDate ?? this.hatchDate,
+      status: status ?? this.status,
+      chickBirdId: chickBirdId ?? this.chickBirdId,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (breedingRecordId.present) {
+      map['breeding_record_id'] = Variable<int>(breedingRecordId.value);
+    }
+    if (laidDate.present) {
+      map['laid_date'] = Variable<DateTime>(laidDate.value);
+    }
+    if (hatchDate.present) {
+      map['hatch_date'] = Variable<DateTime>(hatchDate.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (chickBirdId.present) {
+      map['chick_bird_id'] = Variable<int>(chickBirdId.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EggsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('breedingRecordId: $breedingRecordId, ')
+          ..write('laidDate: $laidDate, ')
+          ..write('hatchDate: $hatchDate, ')
+          ..write('status: $status, ')
+          ..write('chickBirdId: $chickBirdId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MatingEventsTable extends MatingEvents
+    with TableInfo<$MatingEventsTable, MatingEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MatingEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _breedingRecordIdMeta =
+      const VerificationMeta('breedingRecordId');
+  @override
+  late final GeneratedColumn<int> breedingRecordId = GeneratedColumn<int>(
+      'breeding_record_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES breeding_records (id) ON DELETE CASCADE'));
+  static const VerificationMeta _observedDateMeta =
+      const VerificationMeta('observedDate');
+  @override
+  late final GeneratedColumn<DateTime> observedDate = GeneratedColumn<DateTime>(
+      'observed_date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -5630,62 +7317,46 @@ class $MedicationLogsTable extends MedicationLogs
       requiredDuringInsert: false,
       defaultValue: currentDateAndTime);
   @override
-  List<GeneratedColumn> get $columns => [
-        id,
-        medicationId,
-        birdId,
-        scheduledTime,
-        givenAt,
-        givenBy,
-        skipped,
-        createdAt
-      ];
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, breedingRecordId, observedDate, notes, createdAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'medication_logs';
+  static const String $name = 'mating_events';
   @override
-  VerificationContext validateIntegrity(Insertable<MedicationLog> instance,
+  VerificationContext validateIntegrity(Insertable<MatingEvent> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
-    if (data.containsKey('medication_id')) {
+    if (data.containsKey('uuid')) {
       context.handle(
-          _medicationIdMeta,
-          medicationId.isAcceptableOrUnknown(
-              data['medication_id']!, _medicationIdMeta));
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
     } else if (isInserting) {
-      context.missing(_medicationIdMeta);
+      context.missing(_uuidMeta);
     }
-    if (data.containsKey('bird_id')) {
-      context.handle(_birdIdMeta,
-          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
-    } else if (isInserting) {
-      context.missing(_birdIdMeta);
-    }
-    if (data.containsKey('scheduled_time')) {
+    if (data.containsKey('breeding_record_id')) {
       context.handle(
-          _scheduledTimeMeta,
-          scheduledTime.isAcceptableOrUnknown(
-              data['scheduled_time']!, _scheduledTimeMeta));
+          _breedingRecordIdMeta,
+          breedingRecordId.isAcceptableOrUnknown(
+              data['breeding_record_id']!, _breedingRecordIdMeta));
     } else if (isInserting) {
-      context.missing(_scheduledTimeMeta);
+      context.missing(_breedingRecordIdMeta);
     }
-    if (data.containsKey('given_at')) {
-      context.handle(_givenAtMeta,
-          givenAt.isAcceptableOrUnknown(data['given_at']!, _givenAtMeta));
+    if (data.containsKey('observed_date')) {
+      context.handle(
+          _observedDateMeta,
+          observedDate.isAcceptableOrUnknown(
+              data['observed_date']!, _observedDateMeta));
+    } else if (isInserting) {
+      context.missing(_observedDateMeta);
     }
-    if (data.containsKey('given_by')) {
-      context.handle(_givenByMeta,
-          givenBy.isAcceptableOrUnknown(data['given_by']!, _givenByMeta));
-    }
-    if (data.containsKey('skipped')) {
-      context.handle(_skippedMeta,
-          skipped.isAcceptableOrUnknown(data['skipped']!, _skippedMeta));
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -5697,110 +7368,81 @@ class $MedicationLogsTable extends MedicationLogs
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  MedicationLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+  MatingEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return MedicationLog(
+    return MatingEvent(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      medicationId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}medication_id'])!,
-      birdId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}bird_id'])!,
-      scheduledTime: attachedDatabase.typeMapping.read(
-          DriftSqlType.dateTime, data['${effectivePrefix}scheduled_time'])!,
-      givenAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}given_at']),
-      givenBy: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}given_by']),
-      skipped: attachedDatabase.typeMapping
-          .read(DriftSqlType.bool, data['${effectivePrefix}skipped'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      breedingRecordId: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}breeding_record_id'])!,
+      observedDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}observed_date'])!,
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
     );
   }
 
   @override
-  $MedicationLogsTable createAlias(String alias) {
-    return $MedicationLogsTable(attachedDatabase, alias);
+  $MatingEventsTable createAlias(String alias) {
+    return $MatingEventsTable(attachedDatabase, alias);
   }
 }
 
-class MedicationLog extends DataClass implements Insertable<MedicationLog> {
+class MatingEvent extends DataClass implements Insertable<MatingEvent> {
   final int id;
+  final String uuid;
 
-  /// 关联喂药方案
-  final int medicationId;
-
-  /// 鹦鹉 ID（冗余，方便查询）
-  final int birdId;
-
-  /// 计划喂药时间
-  final DateTime scheduledTime;
-
-  /// 实际喂药时间（null=未执行）
-  final DateTime? givenAt;
-
-  /// 执行人
-  final int? givenBy;
-
-  /// 是否跳过
-  final bool skipped;
+  /// 关联繁育记录
+  final int breedingRecordId;
+  final DateTime observedDate;
+  final String? notes;
   final DateTime createdAt;
-  const MedicationLog(
+  const MatingEvent(
       {required this.id,
-      required this.medicationId,
-      required this.birdId,
-      required this.scheduledTime,
-      this.givenAt,
-      this.givenBy,
-      required this.skipped,
+      required this.uuid,
+      required this.breedingRecordId,
+      required this.observedDate,
+      this.notes,
       required this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['medication_id'] = Variable<int>(medicationId);
-    map['bird_id'] = Variable<int>(birdId);
-    map['scheduled_time'] = Variable<DateTime>(scheduledTime);
-    if (!nullToAbsent || givenAt != null) {
-      map['given_at'] = Variable<DateTime>(givenAt);
+    map['uuid'] = Variable<String>(uuid);
+    map['breeding_record_id'] = Variable<int>(breedingRecordId);
+    map['observed_date'] = Variable<DateTime>(observedDate);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
     }
-    if (!nullToAbsent || givenBy != null) {
-      map['given_by'] = Variable<int>(givenBy);
-    }
-    map['skipped'] = Variable<bool>(skipped);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
 
-  MedicationLogsCompanion toCompanion(bool nullToAbsent) {
-    return MedicationLogsCompanion(
+  MatingEventsCompanion toCompanion(bool nullToAbsent) {
+    return MatingEventsCompanion(
       id: Value(id),
-      medicationId: Value(medicationId),
-      birdId: Value(birdId),
-      scheduledTime: Value(scheduledTime),
-      givenAt: givenAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(givenAt),
-      givenBy: givenBy == null && nullToAbsent
-          ? const Value.absent()
-          : Value(givenBy),
-      skipped: Value(skipped),
+      uuid: Value(uuid),
+      breedingRecordId: Value(breedingRecordId),
+      observedDate: Value(observedDate),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       createdAt: Value(createdAt),
     );
   }
 
-  factory MedicationLog.fromJson(Map<String, dynamic> json,
+  factory MatingEvent.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return MedicationLog(
+    return MatingEvent(
       id: serializer.fromJson<int>(json['id']),
-      medicationId: serializer.fromJson<int>(json['medicationId']),
-      birdId: serializer.fromJson<int>(json['birdId']),
-      scheduledTime: serializer.fromJson<DateTime>(json['scheduledTime']),
-      givenAt: serializer.fromJson<DateTime?>(json['givenAt']),
-      givenBy: serializer.fromJson<int?>(json['givenBy']),
-      skipped: serializer.fromJson<bool>(json['skipped']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      breedingRecordId: serializer.fromJson<int>(json['breedingRecordId']),
+      observedDate: serializer.fromJson<DateTime>(json['observedDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -5809,154 +7451,128 @@ class MedicationLog extends DataClass implements Insertable<MedicationLog> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'medicationId': serializer.toJson<int>(medicationId),
-      'birdId': serializer.toJson<int>(birdId),
-      'scheduledTime': serializer.toJson<DateTime>(scheduledTime),
-      'givenAt': serializer.toJson<DateTime?>(givenAt),
-      'givenBy': serializer.toJson<int?>(givenBy),
-      'skipped': serializer.toJson<bool>(skipped),
+      'uuid': serializer.toJson<String>(uuid),
+      'breedingRecordId': serializer.toJson<int>(breedingRecordId),
+      'observedDate': serializer.toJson<DateTime>(observedDate),
+      'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
 
-  MedicationLog copyWith(
+  MatingEvent copyWith(
           {int? id,
-          int? medicationId,
-          int? birdId,
-          DateTime? scheduledTime,
-          Value<DateTime?> givenAt = const Value.absent(),
-          Value<int?> givenBy = const Value.absent(),
-          bool? skipped,
+          String? uuid,
+          int? breedingRecordId,
+          DateTime? observedDate,
+          Value<String?> notes = const Value.absent(),
           DateTime? createdAt}) =>
-      MedicationLog(
+      MatingEvent(
         id: id ?? this.id,
-        medicationId: medicationId ?? this.medicationId,
-        birdId: birdId ?? this.birdId,
-        scheduledTime: scheduledTime ?? this.scheduledTime,
-        givenAt: givenAt.present ? givenAt.value : this.givenAt,
-        givenBy: givenBy.present ? givenBy.value : this.givenBy,
-        skipped: skipped ?? this.skipped,
+        uuid: uuid ?? this.uuid,
+        breedingRecordId: breedingRecordId ?? this.breedingRecordId,
+        observedDate: observedDate ?? this.observedDate,
+        notes: notes.present ? notes.value : this.notes,
         createdAt: createdAt ?? this.createdAt,
       );
-  MedicationLog copyWithCompanion(MedicationLogsCompanion data) {
-    return MedicationLog(
+  MatingEvent copyWithCompanion(MatingEventsCompanion data) {
+    return MatingEvent(
       id: data.id.present ? data.id.value : this.id,
-      medicationId: data.medicationId.present
-          ? data.medicationId.value
-          : this.medicationId,
-      birdId: data.birdId.present ? data.birdId.value : this.birdId,
-      scheduledTime: data.scheduledTime.present
-          ? data.scheduledTime.value
-          : this.scheduledTime,
-      givenAt: data.givenAt.present ? data.givenAt.value : this.givenAt,
-      givenBy: data.givenBy.present ? data.givenBy.value : this.givenBy,
-      skipped: data.skipped.present ? data.skipped.value : this.skipped,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      breedingRecordId: data.breedingRecordId.present
+          ? data.breedingRecordId.value
+          : this.breedingRecordId,
+      observedDate: data.observedDate.present
+          ? data.observedDate.value
+          : this.observedDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('MedicationLog(')
+    return (StringBuffer('MatingEvent(')
           ..write('id: $id, ')
-          ..write('medicationId: $medicationId, ')
-          ..write('birdId: $birdId, ')
-          ..write('scheduledTime: $scheduledTime, ')
-          ..write('givenAt: $givenAt, ')
-          ..write('givenBy: $givenBy, ')
-          ..write('skipped: $skipped, ')
+          ..write('uuid: $uuid, ')
+          ..write('breedingRecordId: $breedingRecordId, ')
+          ..write('observedDate: $observedDate, ')
+          ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, medicationId, birdId, scheduledTime,
-      givenAt, givenBy, skipped, createdAt);
+  int get hashCode =>
+      Object.hash(id, uuid, breedingRecordId, observedDate, notes, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is MedicationLog &&
+      (other is MatingEvent &&
           other.id == this.id &&
-          other.medicationId == this.medicationId &&
-          other.birdId == this.birdId &&
-          other.scheduledTime == this.scheduledTime &&
-          other.givenAt == this.givenAt &&
-          other.givenBy == this.givenBy &&
-          other.skipped == this.skipped &&
+          other.uuid == this.uuid &&
+          other.breedingRecordId == this.breedingRecordId &&
+          other.observedDate == this.observedDate &&
+          other.notes == this.notes &&
           other.createdAt == this.createdAt);
 }
 
-class MedicationLogsCompanion extends UpdateCompanion<MedicationLog> {
+class MatingEventsCompanion extends UpdateCompanion<MatingEvent> {
   final Value<int> id;
-  final Value<int> medicationId;
-  final Value<int> birdId;
-  final Value<DateTime> scheduledTime;
-  final Value<DateTime?> givenAt;
-  final Value<int?> givenBy;
-  final Value<bool> skipped;
+  final Value<String> uuid;
+  final Value<int> breedingRecordId;
+  final Value<DateTime> observedDate;
+  final Value<String?> notes;
   final Value<DateTime> createdAt;
-  const MedicationLogsCompanion({
+  const MatingEventsCompanion({
     this.id = const Value.absent(),
-    this.medicationId = const Value.absent(),
-    this.birdId = const Value.absent(),
-    this.scheduledTime = const Value.absent(),
-    this.givenAt = const Value.absent(),
-    this.givenBy = const Value.absent(),
-    this.skipped = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.breedingRecordId = const Value.absent(),
+    this.observedDate = const Value.absent(),
+    this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
-  MedicationLogsCompanion.insert({
+  MatingEventsCompanion.insert({
     this.id = const Value.absent(),
-    required int medicationId,
-    required int birdId,
-    required DateTime scheduledTime,
-    this.givenAt = const Value.absent(),
-    this.givenBy = const Value.absent(),
-    this.skipped = const Value.absent(),
+    required String uuid,
+    required int breedingRecordId,
+    required DateTime observedDate,
+    this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
-  })  : medicationId = Value(medicationId),
-        birdId = Value(birdId),
-        scheduledTime = Value(scheduledTime);
-  static Insertable<MedicationLog> custom({
+  })  : uuid = Value(uuid),
+        breedingRecordId = Value(breedingRecordId),
+        observedDate = Value(observedDate);
+  static Insertable<MatingEvent> custom({
     Expression<int>? id,
-    Expression<int>? medicationId,
-    Expression<int>? birdId,
-    Expression<DateTime>? scheduledTime,
-    Expression<DateTime>? givenAt,
-    Expression<int>? givenBy,
-    Expression<bool>? skipped,
+    Expression<String>? uuid,
+    Expression<int>? breedingRecordId,
+    Expression<DateTime>? observedDate,
+    Expression<String>? notes,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (medicationId != null) 'medication_id': medicationId,
-      if (birdId != null) 'bird_id': birdId,
-      if (scheduledTime != null) 'scheduled_time': scheduledTime,
-      if (givenAt != null) 'given_at': givenAt,
-      if (givenBy != null) 'given_by': givenBy,
-      if (skipped != null) 'skipped': skipped,
+      if (uuid != null) 'uuid': uuid,
+      if (breedingRecordId != null) 'breeding_record_id': breedingRecordId,
+      if (observedDate != null) 'observed_date': observedDate,
+      if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
 
-  MedicationLogsCompanion copyWith(
+  MatingEventsCompanion copyWith(
       {Value<int>? id,
-      Value<int>? medicationId,
-      Value<int>? birdId,
-      Value<DateTime>? scheduledTime,
-      Value<DateTime?>? givenAt,
-      Value<int?>? givenBy,
-      Value<bool>? skipped,
+      Value<String>? uuid,
+      Value<int>? breedingRecordId,
+      Value<DateTime>? observedDate,
+      Value<String?>? notes,
       Value<DateTime>? createdAt}) {
-    return MedicationLogsCompanion(
+    return MatingEventsCompanion(
       id: id ?? this.id,
-      medicationId: medicationId ?? this.medicationId,
-      birdId: birdId ?? this.birdId,
-      scheduledTime: scheduledTime ?? this.scheduledTime,
-      givenAt: givenAt ?? this.givenAt,
-      givenBy: givenBy ?? this.givenBy,
-      skipped: skipped ?? this.skipped,
+      uuid: uuid ?? this.uuid,
+      breedingRecordId: breedingRecordId ?? this.breedingRecordId,
+      observedDate: observedDate ?? this.observedDate,
+      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -5967,23 +7583,17 @@ class MedicationLogsCompanion extends UpdateCompanion<MedicationLog> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
-    if (medicationId.present) {
-      map['medication_id'] = Variable<int>(medicationId.value);
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
     }
-    if (birdId.present) {
-      map['bird_id'] = Variable<int>(birdId.value);
+    if (breedingRecordId.present) {
+      map['breeding_record_id'] = Variable<int>(breedingRecordId.value);
     }
-    if (scheduledTime.present) {
-      map['scheduled_time'] = Variable<DateTime>(scheduledTime.value);
+    if (observedDate.present) {
+      map['observed_date'] = Variable<DateTime>(observedDate.value);
     }
-    if (givenAt.present) {
-      map['given_at'] = Variable<DateTime>(givenAt.value);
-    }
-    if (givenBy.present) {
-      map['given_by'] = Variable<int>(givenBy.value);
-    }
-    if (skipped.present) {
-      map['skipped'] = Variable<bool>(skipped.value);
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -5993,14 +7603,12 @@ class MedicationLogsCompanion extends UpdateCompanion<MedicationLog> {
 
   @override
   String toString() {
-    return (StringBuffer('MedicationLogsCompanion(')
+    return (StringBuffer('MatingEventsCompanion(')
           ..write('id: $id, ')
-          ..write('medicationId: $medicationId, ')
-          ..write('birdId: $birdId, ')
-          ..write('scheduledTime: $scheduledTime, ')
-          ..write('givenAt: $givenAt, ')
-          ..write('givenBy: $givenBy, ')
-          ..write('skipped: $skipped, ')
+          ..write('uuid: $uuid, ')
+          ..write('breedingRecordId: $breedingRecordId, ')
+          ..write('observedDate: $observedDate, ')
+          ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -6020,7 +7628,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AlertRecordsTable alertRecords = $AlertRecordsTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   late final $MedicationsTable medications = $MedicationsTable(this);
-  late final $MedicationLogsTable medicationLogs = $MedicationLogsTable(this);
+  late final $BreedingPairsTable breedingPairs = $BreedingPairsTable(this);
+  late final $BreedingRecordsTable breedingRecords =
+      $BreedingRecordsTable(this);
+  late final $EggsTable eggs = $EggsTable(this);
+  late final $MatingEventsTable matingEvents = $MatingEventsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6036,7 +7648,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         alertRecords,
         syncQueue,
         medications,
-        medicationLogs
+        breedingPairs,
+        breedingRecords,
+        eggs,
+        matingEvents
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -6084,17 +7699,45 @@ abstract class _$AppDatabase extends GeneratedDatabase {
             ],
           ),
           WritePropagation(
-            on: TableUpdateQuery.onTableName('medications',
+            on: TableUpdateQuery.onTableName('birds',
                 limitUpdateKind: UpdateKind.delete),
             result: [
-              TableUpdate('medication_logs', kind: UpdateKind.delete),
+              TableUpdate('breeding_pairs', kind: UpdateKind.delete),
             ],
           ),
           WritePropagation(
             on: TableUpdateQuery.onTableName('birds',
                 limitUpdateKind: UpdateKind.delete),
             result: [
-              TableUpdate('medication_logs', kind: UpdateKind.delete),
+              TableUpdate('breeding_pairs', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('breeding_pairs',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('breeding_records', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('breeding_records',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('eggs', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('eggs', kind: UpdateKind.update),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('breeding_records',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('mating_events', kind: UpdateKind.delete),
             ],
           ),
         ],
@@ -7772,17 +9415,47 @@ final class $$BirdsTableReferences
         manager.$state.copyWith(prefetchedData: cache));
   }
 
-  static MultiTypedResultKey<$MedicationLogsTable, List<MedicationLog>>
-      _medicationLogsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.medicationLogs,
-              aliasName:
-                  $_aliasNameGenerator(db.birds.id, db.medicationLogs.birdId));
+  static MultiTypedResultKey<$BreedingPairsTable, List<BreedingPair>>
+      _maleBreedingPairsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.breedingPairs,
+              aliasName: $_aliasNameGenerator(
+                  db.birds.id, db.breedingPairs.maleBirdId));
 
-  $$MedicationLogsTableProcessedTableManager get medicationLogsRefs {
-    final manager = $$MedicationLogsTableTableManager($_db, $_db.medicationLogs)
-        .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+  $$BreedingPairsTableProcessedTableManager get maleBreedingPairs {
+    final manager = $$BreedingPairsTableTableManager($_db, $_db.breedingPairs)
+        .filter((f) => f.maleBirdId.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_medicationLogsRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_maleBreedingPairsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$BreedingPairsTable, List<BreedingPair>>
+      _femaleBreedingPairsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.breedingPairs,
+              aliasName: $_aliasNameGenerator(
+                  db.birds.id, db.breedingPairs.femaleBirdId));
+
+  $$BreedingPairsTableProcessedTableManager get femaleBreedingPairs {
+    final manager = $$BreedingPairsTableTableManager($_db, $_db.breedingPairs)
+        .filter((f) => f.femaleBirdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_femaleBreedingPairsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$EggsTable, List<Egg>> _eggsRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.eggs,
+          aliasName: $_aliasNameGenerator(db.birds.id, db.eggs.chickBirdId));
+
+  $$EggsTableProcessedTableManager get eggsRefs {
+    final manager = $$EggsTableTableManager($_db, $_db.eggs)
+        .filter((f) => f.chickBirdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_eggsRefsTable($_db));
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
@@ -7988,19 +9661,61 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
     return f(composer);
   }
 
-  Expression<bool> medicationLogsRefs(
-      Expression<bool> Function($$MedicationLogsTableFilterComposer f) f) {
-    final $$MedicationLogsTableFilterComposer composer = $composerBuilder(
+  Expression<bool> maleBreedingPairs(
+      Expression<bool> Function($$BreedingPairsTableFilterComposer f) f) {
+    final $$BreedingPairsTableFilterComposer composer = $composerBuilder(
         composer: this,
         getCurrentColumn: (t) => t.id,
-        referencedTable: $db.medicationLogs,
-        getReferencedColumn: (t) => t.birdId,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.maleBirdId,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationLogsTableFilterComposer(
+            $$BreedingPairsTableFilterComposer(
               $db: $db,
-              $table: $db.medicationLogs,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> femaleBreedingPairs(
+      Expression<bool> Function($$BreedingPairsTableFilterComposer f) f) {
+    final $$BreedingPairsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.femaleBirdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingPairsTableFilterComposer(
+              $db: $db,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> eggsRefs(
+      Expression<bool> Function($$EggsTableFilterComposer f) f) {
+    final $$EggsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.eggs,
+        getReferencedColumn: (t) => t.chickBirdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EggsTableFilterComposer(
+              $db: $db,
+              $table: $db.eggs,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -8326,19 +10041,61 @@ class $$BirdsTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> medicationLogsRefs<T extends Object>(
-      Expression<T> Function($$MedicationLogsTableAnnotationComposer a) f) {
-    final $$MedicationLogsTableAnnotationComposer composer = $composerBuilder(
+  Expression<T> maleBreedingPairs<T extends Object>(
+      Expression<T> Function($$BreedingPairsTableAnnotationComposer a) f) {
+    final $$BreedingPairsTableAnnotationComposer composer = $composerBuilder(
         composer: this,
         getCurrentColumn: (t) => t.id,
-        referencedTable: $db.medicationLogs,
-        getReferencedColumn: (t) => t.birdId,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.maleBirdId,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationLogsTableAnnotationComposer(
+            $$BreedingPairsTableAnnotationComposer(
               $db: $db,
-              $table: $db.medicationLogs,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> femaleBreedingPairs<T extends Object>(
+      Expression<T> Function($$BreedingPairsTableAnnotationComposer a) f) {
+    final $$BreedingPairsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.femaleBirdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingPairsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> eggsRefs<T extends Object>(
+      Expression<T> Function($$EggsTableAnnotationComposer a) f) {
+    final $$EggsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.eggs,
+        getReferencedColumn: (t) => t.chickBirdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EggsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.eggs,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -8367,7 +10124,9 @@ class $$BirdsTableTableManager extends RootTableManager<
         bool tasksRefs,
         bool alertRecordsRefs,
         bool medicationsRefs,
-        bool medicationLogsRefs})> {
+        bool maleBreedingPairs,
+        bool femaleBreedingPairs,
+        bool eggsRefs})> {
   $$BirdsTableTableManager(_$AppDatabase db, $BirdsTable table)
       : super(TableManagerState(
           db: db,
@@ -8470,7 +10229,9 @@ class $$BirdsTableTableManager extends RootTableManager<
               tasksRefs = false,
               alertRecordsRefs = false,
               medicationsRefs = false,
-              medicationLogsRefs = false}) {
+              maleBreedingPairs = false,
+              femaleBreedingPairs = false,
+              eggsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
@@ -8478,7 +10239,9 @@ class $$BirdsTableTableManager extends RootTableManager<
                 if (tasksRefs) db.tasks,
                 if (alertRecordsRefs) db.alertRecords,
                 if (medicationsRefs) db.medications,
-                if (medicationLogsRefs) db.medicationLogs
+                if (maleBreedingPairs) db.breedingPairs,
+                if (femaleBreedingPairs) db.breedingPairs,
+                if (eggsRefs) db.eggs
               ],
               addJoins: <
                   T extends TableManagerState<
@@ -8572,17 +10335,40 @@ class $$BirdsTableTableManager extends RootTableManager<
                                 referencedItems) =>
                             referencedItems.where((e) => e.birdId == item.id),
                         typedResults: items),
-                  if (medicationLogsRefs)
-                    await $_getPrefetchedData<Bird, $BirdsTable, MedicationLog>(
+                  if (maleBreedingPairs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, BreedingPair>(
                         currentTable: table,
                         referencedTable:
-                            $$BirdsTableReferences._medicationLogsRefsTable(db),
+                            $$BirdsTableReferences._maleBreedingPairsTable(db),
                         managerFromTypedResult: (p0) =>
                             $$BirdsTableReferences(db, table, p0)
-                                .medicationLogsRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.birdId == item.id),
+                                .maleBreedingPairs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.maleBirdId == item.id),
+                        typedResults: items),
+                  if (femaleBreedingPairs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, BreedingPair>(
+                        currentTable: table,
+                        referencedTable: $$BirdsTableReferences
+                            ._femaleBreedingPairsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .femaleBreedingPairs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.femaleBirdId == item.id),
+                        typedResults: items),
+                  if (eggsRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, Egg>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BirdsTableReferences._eggsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0).eggsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.chickBirdId == item.id),
                         typedResults: items)
                 ];
               },
@@ -8610,7 +10396,9 @@ typedef $$BirdsTableProcessedTableManager = ProcessedTableManager<
         bool tasksRefs,
         bool alertRecordsRefs,
         bool medicationsRefs,
-        bool medicationLogsRefs})>;
+        bool maleBreedingPairs,
+        bool femaleBreedingPairs,
+        bool eggsRefs})>;
 typedef $$WeightsTableCreateCompanionBuilder = WeightsCompanion Function({
   Value<int> id,
   required String uuid,
@@ -9030,10 +10818,12 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   required int birdId,
   Value<int?> roomId,
   Value<int?> assignedUserId,
+  Value<String> taskType,
   required DateTime dueDate,
   Value<String> status,
   Value<DateTime?> completedAt,
   Value<int?> completedBy,
+  Value<String?> metadata,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -9043,10 +10833,12 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<int> birdId,
   Value<int?> roomId,
   Value<int?> assignedUserId,
+  Value<String> taskType,
   Value<DateTime> dueDate,
   Value<String> status,
   Value<DateTime?> completedAt,
   Value<int?> completedBy,
+  Value<String?> metadata,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -9102,6 +10894,9 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
       column: $table.assignedUserId,
       builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get taskType => $composableBuilder(
+      column: $table.taskType, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<DateTime> get dueDate => $composableBuilder(
       column: $table.dueDate, builder: (column) => ColumnFilters(column));
 
@@ -9113,6 +10908,9 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<int> get completedBy => $composableBuilder(
       column: $table.completedBy, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get metadata => $composableBuilder(
+      column: $table.metadata, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -9180,6 +10978,9 @@ class $$TasksTableOrderingComposer
       column: $table.assignedUserId,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get taskType => $composableBuilder(
+      column: $table.taskType, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get dueDate => $composableBuilder(
       column: $table.dueDate, builder: (column) => ColumnOrderings(column));
 
@@ -9191,6 +10992,9 @@ class $$TasksTableOrderingComposer
 
   ColumnOrderings<int> get completedBy => $composableBuilder(
       column: $table.completedBy, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get metadata => $composableBuilder(
+      column: $table.metadata, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
@@ -9257,6 +11061,9 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<int> get assignedUserId => $composableBuilder(
       column: $table.assignedUserId, builder: (column) => column);
 
+  GeneratedColumn<String> get taskType =>
+      $composableBuilder(column: $table.taskType, builder: (column) => column);
+
   GeneratedColumn<DateTime> get dueDate =>
       $composableBuilder(column: $table.dueDate, builder: (column) => column);
 
@@ -9268,6 +11075,9 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<int> get completedBy => $composableBuilder(
       column: $table.completedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get metadata =>
+      $composableBuilder(column: $table.metadata, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -9344,10 +11154,12 @@ class $$TasksTableTableManager extends RootTableManager<
             Value<int> birdId = const Value.absent(),
             Value<int?> roomId = const Value.absent(),
             Value<int?> assignedUserId = const Value.absent(),
+            Value<String> taskType = const Value.absent(),
             Value<DateTime> dueDate = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int?> completedBy = const Value.absent(),
+            Value<String?> metadata = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -9357,10 +11169,12 @@ class $$TasksTableTableManager extends RootTableManager<
             birdId: birdId,
             roomId: roomId,
             assignedUserId: assignedUserId,
+            taskType: taskType,
             dueDate: dueDate,
             status: status,
             completedAt: completedAt,
             completedBy: completedBy,
+            metadata: metadata,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -9370,10 +11184,12 @@ class $$TasksTableTableManager extends RootTableManager<
             required int birdId,
             Value<int?> roomId = const Value.absent(),
             Value<int?> assignedUserId = const Value.absent(),
+            Value<String> taskType = const Value.absent(),
             required DateTime dueDate,
             Value<String> status = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int?> completedBy = const Value.absent(),
+            Value<String?> metadata = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -9383,10 +11199,12 @@ class $$TasksTableTableManager extends RootTableManager<
             birdId: birdId,
             roomId: roomId,
             assignedUserId: assignedUserId,
+            taskType: taskType,
             dueDate: dueDate,
             status: status,
             completedAt: completedAt,
             completedBy: completedBy,
+            metadata: metadata,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -9459,6 +11277,7 @@ typedef $$AlertRecordsTableCreateCompanionBuilder = AlertRecordsCompanion
   required int birdId,
   required String alertType,
   required String description,
+  required String severity,
   Value<bool> isRead,
   Value<bool> isResolved,
   Value<DateTime> createdAt,
@@ -9472,6 +11291,7 @@ typedef $$AlertRecordsTableUpdateCompanionBuilder = AlertRecordsCompanion
   Value<int> birdId,
   Value<String> alertType,
   Value<String> description,
+  Value<String> severity,
   Value<bool> isRead,
   Value<bool> isResolved,
   Value<DateTime> createdAt,
@@ -9518,6 +11338,9 @@ class $$AlertRecordsTableFilterComposer
 
   ColumnFilters<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get severity => $composableBuilder(
+      column: $table.severity, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isRead => $composableBuilder(
       column: $table.isRead, builder: (column) => ColumnFilters(column));
@@ -9576,6 +11399,9 @@ class $$AlertRecordsTableOrderingComposer
   ColumnOrderings<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get severity => $composableBuilder(
+      column: $table.severity, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get isRead => $composableBuilder(
       column: $table.isRead, builder: (column) => ColumnOrderings(column));
 
@@ -9632,6 +11458,9 @@ class $$AlertRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<String> get severity =>
+      $composableBuilder(column: $table.severity, builder: (column) => column);
 
   GeneratedColumn<bool> get isRead =>
       $composableBuilder(column: $table.isRead, builder: (column) => column);
@@ -9697,6 +11526,7 @@ class $$AlertRecordsTableTableManager extends RootTableManager<
             Value<int> birdId = const Value.absent(),
             Value<String> alertType = const Value.absent(),
             Value<String> description = const Value.absent(),
+            Value<String> severity = const Value.absent(),
             Value<bool> isRead = const Value.absent(),
             Value<bool> isResolved = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -9709,6 +11539,7 @@ class $$AlertRecordsTableTableManager extends RootTableManager<
             birdId: birdId,
             alertType: alertType,
             description: description,
+            severity: severity,
             isRead: isRead,
             isResolved: isResolved,
             createdAt: createdAt,
@@ -9721,6 +11552,7 @@ class $$AlertRecordsTableTableManager extends RootTableManager<
             required int birdId,
             required String alertType,
             required String description,
+            required String severity,
             Value<bool> isRead = const Value.absent(),
             Value<bool> isResolved = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -9733,6 +11565,7 @@ class $$AlertRecordsTableTableManager extends RootTableManager<
             birdId: birdId,
             alertType: alertType,
             description: description,
+            severity: severity,
             isRead: isRead,
             isResolved: isResolved,
             createdAt: createdAt,
@@ -10201,21 +12034,6 @@ final class $$MedicationsTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
   }
-
-  static MultiTypedResultKey<$MedicationLogsTable, List<MedicationLog>>
-      _medicationLogsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.medicationLogs,
-              aliasName: $_aliasNameGenerator(
-                  db.medications.id, db.medicationLogs.medicationId));
-
-  $$MedicationLogsTableProcessedTableManager get medicationLogsRefs {
-    final manager = $$MedicationLogsTableTableManager($_db, $_db.medicationLogs)
-        .filter((f) => f.medicationId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_medicationLogsRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
 }
 
 class $$MedicationsTableFilterComposer
@@ -10281,27 +12099,6 @@ class $$MedicationsTableFilterComposer
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
-  }
-
-  Expression<bool> medicationLogsRefs(
-      Expression<bool> Function($$MedicationLogsTableFilterComposer f) f) {
-    final $$MedicationLogsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.medicationLogs,
-        getReferencedColumn: (t) => t.medicationId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationLogsTableFilterComposer(
-              $db: $db,
-              $table: $db.medicationLogs,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
   }
 }
 
@@ -10435,27 +12232,6 @@ class $$MedicationsTableAnnotationComposer
             ));
     return composer;
   }
-
-  Expression<T> medicationLogsRefs<T extends Object>(
-      Expression<T> Function($$MedicationLogsTableAnnotationComposer a) f) {
-    final $$MedicationLogsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.medicationLogs,
-        getReferencedColumn: (t) => t.medicationId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationLogsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.medicationLogs,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
 }
 
 class $$MedicationsTableTableManager extends RootTableManager<
@@ -10469,7 +12245,7 @@ class $$MedicationsTableTableManager extends RootTableManager<
     $$MedicationsTableUpdateCompanionBuilder,
     (Medication, $$MedicationsTableReferences),
     Medication,
-    PrefetchHooks Function({bool birdId, bool medicationLogsRefs})> {
+    PrefetchHooks Function({bool birdId})> {
   $$MedicationsTableTableManager(_$AppDatabase db, $MedicationsTable table)
       : super(TableManagerState(
           db: db,
@@ -10546,13 +12322,10 @@ class $$MedicationsTableTableManager extends RootTableManager<
                     $$MedicationsTableReferences(db, table, e)
                   ))
               .toList(),
-          prefetchHooksCallback: (
-              {birdId = false, medicationLogsRefs = false}) {
+          prefetchHooksCallback: ({birdId = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [
-                if (medicationLogsRefs) db.medicationLogs
-              ],
+              explicitlyWatchedTables: [],
               addJoins: <
                   T extends TableManagerState<
                       dynamic,
@@ -10580,21 +12353,7 @@ class $$MedicationsTableTableManager extends RootTableManager<
                 return state;
               },
               getPrefetchedDataCallback: (items) async {
-                return [
-                  if (medicationLogsRefs)
-                    await $_getPrefetchedData<Medication, $MedicationsTable,
-                            MedicationLog>(
-                        currentTable: table,
-                        referencedTable: $$MedicationsTableReferences
-                            ._medicationLogsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$MedicationsTableReferences(db, table, p0)
-                                .medicationLogsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems
-                                .where((e) => e.medicationId == item.id),
-                        typedResults: items)
-                ];
+                return [];
               },
             );
           },
@@ -10612,68 +12371,91 @@ typedef $$MedicationsTableProcessedTableManager = ProcessedTableManager<
     $$MedicationsTableUpdateCompanionBuilder,
     (Medication, $$MedicationsTableReferences),
     Medication,
-    PrefetchHooks Function({bool birdId, bool medicationLogsRefs})>;
-typedef $$MedicationLogsTableCreateCompanionBuilder = MedicationLogsCompanion
+    PrefetchHooks Function({bool birdId})>;
+typedef $$BreedingPairsTableCreateCompanionBuilder = BreedingPairsCompanion
     Function({
   Value<int> id,
-  required int medicationId,
-  required int birdId,
-  required DateTime scheduledTime,
-  Value<DateTime?> givenAt,
-  Value<int?> givenBy,
-  Value<bool> skipped,
+  required String uuid,
+  required int maleBirdId,
+  required int femaleBirdId,
+  Value<String?> pairName,
+  Value<String> status,
+  Value<DateTime> pairedDate,
+  Value<DateTime?> separatedDate,
+  Value<String?> notes,
   Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
 });
-typedef $$MedicationLogsTableUpdateCompanionBuilder = MedicationLogsCompanion
+typedef $$BreedingPairsTableUpdateCompanionBuilder = BreedingPairsCompanion
     Function({
   Value<int> id,
-  Value<int> medicationId,
-  Value<int> birdId,
-  Value<DateTime> scheduledTime,
-  Value<DateTime?> givenAt,
-  Value<int?> givenBy,
-  Value<bool> skipped,
+  Value<String> uuid,
+  Value<int> maleBirdId,
+  Value<int> femaleBirdId,
+  Value<String?> pairName,
+  Value<String> status,
+  Value<DateTime> pairedDate,
+  Value<DateTime?> separatedDate,
+  Value<String?> notes,
   Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
 });
 
-final class $$MedicationLogsTableReferences
-    extends BaseReferences<_$AppDatabase, $MedicationLogsTable, MedicationLog> {
-  $$MedicationLogsTableReferences(
+final class $$BreedingPairsTableReferences
+    extends BaseReferences<_$AppDatabase, $BreedingPairsTable, BreedingPair> {
+  $$BreedingPairsTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
-  static $MedicationsTable _medicationIdTable(_$AppDatabase db) =>
-      db.medications.createAlias($_aliasNameGenerator(
-          db.medicationLogs.medicationId, db.medications.id));
+  static $BirdsTable _maleBirdIdTable(_$AppDatabase db) => db.birds.createAlias(
+      $_aliasNameGenerator(db.breedingPairs.maleBirdId, db.birds.id));
 
-  $$MedicationsTableProcessedTableManager get medicationId {
-    final $_column = $_itemColumn<int>('medication_id')!;
-
-    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_medicationIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds
-      .createAlias($_aliasNameGenerator(db.medicationLogs.birdId, db.birds.id));
-
-  $$BirdsTableProcessedTableManager get birdId {
-    final $_column = $_itemColumn<int>('bird_id')!;
+  $$BirdsTableProcessedTableManager get maleBirdId {
+    final $_column = $_itemColumn<int>('male_bird_id')!;
 
     final manager = $$BirdsTableTableManager($_db, $_db.birds)
         .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    final item = $_typedResult.readTableOrNull(_maleBirdIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
   }
+
+  static $BirdsTable _femaleBirdIdTable(_$AppDatabase db) =>
+      db.birds.createAlias(
+          $_aliasNameGenerator(db.breedingPairs.femaleBirdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager get femaleBirdId {
+    final $_column = $_itemColumn<int>('female_bird_id')!;
+
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_femaleBirdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$BreedingRecordsTable, List<BreedingRecord>>
+      _breedingRecordsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.breedingRecords,
+              aliasName: $_aliasNameGenerator(
+                  db.breedingPairs.id, db.breedingRecords.pairId));
+
+  $$BreedingRecordsTableProcessedTableManager get breedingRecordsRefs {
+    final manager =
+        $$BreedingRecordsTableTableManager($_db, $_db.breedingRecords)
+            .filter((f) => f.pairId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_breedingRecordsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
-class $$MedicationLogsTableFilterComposer
-    extends Composer<_$AppDatabase, $MedicationLogsTable> {
-  $$MedicationLogsTableFilterComposer({
+class $$BreedingPairsTableFilterComposer
+    extends Composer<_$AppDatabase, $BreedingPairsTable> {
+  $$BreedingPairsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10683,45 +12465,34 @@ class $$MedicationLogsTableFilterComposer
   ColumnFilters<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get scheduledTime => $composableBuilder(
-      column: $table.scheduledTime, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get givenAt => $composableBuilder(
-      column: $table.givenAt, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get pairName => $composableBuilder(
+      column: $table.pairName, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get givenBy => $composableBuilder(
-      column: $table.givenBy, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<bool> get skipped => $composableBuilder(
-      column: $table.skipped, builder: (column) => ColumnFilters(column));
+  ColumnFilters<DateTime> get pairedDate => $composableBuilder(
+      column: $table.pairedDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get separatedDate => $composableBuilder(
+      column: $table.separatedDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
-  $$MedicationsTableFilterComposer get medicationId {
-    final $$MedicationsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.medicationId,
-        referencedTable: $db.medications,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationsTableFilterComposer(
-              $db: $db,
-              $table: $db.medications,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 
-  $$BirdsTableFilterComposer get birdId {
+  $$BirdsTableFilterComposer get maleBirdId {
     final $$BirdsTableFilterComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.birdId,
+        getCurrentColumn: (t) => t.maleBirdId,
         referencedTable: $db.birds,
         getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
@@ -10737,11 +12508,52 @@ class $$MedicationLogsTableFilterComposer
             ));
     return composer;
   }
+
+  $$BirdsTableFilterComposer get femaleBirdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.femaleBirdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> breedingRecordsRefs(
+      Expression<bool> Function($$BreedingRecordsTableFilterComposer f) f) {
+    final $$BreedingRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.pairId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
-class $$MedicationLogsTableOrderingComposer
-    extends Composer<_$AppDatabase, $MedicationLogsTable> {
-  $$MedicationLogsTableOrderingComposer({
+class $$BreedingPairsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BreedingPairsTable> {
+  $$BreedingPairsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10751,34 +12563,43 @@ class $$MedicationLogsTableOrderingComposer
   ColumnOrderings<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get scheduledTime => $composableBuilder(
-      column: $table.scheduledTime,
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get pairName => $composableBuilder(
+      column: $table.pairName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get pairedDate => $composableBuilder(
+      column: $table.pairedDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get separatedDate => $composableBuilder(
+      column: $table.separatedDate,
       builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get givenAt => $composableBuilder(
-      column: $table.givenAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get givenBy => $composableBuilder(
-      column: $table.givenBy, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<bool> get skipped => $composableBuilder(
-      column: $table.skipped, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
-  $$MedicationsTableOrderingComposer get medicationId {
-    final $$MedicationsTableOrderingComposer composer = $composerBuilder(
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$BirdsTableOrderingComposer get maleBirdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.medicationId,
-        referencedTable: $db.medications,
+        getCurrentColumn: (t) => t.maleBirdId,
+        referencedTable: $db.birds,
         getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationsTableOrderingComposer(
+            $$BirdsTableOrderingComposer(
               $db: $db,
-              $table: $db.medications,
+              $table: $db.birds,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -10787,10 +12608,10 @@ class $$MedicationLogsTableOrderingComposer
     return composer;
   }
 
-  $$BirdsTableOrderingComposer get birdId {
+  $$BirdsTableOrderingComposer get femaleBirdId {
     final $$BirdsTableOrderingComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.birdId,
+        getCurrentColumn: (t) => t.femaleBirdId,
         referencedTable: $db.birds,
         getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
@@ -10808,9 +12629,9 @@ class $$MedicationLogsTableOrderingComposer
   }
 }
 
-class $$MedicationLogsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $MedicationLogsTable> {
-  $$MedicationLogsTableAnnotationComposer({
+class $$BreedingPairsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BreedingPairsTable> {
+  $$BreedingPairsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10820,33 +12641,42 @@ class $$MedicationLogsTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get scheduledTime => $composableBuilder(
-      column: $table.scheduledTime, builder: (column) => column);
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get givenAt =>
-      $composableBuilder(column: $table.givenAt, builder: (column) => column);
+  GeneratedColumn<String> get pairName =>
+      $composableBuilder(column: $table.pairName, builder: (column) => column);
 
-  GeneratedColumn<int> get givenBy =>
-      $composableBuilder(column: $table.givenBy, builder: (column) => column);
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
 
-  GeneratedColumn<bool> get skipped =>
-      $composableBuilder(column: $table.skipped, builder: (column) => column);
+  GeneratedColumn<DateTime> get pairedDate => $composableBuilder(
+      column: $table.pairedDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get separatedDate => $composableBuilder(
+      column: $table.separatedDate, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
-  $$MedicationsTableAnnotationComposer get medicationId {
-    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$BirdsTableAnnotationComposer get maleBirdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.medicationId,
-        referencedTable: $db.medications,
+        getCurrentColumn: (t) => t.maleBirdId,
+        referencedTable: $db.birds,
         getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$MedicationsTableAnnotationComposer(
+            $$BirdsTableAnnotationComposer(
               $db: $db,
-              $table: $db.medications,
+              $table: $db.birds,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -10855,10 +12685,966 @@ class $$MedicationLogsTableAnnotationComposer
     return composer;
   }
 
-  $$BirdsTableAnnotationComposer get birdId {
+  $$BirdsTableAnnotationComposer get femaleBirdId {
     final $$BirdsTableAnnotationComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.birdId,
+        getCurrentColumn: (t) => t.femaleBirdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> breedingRecordsRefs<T extends Object>(
+      Expression<T> Function($$BreedingRecordsTableAnnotationComposer a) f) {
+    final $$BreedingRecordsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.pairId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$BreedingPairsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BreedingPairsTable,
+    BreedingPair,
+    $$BreedingPairsTableFilterComposer,
+    $$BreedingPairsTableOrderingComposer,
+    $$BreedingPairsTableAnnotationComposer,
+    $$BreedingPairsTableCreateCompanionBuilder,
+    $$BreedingPairsTableUpdateCompanionBuilder,
+    (BreedingPair, $$BreedingPairsTableReferences),
+    BreedingPair,
+    PrefetchHooks Function(
+        {bool maleBirdId, bool femaleBirdId, bool breedingRecordsRefs})> {
+  $$BreedingPairsTableTableManager(_$AppDatabase db, $BreedingPairsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BreedingPairsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BreedingPairsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BreedingPairsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> maleBirdId = const Value.absent(),
+            Value<int> femaleBirdId = const Value.absent(),
+            Value<String?> pairName = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<DateTime> pairedDate = const Value.absent(),
+            Value<DateTime?> separatedDate = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BreedingPairsCompanion(
+            id: id,
+            uuid: uuid,
+            maleBirdId: maleBirdId,
+            femaleBirdId: femaleBirdId,
+            pairName: pairName,
+            status: status,
+            pairedDate: pairedDate,
+            separatedDate: separatedDate,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int maleBirdId,
+            required int femaleBirdId,
+            Value<String?> pairName = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<DateTime> pairedDate = const Value.absent(),
+            Value<DateTime?> separatedDate = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BreedingPairsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            maleBirdId: maleBirdId,
+            femaleBirdId: femaleBirdId,
+            pairName: pairName,
+            status: status,
+            pairedDate: pairedDate,
+            separatedDate: separatedDate,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BreedingPairsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {maleBirdId = false,
+              femaleBirdId = false,
+              breedingRecordsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (breedingRecordsRefs) db.breedingRecords
+              ],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (maleBirdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.maleBirdId,
+                    referencedTable:
+                        $$BreedingPairsTableReferences._maleBirdIdTable(db),
+                    referencedColumn:
+                        $$BreedingPairsTableReferences._maleBirdIdTable(db).id,
+                  ) as T;
+                }
+                if (femaleBirdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.femaleBirdId,
+                    referencedTable:
+                        $$BreedingPairsTableReferences._femaleBirdIdTable(db),
+                    referencedColumn: $$BreedingPairsTableReferences
+                        ._femaleBirdIdTable(db)
+                        .id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (breedingRecordsRefs)
+                    await $_getPrefetchedData<BreedingPair, $BreedingPairsTable, BreedingRecord>(
+                        currentTable: table,
+                        referencedTable: $$BreedingPairsTableReferences
+                            ._breedingRecordsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BreedingPairsTableReferences(db, table, p0)
+                                .breedingRecordsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.pairId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BreedingPairsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BreedingPairsTable,
+    BreedingPair,
+    $$BreedingPairsTableFilterComposer,
+    $$BreedingPairsTableOrderingComposer,
+    $$BreedingPairsTableAnnotationComposer,
+    $$BreedingPairsTableCreateCompanionBuilder,
+    $$BreedingPairsTableUpdateCompanionBuilder,
+    (BreedingPair, $$BreedingPairsTableReferences),
+    BreedingPair,
+    PrefetchHooks Function(
+        {bool maleBirdId, bool femaleBirdId, bool breedingRecordsRefs})>;
+typedef $$BreedingRecordsTableCreateCompanionBuilder = BreedingRecordsCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  required int pairId,
+  Value<String> stage,
+  Value<DateTime> startDate,
+  Value<DateTime?> endDate,
+  Value<String?> endReason,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+typedef $$BreedingRecordsTableUpdateCompanionBuilder = BreedingRecordsCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> pairId,
+  Value<String> stage,
+  Value<DateTime> startDate,
+  Value<DateTime?> endDate,
+  Value<String?> endReason,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+final class $$BreedingRecordsTableReferences extends BaseReferences<
+    _$AppDatabase, $BreedingRecordsTable, BreedingRecord> {
+  $$BreedingRecordsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $BreedingPairsTable _pairIdTable(_$AppDatabase db) =>
+      db.breedingPairs.createAlias(
+          $_aliasNameGenerator(db.breedingRecords.pairId, db.breedingPairs.id));
+
+  $$BreedingPairsTableProcessedTableManager get pairId {
+    final $_column = $_itemColumn<int>('pair_id')!;
+
+    final manager = $$BreedingPairsTableTableManager($_db, $_db.breedingPairs)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_pairIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$EggsTable, List<Egg>> _eggsRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.eggs,
+          aliasName: $_aliasNameGenerator(
+              db.breedingRecords.id, db.eggs.breedingRecordId));
+
+  $$EggsTableProcessedTableManager get eggsRefs {
+    final manager = $$EggsTableTableManager($_db, $_db.eggs).filter(
+        (f) => f.breedingRecordId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_eggsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$MatingEventsTable, List<MatingEvent>>
+      _matingEventsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.matingEvents,
+              aliasName: $_aliasNameGenerator(
+                  db.breedingRecords.id, db.matingEvents.breedingRecordId));
+
+  $$MatingEventsTableProcessedTableManager get matingEventsRefs {
+    final manager = $$MatingEventsTableTableManager($_db, $_db.matingEvents)
+        .filter(
+            (f) => f.breedingRecordId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_matingEventsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$BreedingRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $BreedingRecordsTable> {
+  $$BreedingRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+      column: $table.startDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get endDate => $composableBuilder(
+      column: $table.endDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get endReason => $composableBuilder(
+      column: $table.endReason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  $$BreedingPairsTableFilterComposer get pairId {
+    final $$BreedingPairsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.pairId,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingPairsTableFilterComposer(
+              $db: $db,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> eggsRefs(
+      Expression<bool> Function($$EggsTableFilterComposer f) f) {
+    final $$EggsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.eggs,
+        getReferencedColumn: (t) => t.breedingRecordId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EggsTableFilterComposer(
+              $db: $db,
+              $table: $db.eggs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> matingEventsRefs(
+      Expression<bool> Function($$MatingEventsTableFilterComposer f) f) {
+    final $$MatingEventsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.matingEvents,
+        getReferencedColumn: (t) => t.breedingRecordId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MatingEventsTableFilterComposer(
+              $db: $db,
+              $table: $db.matingEvents,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$BreedingRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BreedingRecordsTable> {
+  $$BreedingRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+      column: $table.startDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get endDate => $composableBuilder(
+      column: $table.endDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get endReason => $composableBuilder(
+      column: $table.endReason, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$BreedingPairsTableOrderingComposer get pairId {
+    final $$BreedingPairsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.pairId,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingPairsTableOrderingComposer(
+              $db: $db,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BreedingRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BreedingRecordsTable> {
+  $$BreedingRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get stage =>
+      $composableBuilder(column: $table.stage, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
+
+  GeneratedColumn<String> get endReason =>
+      $composableBuilder(column: $table.endReason, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$BreedingPairsTableAnnotationComposer get pairId {
+    final $$BreedingPairsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.pairId,
+        referencedTable: $db.breedingPairs,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingPairsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.breedingPairs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> eggsRefs<T extends Object>(
+      Expression<T> Function($$EggsTableAnnotationComposer a) f) {
+    final $$EggsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.eggs,
+        getReferencedColumn: (t) => t.breedingRecordId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$EggsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.eggs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> matingEventsRefs<T extends Object>(
+      Expression<T> Function($$MatingEventsTableAnnotationComposer a) f) {
+    final $$MatingEventsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.matingEvents,
+        getReferencedColumn: (t) => t.breedingRecordId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MatingEventsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.matingEvents,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$BreedingRecordsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BreedingRecordsTable,
+    BreedingRecord,
+    $$BreedingRecordsTableFilterComposer,
+    $$BreedingRecordsTableOrderingComposer,
+    $$BreedingRecordsTableAnnotationComposer,
+    $$BreedingRecordsTableCreateCompanionBuilder,
+    $$BreedingRecordsTableUpdateCompanionBuilder,
+    (BreedingRecord, $$BreedingRecordsTableReferences),
+    BreedingRecord,
+    PrefetchHooks Function(
+        {bool pairId, bool eggsRefs, bool matingEventsRefs})> {
+  $$BreedingRecordsTableTableManager(
+      _$AppDatabase db, $BreedingRecordsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BreedingRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BreedingRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BreedingRecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> pairId = const Value.absent(),
+            Value<String> stage = const Value.absent(),
+            Value<DateTime> startDate = const Value.absent(),
+            Value<DateTime?> endDate = const Value.absent(),
+            Value<String?> endReason = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BreedingRecordsCompanion(
+            id: id,
+            uuid: uuid,
+            pairId: pairId,
+            stage: stage,
+            startDate: startDate,
+            endDate: endDate,
+            endReason: endReason,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int pairId,
+            Value<String> stage = const Value.absent(),
+            Value<DateTime> startDate = const Value.absent(),
+            Value<DateTime?> endDate = const Value.absent(),
+            Value<String?> endReason = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BreedingRecordsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            pairId: pairId,
+            stage: stage,
+            startDate: startDate,
+            endDate: endDate,
+            endReason: endReason,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BreedingRecordsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {pairId = false, eggsRefs = false, matingEventsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (eggsRefs) db.eggs,
+                if (matingEventsRefs) db.matingEvents
+              ],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (pairId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.pairId,
+                    referencedTable:
+                        $$BreedingRecordsTableReferences._pairIdTable(db),
+                    referencedColumn:
+                        $$BreedingRecordsTableReferences._pairIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (eggsRefs)
+                    await $_getPrefetchedData<BreedingRecord,
+                            $BreedingRecordsTable, Egg>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BreedingRecordsTableReferences._eggsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BreedingRecordsTableReferences(db, table, p0)
+                                .eggsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.breedingRecordId == item.id),
+                        typedResults: items),
+                  if (matingEventsRefs)
+                    await $_getPrefetchedData<BreedingRecord,
+                            $BreedingRecordsTable, MatingEvent>(
+                        currentTable: table,
+                        referencedTable: $$BreedingRecordsTableReferences
+                            ._matingEventsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BreedingRecordsTableReferences(db, table, p0)
+                                .matingEventsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.breedingRecordId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BreedingRecordsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BreedingRecordsTable,
+    BreedingRecord,
+    $$BreedingRecordsTableFilterComposer,
+    $$BreedingRecordsTableOrderingComposer,
+    $$BreedingRecordsTableAnnotationComposer,
+    $$BreedingRecordsTableCreateCompanionBuilder,
+    $$BreedingRecordsTableUpdateCompanionBuilder,
+    (BreedingRecord, $$BreedingRecordsTableReferences),
+    BreedingRecord,
+    PrefetchHooks Function(
+        {bool pairId, bool eggsRefs, bool matingEventsRefs})>;
+typedef $$EggsTableCreateCompanionBuilder = EggsCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required int breedingRecordId,
+  required DateTime laidDate,
+  Value<DateTime?> hatchDate,
+  Value<String> status,
+  Value<int?> chickBirdId,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+typedef $$EggsTableUpdateCompanionBuilder = EggsCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> breedingRecordId,
+  Value<DateTime> laidDate,
+  Value<DateTime?> hatchDate,
+  Value<String> status,
+  Value<int?> chickBirdId,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+final class $$EggsTableReferences
+    extends BaseReferences<_$AppDatabase, $EggsTable, Egg> {
+  $$EggsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BreedingRecordsTable _breedingRecordIdTable(_$AppDatabase db) =>
+      db.breedingRecords.createAlias($_aliasNameGenerator(
+          db.eggs.breedingRecordId, db.breedingRecords.id));
+
+  $$BreedingRecordsTableProcessedTableManager get breedingRecordId {
+    final $_column = $_itemColumn<int>('breeding_record_id')!;
+
+    final manager =
+        $$BreedingRecordsTableTableManager($_db, $_db.breedingRecords)
+            .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_breedingRecordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $BirdsTable _chickBirdIdTable(_$AppDatabase db) => db.birds
+      .createAlias($_aliasNameGenerator(db.eggs.chickBirdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager? get chickBirdId {
+    final $_column = $_itemColumn<int>('chick_bird_id');
+    if ($_column == null) return null;
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_chickBirdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$EggsTableFilterComposer extends Composer<_$AppDatabase, $EggsTable> {
+  $$EggsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get laidDate => $composableBuilder(
+      column: $table.laidDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get hatchDate => $composableBuilder(
+      column: $table.hatchDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  $$BreedingRecordsTableFilterComposer get breedingRecordId {
+    final $$BreedingRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableFilterComposer get chickBirdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.chickBirdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$EggsTableOrderingComposer extends Composer<_$AppDatabase, $EggsTable> {
+  $$EggsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get laidDate => $composableBuilder(
+      column: $table.laidDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get hatchDate => $composableBuilder(
+      column: $table.hatchDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$BreedingRecordsTableOrderingComposer get breedingRecordId {
+    final $$BreedingRecordsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableOrderingComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableOrderingComposer get chickBirdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.chickBirdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$EggsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EggsTable> {
+  $$EggsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get laidDate =>
+      $composableBuilder(column: $table.laidDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get hatchDate =>
+      $composableBuilder(column: $table.hatchDate, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$BreedingRecordsTableAnnotationComposer get breedingRecordId {
+    final $$BreedingRecordsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableAnnotationComposer get chickBirdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.chickBirdId,
         referencedTable: $db.birds,
         getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
@@ -10876,76 +13662,82 @@ class $$MedicationLogsTableAnnotationComposer
   }
 }
 
-class $$MedicationLogsTableTableManager extends RootTableManager<
+class $$EggsTableTableManager extends RootTableManager<
     _$AppDatabase,
-    $MedicationLogsTable,
-    MedicationLog,
-    $$MedicationLogsTableFilterComposer,
-    $$MedicationLogsTableOrderingComposer,
-    $$MedicationLogsTableAnnotationComposer,
-    $$MedicationLogsTableCreateCompanionBuilder,
-    $$MedicationLogsTableUpdateCompanionBuilder,
-    (MedicationLog, $$MedicationLogsTableReferences),
-    MedicationLog,
-    PrefetchHooks Function({bool medicationId, bool birdId})> {
-  $$MedicationLogsTableTableManager(
-      _$AppDatabase db, $MedicationLogsTable table)
+    $EggsTable,
+    Egg,
+    $$EggsTableFilterComposer,
+    $$EggsTableOrderingComposer,
+    $$EggsTableAnnotationComposer,
+    $$EggsTableCreateCompanionBuilder,
+    $$EggsTableUpdateCompanionBuilder,
+    (Egg, $$EggsTableReferences),
+    Egg,
+    PrefetchHooks Function({bool breedingRecordId, bool chickBirdId})> {
+  $$EggsTableTableManager(_$AppDatabase db, $EggsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$MedicationLogsTableFilterComposer($db: db, $table: table),
+              $$EggsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$MedicationLogsTableOrderingComposer($db: db, $table: table),
+              $$EggsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$MedicationLogsTableAnnotationComposer($db: db, $table: table),
+              $$EggsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
-            Value<int> medicationId = const Value.absent(),
-            Value<int> birdId = const Value.absent(),
-            Value<DateTime> scheduledTime = const Value.absent(),
-            Value<DateTime?> givenAt = const Value.absent(),
-            Value<int?> givenBy = const Value.absent(),
-            Value<bool> skipped = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> breedingRecordId = const Value.absent(),
+            Value<DateTime> laidDate = const Value.absent(),
+            Value<DateTime?> hatchDate = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<int?> chickBirdId = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
           }) =>
-              MedicationLogsCompanion(
+              EggsCompanion(
             id: id,
-            medicationId: medicationId,
-            birdId: birdId,
-            scheduledTime: scheduledTime,
-            givenAt: givenAt,
-            givenBy: givenBy,
-            skipped: skipped,
+            uuid: uuid,
+            breedingRecordId: breedingRecordId,
+            laidDate: laidDate,
+            hatchDate: hatchDate,
+            status: status,
+            chickBirdId: chickBirdId,
+            notes: notes,
             createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
-            required int medicationId,
-            required int birdId,
-            required DateTime scheduledTime,
-            Value<DateTime?> givenAt = const Value.absent(),
-            Value<int?> givenBy = const Value.absent(),
-            Value<bool> skipped = const Value.absent(),
+            required String uuid,
+            required int breedingRecordId,
+            required DateTime laidDate,
+            Value<DateTime?> hatchDate = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<int?> chickBirdId = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
           }) =>
-              MedicationLogsCompanion.insert(
+              EggsCompanion.insert(
             id: id,
-            medicationId: medicationId,
-            birdId: birdId,
-            scheduledTime: scheduledTime,
-            givenAt: givenAt,
-            givenBy: givenBy,
-            skipped: skipped,
+            uuid: uuid,
+            breedingRecordId: breedingRecordId,
+            laidDate: laidDate,
+            hatchDate: hatchDate,
+            status: status,
+            chickBirdId: chickBirdId,
+            notes: notes,
             createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$MedicationLogsTableReferences(db, table, e)
-                  ))
+              .map((e) =>
+                  (e.readTable(table), $$EggsTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({medicationId = false, birdId = false}) {
+          prefetchHooksCallback: (
+              {breedingRecordId = false, chickBirdId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -10962,25 +13754,24 @@ class $$MedicationLogsTableTableManager extends RootTableManager<
                       dynamic,
                       dynamic,
                       dynamic>>(state) {
-                if (medicationId) {
+                if (breedingRecordId) {
                   state = state.withJoin(
                     currentTable: table,
-                    currentColumn: table.medicationId,
+                    currentColumn: table.breedingRecordId,
                     referencedTable:
-                        $$MedicationLogsTableReferences._medicationIdTable(db),
-                    referencedColumn: $$MedicationLogsTableReferences
-                        ._medicationIdTable(db)
-                        .id,
+                        $$EggsTableReferences._breedingRecordIdTable(db),
+                    referencedColumn:
+                        $$EggsTableReferences._breedingRecordIdTable(db).id,
                   ) as T;
                 }
-                if (birdId) {
+                if (chickBirdId) {
                   state = state.withJoin(
                     currentTable: table,
-                    currentColumn: table.birdId,
+                    currentColumn: table.chickBirdId,
                     referencedTable:
-                        $$MedicationLogsTableReferences._birdIdTable(db),
+                        $$EggsTableReferences._chickBirdIdTable(db),
                     referencedColumn:
-                        $$MedicationLogsTableReferences._birdIdTable(db).id,
+                        $$EggsTableReferences._chickBirdIdTable(db).id,
                   ) as T;
                 }
 
@@ -10994,18 +13785,305 @@ class $$MedicationLogsTableTableManager extends RootTableManager<
         ));
 }
 
-typedef $$MedicationLogsTableProcessedTableManager = ProcessedTableManager<
+typedef $$EggsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
-    $MedicationLogsTable,
-    MedicationLog,
-    $$MedicationLogsTableFilterComposer,
-    $$MedicationLogsTableOrderingComposer,
-    $$MedicationLogsTableAnnotationComposer,
-    $$MedicationLogsTableCreateCompanionBuilder,
-    $$MedicationLogsTableUpdateCompanionBuilder,
-    (MedicationLog, $$MedicationLogsTableReferences),
-    MedicationLog,
-    PrefetchHooks Function({bool medicationId, bool birdId})>;
+    $EggsTable,
+    Egg,
+    $$EggsTableFilterComposer,
+    $$EggsTableOrderingComposer,
+    $$EggsTableAnnotationComposer,
+    $$EggsTableCreateCompanionBuilder,
+    $$EggsTableUpdateCompanionBuilder,
+    (Egg, $$EggsTableReferences),
+    Egg,
+    PrefetchHooks Function({bool breedingRecordId, bool chickBirdId})>;
+typedef $$MatingEventsTableCreateCompanionBuilder = MatingEventsCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  required int breedingRecordId,
+  required DateTime observedDate,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+typedef $$MatingEventsTableUpdateCompanionBuilder = MatingEventsCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> breedingRecordId,
+  Value<DateTime> observedDate,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+
+final class $$MatingEventsTableReferences
+    extends BaseReferences<_$AppDatabase, $MatingEventsTable, MatingEvent> {
+  $$MatingEventsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BreedingRecordsTable _breedingRecordIdTable(_$AppDatabase db) =>
+      db.breedingRecords.createAlias($_aliasNameGenerator(
+          db.matingEvents.breedingRecordId, db.breedingRecords.id));
+
+  $$BreedingRecordsTableProcessedTableManager get breedingRecordId {
+    final $_column = $_itemColumn<int>('breeding_record_id')!;
+
+    final manager =
+        $$BreedingRecordsTableTableManager($_db, $_db.breedingRecords)
+            .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_breedingRecordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$MatingEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $MatingEventsTable> {
+  $$MatingEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get observedDate => $composableBuilder(
+      column: $table.observedDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$BreedingRecordsTableFilterComposer get breedingRecordId {
+    final $$BreedingRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$MatingEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MatingEventsTable> {
+  $$MatingEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get observedDate => $composableBuilder(
+      column: $table.observedDate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$BreedingRecordsTableOrderingComposer get breedingRecordId {
+    final $$BreedingRecordsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableOrderingComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$MatingEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MatingEventsTable> {
+  $$MatingEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get observedDate => $composableBuilder(
+      column: $table.observedDate, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BreedingRecordsTableAnnotationComposer get breedingRecordId {
+    final $$BreedingRecordsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.breedingRecordId,
+        referencedTable: $db.breedingRecords,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BreedingRecordsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.breedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$MatingEventsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $MatingEventsTable,
+    MatingEvent,
+    $$MatingEventsTableFilterComposer,
+    $$MatingEventsTableOrderingComposer,
+    $$MatingEventsTableAnnotationComposer,
+    $$MatingEventsTableCreateCompanionBuilder,
+    $$MatingEventsTableUpdateCompanionBuilder,
+    (MatingEvent, $$MatingEventsTableReferences),
+    MatingEvent,
+    PrefetchHooks Function({bool breedingRecordId})> {
+  $$MatingEventsTableTableManager(_$AppDatabase db, $MatingEventsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MatingEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MatingEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MatingEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> breedingRecordId = const Value.absent(),
+            Value<DateTime> observedDate = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              MatingEventsCompanion(
+            id: id,
+            uuid: uuid,
+            breedingRecordId: breedingRecordId,
+            observedDate: observedDate,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int breedingRecordId,
+            required DateTime observedDate,
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              MatingEventsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            breedingRecordId: breedingRecordId,
+            observedDate: observedDate,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$MatingEventsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({breedingRecordId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (breedingRecordId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.breedingRecordId,
+                    referencedTable: $$MatingEventsTableReferences
+                        ._breedingRecordIdTable(db),
+                    referencedColumn: $$MatingEventsTableReferences
+                        ._breedingRecordIdTable(db)
+                        .id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$MatingEventsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $MatingEventsTable,
+    MatingEvent,
+    $$MatingEventsTableFilterComposer,
+    $$MatingEventsTableOrderingComposer,
+    $$MatingEventsTableAnnotationComposer,
+    $$MatingEventsTableCreateCompanionBuilder,
+    $$MatingEventsTableUpdateCompanionBuilder,
+    (MatingEvent, $$MatingEventsTableReferences),
+    MatingEvent,
+    PrefetchHooks Function({bool breedingRecordId})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11030,6 +14108,11 @@ class $AppDatabaseManager {
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
   $$MedicationsTableTableManager get medications =>
       $$MedicationsTableTableManager(_db, _db.medications);
-  $$MedicationLogsTableTableManager get medicationLogs =>
-      $$MedicationLogsTableTableManager(_db, _db.medicationLogs);
+  $$BreedingPairsTableTableManager get breedingPairs =>
+      $$BreedingPairsTableTableManager(_db, _db.breedingPairs);
+  $$BreedingRecordsTableTableManager get breedingRecords =>
+      $$BreedingRecordsTableTableManager(_db, _db.breedingRecords);
+  $$EggsTableTableManager get eggs => $$EggsTableTableManager(_db, _db.eggs);
+  $$MatingEventsTableTableManager get matingEvents =>
+      $$MatingEventsTableTableManager(_db, _db.matingEvents);
 }

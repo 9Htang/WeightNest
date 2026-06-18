@@ -5,6 +5,74 @@ import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
 import '../birds/birds_screen.dart';
 
+// 提取独立的输入对话框，彻底解决 TextEditingController 生命周期问题
+class _TextInputDialog extends StatefulWidget {
+  final String title;
+  final String? labelText;
+  final String? hintText;
+  final String? initialValue;
+  final Future<void> Function(String name) onSave;
+
+  const _TextInputDialog({
+    required this.title,
+    this.labelText,
+    this.hintText,
+    this.initialValue,
+    required this.onSave,
+  });
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : () async {
+            final name = _controller.text.trim();
+            if (name.isEmpty) return;
+            setState(() => _saving = true); // 防抖
+            await widget.onSave(name);
+            if (mounted) Navigator.pop(context, true);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
 /// 房间管理页面
 class RoomsScreen extends ConsumerStatefulWidget {
   const RoomsScreen({super.key});
@@ -14,6 +82,8 @@ class RoomsScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomsScreenState extends ConsumerState<RoomsScreen> {
+  List<Room>? _reorderedRooms; // 本地缓存拖拽结果
+
   @override
   Widget build(BuildContext context) {
     final roomsAsync = ref.watch(allRoomsProvider);
@@ -24,117 +94,118 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         onPressed: () => _showEditDialog(context, null),
         child: const Icon(Icons.add),
       ),
-
       body: roomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
-        data: (rooms) => rooms.isEmpty
-            ? const Center(child: Text('暂无房间'))
-            : ReorderableListView.builder(
-                itemCount: rooms.length,
-                onReorder: (oldIndex, newIndex) async {
-                  if (newIndex > oldIndex) newIndex--;
-                  final reordered = List<Room>.from(rooms);
-                  final item = reordered.removeAt(oldIndex);
-                  reordered.insert(newIndex, item);
-                  setState(() {
-                    rooms
-                      ..clear()
-                      ..addAll(reordered);
-                  });
-                  final db = ref.read(databaseProvider);
-                  final futures = <Future>[];
-                  for (int i = 0; i < reordered.length; i++) {
-                    futures.add(db.updateRoom(reordered[i].id, sortOrder: i));
-                  }
-                  await Future.wait(futures);
-                  ref.invalidate(allRoomsProvider);
-                },
-                itemBuilder: (context, i) {
-                  final r = rooms[i];
-                  return Card(
-                    key: ValueKey(r.id),
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                    child: ListTile(
-                      leading: const Icon(Icons.meeting_room),
-                      title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('点击查看鹦鹉'),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
+        data: (rooms) {
+          final displayRooms = _reorderedRooms ?? rooms;
+          return displayRooms.isEmpty
+              ? const Center(child: Text('暂无房间'))
+              : ReorderableListView.builder(
+                  itemCount: displayRooms.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    if (newIndex > oldIndex) newIndex--;
+                    final reordered = List<Room>.from(displayRooms);
+                    final item = reordered.removeAt(oldIndex);
+                    reordered.insert(newIndex, item);
+
+                    // 1. 立即更新本地视图，维持UI流畅
+                    setState(() => _reorderedRooms = reordered);
+
+                    // 2. 后台静默更新数据库
+                    final db = ref.read(databaseProvider);
+                    final futures = <Future>[];
+                    for (int i = 0; i < reordered.length; i++) {
+                      futures.add(db.updateRoom(reordered[i].id, sortOrder: i));
+                    }
+                    await Future.wait(futures);
+
+                    // 3. 延迟到下一帧再刷新 Provider，避免打断 ReorderableListView 动画
+                    if (!mounted) return;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      ref.invalidate(allRoomsProvider);
+                      setState(() => _reorderedRooms = null);
+                    });
+                  },
+                  itemBuilder: (context, i) {
+                    final r = displayRooms[i];
+                    return Card(
+                      key: ValueKey(r.id),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                      child: ListTile(
+                        leading: const Icon(Icons.meeting_room),
+                        title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text('点击查看鹦鹉'),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
+                        ),
+                        trailing: PopupMenuButton(
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                            const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
+                          ],
+                          onSelected: (v) {
+                            if (v == 'edit') _showEditDialog(context, r);
+                            if (v == 'delete') _confirmDelete(context, r);
+                          },
+                        ),
                       ),
-                      trailing: PopupMenuButton(
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                          const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
-                        ],
-                        onSelected: (v) {
-                          if (v == 'edit') _showEditDialog(context, r);
-                          if (v == 'delete') _confirmDelete(context, r);
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                );
+        },
       ),
     );
   }
 
   void _showEditDialog(BuildContext context, Room? existing) {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-
-    showDialog(
+    final db = ref.read(databaseProvider);
+    showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(existing != null ? '编辑房间' : '新增房间'),
-          content: TextField(
-            controller: nameCtrl,
-            decoration: const InputDecoration(labelText: '房间名称'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
-            FilledButton(onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              final db = ref.read(databaseProvider);
-              if (existing != null) {
-                await db.updateRoom(existing.id, name: name);
-              } else {
-                await db.createRoom(name);
-              }
-              ref.invalidate(allRoomsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
-            }, child: const Text('保存')),
-          ],
-        );
-      },
-    );
+      builder: (ctx) => _TextInputDialog(
+        title: existing != null ? '编辑房间' : '新增房间',
+        labelText: '房间名称',
+        initialValue: existing?.name,
+        onSave: (name) async {
+          if (existing != null) {
+            await db.updateRoom(existing.id, name: name);
+          } else {
+            await db.createRoom(name);
+          }
+        },
+      ),
+    ).then((saved) {
+      if (saved == true && mounted) {
+        ref.invalidate(allRoomsProvider);
+      }
+    });
   }
 
   void _confirmDelete(BuildContext context, Room r) {
-    showDialog(
+    final db = ref.read(databaseProvider);
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
         content: Text('删除房间「${r.name}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await ref.read(databaseProvider).removeRoom(r.id);
-              ref.invalidate(allRoomsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+              await db.removeRoom(r.id);
+              if (ctx.mounted) Navigator.pop(ctx, true);
             },
             child: const Text('删除'),
           ),
         ],
       ),
-    );
+    ).then((deleted) {
+      if (deleted == true && mounted) {
+        ref.invalidate(allRoomsProvider);
+      }
+    });
   }
 }

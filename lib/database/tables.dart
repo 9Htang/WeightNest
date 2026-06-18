@@ -156,10 +156,13 @@ class Tasks extends Table {
   /// 指派人
   IntColumn get assignedUserId => integer().nullable()();
 
-  /// 任务日期
+  /// 任务类型：weigh / medication / ...
+  TextColumn get taskType => text().withLength(max: 20).withDefault(const Constant('weigh'))();
+
+  /// 任务日期（weigh 为当天零点，medication 为具体喂药时间）
   DateTimeColumn get dueDate => dateTime()();
 
-  /// 任务状态：待完成/已完成/逾期
+  /// 任务状态：待完成/已完成/逾期/已跳过
   TextColumn get status => text().withLength(max: 20).withDefault(const Constant('待完成'))();
 
   /// 完成时间
@@ -167,6 +170,9 @@ class Tasks extends Table {
 
   /// 完成人
   IntColumn get completedBy => integer().nullable()();
+
+  /// 插件私有数据（JSON），如喂药任务存 drugName/dosage/medicationId
+  TextColumn get metadata => text().nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
@@ -185,6 +191,9 @@ class AlertRecords extends Table {
 
   /// 提醒详情
   TextColumn get description => text().withLength(max: 500)();
+
+  /// 严重程度: warning / danger
+  TextColumn get severity => text().withLength(max: 10)();
 
   /// 是否已读
   BoolColumn get isRead => boolean().withDefault(const Constant(false))();
@@ -248,27 +257,87 @@ class Medications extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-/// 喂药执行记录表（自动生成 + 手动记录）
-class MedicationLogs extends Table {
+/// 繁育配对表
+class BreedingPairs extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
 
-  /// 关联喂药方案
-  IntColumn get medicationId => integer().references(Medications, #id, onDelete: KeyAction.cascade)();
+  /// 公鸟
+  @ReferenceName('maleBreedingPairs')
+  IntColumn get maleBirdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
 
-  /// 鹦鹉 ID（冗余，方便查询）
-  IntColumn get birdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
+  /// 母鸟
+  @ReferenceName('femaleBreedingPairs')
+  IntColumn get femaleBirdId => integer().references(Birds, #id, onDelete: KeyAction.cascade)();
 
-  /// 计划喂药时间
-  DateTimeColumn get scheduledTime => dateTime()();
+  /// 配对名称（可选，如 "蓝公×绿母"）
+  TextColumn get pairName => text().nullable()();
 
-  /// 实际喂药时间（null=未执行）
-  DateTimeColumn get givenAt => dateTime().nullable()();
+  /// 状态：active / separated
+  TextColumn get status => text().withDefault(const Constant('active'))();
 
-  /// 执行人
-  IntColumn get givenBy => integer().nullable()();
+  DateTimeColumn get pairedDate => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get separatedDate => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
 
-  /// 是否跳过
-  BoolColumn get skipped => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// 繁育记录表（每次繁殖周期）
+class BreedingRecords extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+
+  /// 关联配对
+  IntColumn get pairId => integer().references(BreedingPairs, #id, onDelete: KeyAction.cascade)();
+
+  /// 阶段：配对/产蛋/孵化/育雏/已完结
+  TextColumn get stage => text().withDefault(const Constant('配对'))();
+
+  DateTimeColumn get startDate => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get endDate => dateTime().nullable()();
+
+  /// 完结原因（正常完结/亲鸟弃窝/人工掏窝/其他）
+  TextColumn get endReason => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// 蛋的记录表
+class Eggs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+
+  /// 关联繁育记录
+  IntColumn get breedingRecordId => integer().references(BreedingRecords, #id, onDelete: KeyAction.cascade)();
+
+  DateTimeColumn get laidDate => dateTime()();
+  DateTimeColumn get hatchDate => dateTime().nullable()();
+
+  /// 状态：孵化中/已出壳/未受精/损坏
+  TextColumn get status => text().withDefault(const Constant('孵化中'))();
+
+  /// 出壳后关联的雏鸟
+  IntColumn get chickBirdId => integer().nullable().references(Birds, #id, onDelete: KeyAction.setNull)();
+  TextColumn get notes => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// 踩背观察记录表
+class MatingEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+
+  /// 关联繁育记录
+  IntColumn get breedingRecordId => integer().references(BreedingRecords, #id, onDelete: KeyAction.cascade)();
+
+  DateTimeColumn get observedDate => dateTime()();
+  TextColumn get notes => text().nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }

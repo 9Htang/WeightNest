@@ -6,7 +6,6 @@ import '../../database/database.dart';
 import '../../repositories/task_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../core/plugin_registry.dart';
-import '../../services/alert_service.dart';
 import '../../utils/app_version.dart';
 import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
@@ -72,16 +71,9 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
       await ref.read(databaseProvider).generateTodayTasks();
       // 4. 刷新任务列表（首帧查询时可能还没有生成的任务）
       ref.invalidate(todayTasksProvider);
-      // 5. 运行异常检测并持久化未读提醒（供首页横幅查询）
-      try {
-        final service = AlertService(ref.read(databaseProvider));
-        final alerts = await service.detectAll();
-        await ref.read(databaseProvider).upsertUnreadAlerts(alerts);
-        ref.invalidate(alertListProvider);
-        ref.invalidate(hasRecentAlertRecordsProvider);
-      } catch (_) {
-        // 检测失败不影响首页
-      }
+      // 5. 触发异常检测（由 alertListProvider 统一管理，避免重复 detectAll）
+      ref.invalidate(alertListProvider);
+      ref.invalidate(hasRecentAlertRecordsProvider);
     } catch (_) {
       // DB 异常时静默失败，首页在加载状态中显示错误
     }
@@ -91,6 +83,7 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _updateLastCheckedDay();
+      ref.read(databaseProvider).generateTodayTasks();
       ref.invalidate(todayTasksProvider);
       ref.invalidate(alertListProvider);
     }
@@ -111,6 +104,7 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
       if (_lastCheckedDay != null && _lastCheckedDay != today) {
         _lastCheckedDay = today;
         if (mounted) {
+          ref.read(databaseProvider).generateTodayTasks();
           ref.invalidate(todayTasksProvider);
           ref.invalidate(alertListProvider);
         }
@@ -231,28 +225,12 @@ class HomeScreenContent extends ConsumerWidget {
             runSpacing: 8,
             children: [
               _QuickChip(
-                icon: Icons.list_alt,
-                label: '鹦鹉列表',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const BirdsScreen())),
-              ),
-              _QuickChip(
-                icon: Icons.assignment_turned_in,
-                label: '任务',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const TasksScreen())),
-              ),
-              _QuickChip(
                 icon: Icons.warning_amber,
                 label: '异常提醒',
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const AlertsScreen())),
+                        builder: (_) => const AlertsScreen(mode: AlertsMode.all))),
               ),
               // 插件贡献的快捷操作
               ...pluginRegistry.enabledPlugins.expand((p) => p.quickActions).map(
@@ -487,7 +465,7 @@ class _AlertBannerWarm extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen())),
+            MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.unconfirmed))),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(

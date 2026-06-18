@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
@@ -7,6 +7,7 @@ import '../../core/plugin_registry.dart';
 import '../../plugins/medication/medication_repository.dart';
 import '../weigh/weigh_grid_screen.dart';
 import '../../widgets/section_header.dart';
+
 /// 任务页面 — 今日任务 + 逾期任务
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
@@ -33,7 +34,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(todayTasksProvider);
-    final medLogsAsync = ref.watch(todayAllMedicationLogsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +51,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
             tooltip: '刷新',
             onPressed: () {
               ref.invalidate(todayTasksProvider);
-              ref.invalidate(todayAllMedicationLogsProvider);
             },
           ),
         ],
@@ -59,7 +58,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
       body: TabBarView(
         controller: _tabController,
         children: [
-          _TodayTasks(tasksAsync: tasksAsync, medLogsAsync: medLogsAsync, ref: ref),
+          _TodayTasks(tasksAsync: tasksAsync, ref: ref),
           _OverdueTasks(ref: ref),
         ],
       ),
@@ -69,25 +68,24 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
 
 class _TodayTasks extends ConsumerWidget {
   final AsyncValue<List<TaskWithBird>> tasksAsync;
-  final AsyncValue<List<MedicationLogData>> medLogsAsync;
   final WidgetRef ref;
 
-  const _TodayTasks({required this.tasksAsync, required this.medLogsAsync, required this.ref});
+  const _TodayTasks({required this.tasksAsync, required this.ref});
 
   @override
   Widget build(BuildContext context, WidgetRef localRef) {
     final tasks = tasksAsync.valueOrNull ?? [];
-    final medLogs = medLogsAsync.valueOrNull ?? [];
-    final isLoading = tasksAsync.isLoading || medLogsAsync.isLoading;
+    final isLoading = tasksAsync.isLoading;
 
-    if (isLoading && tasks.isEmpty && medLogs.isEmpty) {
+    if (isLoading && tasks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final pendingWeigh = tasks.where((t) => t.task.status == '待完成').toList();
-    final doneWeigh = tasks.where((t) => t.task.status == '已完成').toList();
-    final pendingMeds = medLogs.where((l) => !l.isDone && !l.isSkipped).toList();
-    final doneMeds = medLogs.where((l) => l.isDone || l.isSkipped).toList();
+    // 按 taskType 拆分称重和喂药任务
+    final pendingWeigh = tasks.where((t) => t.task.status == '待完成' && t.task.taskType == 'weigh').toList();
+    final doneWeigh = tasks.where((t) => t.task.status == '已完成' && t.task.taskType == 'weigh').toList();
+    final pendingMeds = tasks.where((t) => t.task.status == '待完成' && t.task.taskType == 'medication').toList();
+    final doneMeds = tasks.where((t) => t.task.status == '已完成' || t.task.status == '已跳过').where((t) => t.task.taskType == 'medication').toList();
 
     // 异常鸟 ID 集合 — 用于标红和排序
     final alertsAsync = ref.watch(alertListProvider);
@@ -111,7 +109,7 @@ class _TodayTasks extends ConsumerWidget {
     final allPendingCount = pendingWeigh.length + pendingMeds.length;
     final allDoneCount = doneWeigh.length + doneMeds.length;
 
-    if (tasks.isEmpty && medLogs.isEmpty) {
+    if (tasks.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -124,7 +122,6 @@ class _TodayTasks extends ConsumerWidget {
             FilledButton.tonal(
               onPressed: () {
                 ref.invalidate(todayTasksProvider);
-                ref.invalidate(todayAllMedicationLogsProvider);
               },
               child: const Text('刷新'),
             ),
@@ -136,25 +133,25 @@ class _TodayTasks extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(todayTasksProvider);
-        ref.invalidate(todayAllMedicationLogsProvider);
       },
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           if (allPendingCount > 0) ...[
             SectionHeader(title: '待完成 ($allPendingCount)'),
-            // 称重任务
+            // 称重任务 — 只保留称重按钮，返回后刷新
             ...pendingWeigh.map((t) => _TaskCard(
               task: t,
               isAnomaly: anomalyBirdIds.contains(t.bird.id),
-              onComplete: () => _completeWeighTask(t.task.id, ref),
               onWeigh: () => _startWeighing(context, t.bird.roomId, t.bird.id),
             )),
             // 喂药任务
-            ...pendingMeds.map((l) => _MedTaskCard(
-              logData: l,
-              onGive: () => _giveMed(l.log.id, ref),
-              onSkip: () => _skipMed(l.log.id, ref),
+            ...pendingMeds.map((t) => _MedTaskCard(
+              medInfo: MedTaskInfo.fromTask(t.task),
+              birdName: t.bird.name,
+              birdRingNumber: t.bird.ringNumber,
+              onGive: () => _giveMed(t.task.id, ref),
+              onSkip: () => _skipMed(t.task.id, ref),
             )),
           ],
           if (allDoneCount > 0) ...[
@@ -164,31 +161,37 @@ class _TodayTasks extends ConsumerWidget {
               done: true,
               isAnomaly: anomalyBirdIds.contains(t.bird.id),
             )),
-            ...doneMeds.map((l) => _MedTaskCard(logData: l, done: true)),
+            ...doneMeds.map((t) => _MedTaskCard(
+              medInfo: MedTaskInfo.fromTask(t.task),
+              birdName: t.bird.name,
+              birdRingNumber: t.bird.ringNumber,
+              done: true,
+            )),
           ],
         ],
       ),
     );
   }
 
-  Future<void> _completeWeighTask(int taskId, WidgetRef ref) async {
-    await ref.read(databaseProvider).completeTask(taskId, 1);
+  Future<void> _startWeighing(BuildContext context, int? roomId, int birdId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId),
+      ),
+    );
+    // 返回后触发 generateTodayTasks 的 upgrade 逻辑，任务会自动标为已完成
     ref.invalidate(todayTasksProvider);
   }
 
-  Future<void> _giveMed(int logId, WidgetRef ref) async {
-    await ref.read(databaseProvider).giveMedication(logId);
-    ref.invalidate(todayAllMedicationLogsProvider);
+  Future<void> _giveMed(int taskId, WidgetRef ref) async {
+    await ref.read(databaseProvider).giveMedication(taskId);
+    ref.invalidate(todayTasksProvider);
   }
 
-  Future<void> _skipMed(int logId, WidgetRef ref) async {
-    await ref.read(databaseProvider).skipMedication(logId);
-    ref.invalidate(todayAllMedicationLogsProvider);
-  }
-
-  void _startWeighing(BuildContext context, int? roomId, int birdId) {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)));
+  Future<void> _skipMed(int taskId, WidgetRef ref) async {
+    await ref.read(databaseProvider).skipMedication(taskId);
+    ref.invalidate(todayTasksProvider);
   }
 }
 
@@ -203,7 +206,7 @@ class _OverdueTasks extends ConsumerWidget {
 
     return overdueAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败')),
+      error: (e, _) => const Center(child: Text('加载失败')),
       data: (tasks) {
         if (tasks.isEmpty) {
           return Center(
@@ -223,19 +226,36 @@ class _OverdueTasks extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             SectionHeader(title: '逾期未称重 (${tasks.length})', color: Colors.orange),
+            // 逾期任务同样改为称重按钮，返回后刷新逾期列表
             ...tasks.map((t) => _TaskCard(
               task: t,
               urgent: true,
-              onComplete: () async {
-                await ref.read(databaseProvider).completeTask(t.task.id, 1);
-                ref.invalidate(overdueTasksProvider);
-              },
+              onWeigh: () => _startWeighing(context, t.bird.roomId, t.bird.id),
             )),
           ],
         );
       },
     );
   }
+
+  Future<void> _startWeighing(BuildContext context, int? roomId, int birdId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId),
+      ),
+    );
+    ref.invalidate(overdueTasksProvider);
+  }
+}
+
+Widget _buildPublishTime(DateTime createdAt) {
+  final timeStr =
+      '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+  return Text(
+    '发布 $timeStr',
+    style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+  );
 }
 
 class _TaskCard extends StatelessWidget {
@@ -243,7 +263,6 @@ class _TaskCard extends StatelessWidget {
   final bool done;
   final bool urgent;
   final bool isAnomaly;
-  final VoidCallback? onComplete;
   final VoidCallback? onWeigh;
 
   const _TaskCard({
@@ -251,7 +270,6 @@ class _TaskCard extends StatelessWidget {
     this.done = false,
     this.urgent = false,
     this.isAnomaly = false,
-    this.onComplete,
     this.onWeigh,
   });
 
@@ -275,7 +293,9 @@ class _TaskCard extends StatelessWidget {
     }
 
     // 图标
-    final icon = done ? Icons.check_circle : (isAnomaly || urgent ? Icons.warning_amber_rounded : Icons.radio_button_unchecked);
+    final icon = done
+        ? Icons.check_circle
+        : (isAnomaly || urgent ? Icons.warning_amber_rounded : Icons.radio_button_unchecked);
     final iconColor = done ? Colors.green : (isAnomaly || urgent ? Colors.red : Colors.grey);
 
     return Card(
@@ -306,7 +326,9 @@ class _TaskCard extends StatelessWidget {
                       text: TextSpan(
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isAnomaly ? Colors.red.shade800 : theme.textTheme.bodyMedium?.color,
+                          color: isAnomaly
+                              ? Colors.red.shade800
+                              : theme.textTheme.bodyMedium?.color,
                         ),
                         children: [
                           TextSpan(text: task.bird.name),
@@ -326,25 +348,29 @@ class _TaskCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     // 第二行
                     _buildSecondLine(context, done, w, speciesName, roomName, enclosureName),
+                    const SizedBox(height: 2),
+                    // 第三行：发布时间
+                    _buildPublishTime(task.task.createdAt),
                   ],
                 ),
               ),
-              if (!done) ...[
-                if (onWeigh != null)
-                  IconButton(
-                    icon: const Icon(Icons.monitor_weight_outlined, size: 20),
-                    tooltip: '称重',
-                    onPressed: onWeigh,
-                  ),
+              // 待完成时只显示单个"称重"按钮
+              if (!done && onWeigh != null)
                 FilledButton.tonal(
-                  onPressed: onComplete,
+                  onPressed: onWeigh,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size(60, 36),
+                    minimumSize: const Size(72, 36),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  child: const Text('完成', style: TextStyle(fontSize: 13)),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.monitor_weight_outlined, size: 16),
+                      SizedBox(width: 4),
+                      Text('称重', style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
                 ),
-              ],
             ],
           ),
         ),
@@ -385,13 +411,17 @@ class _TaskCard extends StatelessWidget {
 
 /// 喂药任务卡片
 class _MedTaskCard extends StatelessWidget {
-  final MedicationLogData logData;
+  final MedTaskInfo medInfo;
+  final String birdName;
+  final String? birdRingNumber;
   final bool done;
   final VoidCallback? onGive;
   final VoidCallback? onSkip;
 
   const _MedTaskCard({
-    required this.logData,
+    required this.medInfo,
+    required this.birdName,
+    this.birdRingNumber,
     this.done = false,
     this.onGive,
     this.onSkip,
@@ -400,8 +430,8 @@ class _MedTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLate = !done && logData.log.scheduledTime.isBefore(DateTime.now());
-    final ring = logData.birdRingNumber;
+    final isLate = !done && medInfo.task.dueDate.isBefore(DateTime.now());
+    final ring = birdRingNumber;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -411,83 +441,90 @@ class _MedTaskCard extends StatelessWidget {
         onTap: () {
           final medPlugin = pluginRegistry.getPlugin('medication');
           if (medPlugin == null) return;
-          final page = medPlugin.onTaskCardTap(context, logData.log.birdId);
+          final page = medPlugin.onTaskCardTap(context, medInfo.task.birdId);
           if (page != null) {
             Navigator.push(context, MaterialPageRoute(builder: (_) => page));
           }
         },
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: done ? Colors.green.shade100 : (isLate ? Colors.red.shade100 : Colors.blue.shade100),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: done
+                      ? Colors.green.shade100
+                      : (isLate ? Colors.red.shade100 : Colors.blue.shade100),
+                ),
+                child: Icon(
+                  done ? Icons.check_circle : Icons.medication,
+                  size: 20,
+                  color: done ? Colors.green : (isLate ? Colors.red : Colors.blue),
+                ),
               ),
-              child: Icon(
-                done ? Icons.check_circle : Icons.medication,
-                size: 20,
-                color: done ? Colors.green : (isLate ? Colors.red : Colors.blue),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 第一行：药名 + 剂量
-                  Row(children: [
-                    Text(logData.medication.drugName,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 6),
-                    Text(logData.medication.dosage,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  ]),
-                  const SizedBox(height: 2),
-                  // 第二行：鸟名 + 脚环 · 时间
-                  RichText(
-                    text: TextSpan(
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isLate && !done ? Colors.red : Colors.grey,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 第一行：药名 + 剂量
+                    Row(children: [
+                      Text(medInfo.drugName,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 6),
+                      Text(medInfo.dosage,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ]),
+                    const SizedBox(height: 2),
+                    // 第二行：鸟名 + 脚环 · 时间
+                    RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isLate && !done ? Colors.red : Colors.grey,
+                        ),
+                        children: [
+                          TextSpan(text: birdName),
+                          if (ring != null && ring.isNotEmpty)
+                            TextSpan(text: '  #$ring'),
+                          TextSpan(text: ' · ${medInfo.timeLabel}'),
+                          if (isLate && !done)
+                            const TextSpan(text: ' (已逾期)'),
+                        ],
                       ),
-                      children: [
-                        TextSpan(text: logData.birdName ?? ''),
-                        if (ring != null && ring.isNotEmpty)
-                          TextSpan(text: '  #$ring'),
-                        TextSpan(text: ' · ${logData.timeLabel}'),
-                        if (isLate && !done)
-                          const TextSpan(text: ' (已逾期)'),
-                      ],
                     ),
+                    const SizedBox(height: 2),
+                    // 第三行：发布时间
+                    _buildPublishTime(medInfo.task.createdAt),
+                  ],
+                ),
+              ),
+              if (!done) ...[
+                TextButton(
+                  onPressed: onSkip,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    minimumSize: const Size(44, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                ],
-              ),
-            ),
-            if (!done) ...[
-              TextButton(
-                onPressed: onSkip,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey,
-                  minimumSize: const Size(44, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: const Text('跳过', style: TextStyle(fontSize: 12)),
                 ),
-                child: const Text('跳过', style: TextStyle(fontSize: 12)),
-              ),
-              const SizedBox(width: 4),
-              FilledButton(
-                onPressed: onGive,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(56, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  textStyle: const TextStyle(fontSize: 12),
+                const SizedBox(width: 4),
+                FilledButton(
+                  onPressed: onGive,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(56, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: const Text('已喂'),
                 ),
-                child: const Text('已喂'),
-              ),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );

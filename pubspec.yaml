@@ -1,6 +1,6 @@
 name: weight_nest
 description: 鹦鹉体重记录系统 - 离线单机版 MVP
-version: 1.9.1+49
+version: 1.9.2+50
 publish_to: none
 
 environment:

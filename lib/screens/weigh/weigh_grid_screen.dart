@@ -24,12 +24,12 @@ class WeighGridScreen extends ConsumerStatefulWidget {
   ConsumerState<WeighGridScreen> createState() => _WeighGridScreenState();
 }
 
-// Excel 表格布局常量
-const _colWidth = 152.0;
+const _minColWidth = 152.0;
 const _headerHeight = 36.0;
 
 class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
   final _scrollController = ScrollController();
+  double _colWidth = _minColWidth; // 运行时计算，供 _scrollToSelectedBird 使用
 
   @override
   void initState() {
@@ -101,81 +101,91 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // ── 表格区域 ──
-          Expanded(
-            flex: selected != null ? 3 : 10,
-            child: state.columns.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : Stack(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                        decoration: BoxDecoration(
-                          color: scheme.surface,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                          border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          controller: _scrollController,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: state.columns.map((col) {
-                              return _RoomColumnWidget(
-                                column: col,
-                                selectedBirdId: selected,
-                                abnormalBirdIds: state.abnormalBirdIds,
-                                weaningBirdIds: state.weaningBirdIds,
-                                latestWeights: state.latestWeights,
-                                theme: theme,
-                                scheme: scheme,
-                                onTapBird: (birdId) {
-                                  ref.read(weighGridProvider.notifier).selectBird(birdId);
-                                },
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                      if (state.weaningBirdIds.isNotEmpty)
-                        Positioned(
-                          bottom: 6,
-                          right: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          // z=0: 表格 + 输入面板
+          Column(
+            children: [
+              Expanded(
+                flex: selected != null ? 3 : 10,
+                child: state.columns.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final nonEmpty = state.columns.where((c) => !c.isEmpty).length;
+                          final avail = constraints.maxWidth - 16; // 左右 margin 8+8
+                          _colWidth = nonEmpty > 0
+                              ? (avail / nonEmpty).clamp(_minColWidth, avail)
+                              : avail;
+                          return Container(
+                            margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                             decoration: BoxDecoration(
                               color: scheme.surface,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.orange, width: 1.5),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                              border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
                             ),
-                            child: Text(
-                              '🟧 断奶期',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: Colors.orange.shade800,
-                                fontWeight: FontWeight.w600,
+                            clipBehavior: Clip.antiAlias,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              controller: _scrollController,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: state.columns.map((col) {
+                                  return _RoomColumnWidget(
+                                    width: _colWidth,
+                                    column: col,
+                                    selectedBirdId: selected,
+                                    abnormalBirdIds: state.abnormalBirdIds,
+                                    weaningBirdIds: state.weaningBirdIds,
+                                    latestWeights: state.latestWeights,
+                                    theme: theme,
+                                    scheme: scheme,
+                                    onTapBird: (birdId) {
+                                      ref.read(weighGridProvider.notifier).selectBird(birdId);
+                                    },
+                                  );
+                                }).toList(),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
+                          );
+                        },
+                      ),
+              ),
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 250),
+                crossFadeState: selected != null
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: const SizedBox.shrink(),
+                secondChild: _WeighInputPanel(
+                  state: state,
+                  theme: theme,
+                  notifier: ref.read(weighGridProvider.notifier),
+                ),
+              ),
+            ],
+          ),
+          // z=1: 断奶期图例 — 屏幕右下角，选中鸟时隐藏以避开键盘
+          if (state.weaningBirdIds.isNotEmpty && selected == null)
+            Positioned(
+              bottom: 8,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.orange, width: 1.5),
+                ),
+                child: Text(
+                  '🟧 断奶期',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.orange.shade800,
+                    fontWeight: FontWeight.w600,
                   ),
-          ),
-          // ── 填值面板 ──
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 250),
-            crossFadeState: selected != null
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            firstChild: const SizedBox.shrink(),
-            secondChild: _WeighInputPanel(
-              state: state,
-              theme: theme,
-              notifier: ref.read(weighGridProvider.notifier),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -187,6 +197,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
 // ═══════════════════════════════════════════════
 
 class _RoomColumnWidget extends StatelessWidget {
+  final double width;
   final RoomColumn column;
   final int? selectedBirdId;
   final Set<int> abnormalBirdIds;
@@ -197,6 +208,7 @@ class _RoomColumnWidget extends StatelessWidget {
   final ValueChanged<int> onTapBird;
 
   const _RoomColumnWidget({
+    required this.width,
     required this.column,
     required this.selectedBirdId,
     required this.abnormalBirdIds,
@@ -212,7 +224,7 @@ class _RoomColumnWidget extends StatelessWidget {
     if (column.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      width: _colWidth,
+      width: width,
       decoration: BoxDecoration(
         border: Border(
           right: BorderSide(color: scheme.outlineVariant.withAlpha(50), width: 0.5),

@@ -114,12 +114,8 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
 /// 异常提醒确认版本号 — 确认后 +1 触发 alertListProvider 刷新
 final alertConfirmedVersionProvider = StateProvider<int>((ref) => 0);
 
-/// 异常提醒详细列表（用于异常页面展示）。
-///
-/// 注意：无 birdId 过滤时调用 detectAll() 全量扫描所有鸟，
-/// 鸟群超过 ~50 只后每次体重保存都可能产生可感知延迟。
-/// 若需优化，可在 weightSavedProvider 触发时传入特定 birdId。
-final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
+/// 原始告警检测结果（共享，避免 alertListProvider 和 allAlertsProvider 重复执行 detectAll）
+final _rawAlertsProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   ref.watch(weightSavedProvider); // 体重保存后自动刷新
   ref.watch(alertConfirmedVersionProvider); // 确认后刷新
   final db = ref.watch(databaseProvider);
@@ -127,13 +123,26 @@ final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   final alerts = await service.detectAll();
   // 持久化未读异常 → 首页轻量查询可感知
   await db.upsertUnreadAlerts(alerts);
-  // 持久化完成后才触发首页查询，避免竞态：hasRecentAlertRecordsProvider
-  // 若与 alertListProvider 同时监听 weightSavedProvider，可能在
-  // upsertUnreadAlerts 完成前就查询到空结果
+  // 持久化完成后才触发首页查询，避免竞态
   ref.invalidate(hasRecentAlertRecordsProvider);
-  // 过滤已确认：同鸟 + 同类型 + 同描述当天已确认的不再显示
-  final confirmed = await db.getConfirmedAlertKeys();
-  return alerts.where((a) => !confirmed.contains('${a.bird.bird.id}:${a.type}:${a.description}')).toList();
+  return alerts;
+});
+
+/// 异常提醒详细列表（用于异常页面展示）。
+///
+/// 从 alert_records 表读取 30 天内未确认的记录，而非实时 detectAll()，
+/// 确保异常消除后未确认的历史记录仍可查看。
+final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
+  ref.watch(_rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
+  final db = ref.watch(databaseProvider);
+  return db.getUnconfirmedAlerts(30);
+});
+
+/// 全部告警列表（含已确认 + 未确认，近 30 天）— 供快捷操作「异常提醒」使用
+final allAlertsProvider = FutureProvider<List<AlertWithStatus>>((ref) async {
+  ref.watch(_rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
+  final db = ref.watch(databaseProvider);
+  return db.getAllAlertRecordsWithStatus(30);
 });
 
 /// 异常提醒数量 — 从 alertListProvider 派生，避免重复计算
@@ -142,14 +151,14 @@ final alertCountProvider = Provider<int>((ref) {
   return alerts?.length ?? 0;
 });
 
-/// 首页轻量检查：最近 3 天是否有已检测但未确认的异常（不触发 detectAll）
-/// 注意：不直接监听 weightSavedProvider，否则会与 alertListProvider 竞态 —
-/// alertListProvider 持久化未读记录之前本 provider 已查询到空结果。
-/// 改为由 alertListProvider 在 upsertUnreadAlerts 完成后主动 invalidate 本 provider。
+/// 首页轻量检查：近 30 天是否有已检测但未确认的异常（不触发 detectAll）
+/// 注意：不直接监听 weightSavedProvider，否则会与 _rawAlertsProvider 竞态 —
+/// _rawAlertsProvider 持久化未读记录之前本 provider 已查询到空结果。
+/// 改为由 _rawAlertsProvider 在 upsertUnreadAlerts 完成后主动 invalidate 本 provider。
 final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
   ref.watch(alertConfirmedVersionProvider); // 确认后重新检查
   final db = ref.watch(databaseProvider);
-  final cutoff = DateTime.now().subtract(const Duration(days: 3));
+  final cutoff = DateTime.now().subtract(const Duration(days: 30));
   final rows = await (db.select(db.alertRecords)
     ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff)))
     .get();
@@ -196,18 +205,6 @@ final roomHasEnclosuresProvider =
 final medicationPlansProvider = FutureProvider.family<List<Medication>, int>((ref, birdId) async {
   final db = ref.watch(databaseProvider);
   return db.getMedicationsByBird(birdId);
-});
-
-/// 某只鹦鹉的今日喂药日志
-final todayMedicationLogsProvider = FutureProvider.family<List<MedicationLogData>, int>((ref, birdId) async {
-  final db = ref.watch(databaseProvider);
-  return db.getTodayLogs(birdId);
-});
-
-/// 今日所有鸟的喂药日志（用于任务列表）
-final todayAllMedicationLogsProvider = FutureProvider<List<MedicationLogData>>((ref) async {
-  final db = ref.watch(databaseProvider);
-  return db.getAllTodayLogs();
 });
 
 /// 用户工作时间配置（多插件共享）
