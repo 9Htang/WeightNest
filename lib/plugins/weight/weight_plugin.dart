@@ -26,6 +26,15 @@ const double _weaningWarningDropPct = 10.0;
 const double _weaningDangerDropPct = 15.0;
 const int _analysisWindowDays = 90;
 
+// ==================== 异常方向枚举 ====================
+
+/// 最近一次称重的异常方向，供称重表格多色标记使用。
+enum AbnormalDirection {
+  none,  // 正常
+  high,  // 体重偏高
+  low,   // 体重偏低
+}
+
 // ==================== 工具函数 ====================
 
 double _logGrowth(double prev, double curr) =>
@@ -101,13 +110,21 @@ bool isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
   return true;
 }
 
-/// 判断该鸟最近一次称重是否异常（用于称重表格标记）
-/// weights 按 recordedAt DESC（最新在前）
-bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) {
-  if (weights.length < 2) return false;
+/// 判断最近一次称重的异常方向，供称重表格多色标记使用。
+/// [weights] 按 recordedAt DESC（最新在前）
+///
+/// 返回：
+///   AbnormalDirection.none — 正常
+///   AbnormalDirection.high — 偏高（体重高于基线 >warningPct）
+///   AbnormalDirection.low  — 偏低（体重低于基线 >warningPct，或雏鸟生长不足/断奶期下降）
+AbnormalDirection isLatestAbnormalDirection(
+  BirdWithDetails bird,
+  List<Weight> weights,
+) {
+  if (weights.length < 2) return AbnormalDirection.none;
   final latest = weights.first.weightG;
 
-  // 断奶期 -> 峰值下降检查（reverse 为 ASC 后调用统一方法）
+  // 断奶期 → low（从峰值下降）
   final inWeaning =
       bird.growthStage == '雏鸟' &&
       isWeaningPhase(bird, weights.reversed.toList());
@@ -115,7 +132,9 @@ bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) {
     final peak =
         weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
     final drop = (peak - latest) / peak * 100;
-    return drop > _weaningWarningDropPct;
+    return drop > _weaningWarningDropPct
+        ? AbnormalDirection.low
+        : AbnormalDirection.none;
   }
 
   switch (bird.growthStage) {
@@ -124,7 +143,7 @@ bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) {
       final cutoff48h = now.subtract(const Duration(hours: 48));
       final recent =
           weights.where((w) => w.recordedAt.isAfter(cutoff48h)).toList();
-      if (recent.length < 2) return false;
+      if (recent.length < 2) return AbnormalDirection.none;
       final asc = recent.reversed.toList(); // DESC -> ASC
       final rates = <double>[];
       for (int i = 1; i < asc.length; i++) {
@@ -139,26 +158,38 @@ bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) {
           rates.add(logR * (24 / h));
         }
       }
-      if (rates.isEmpty) return false;
+      if (rates.isEmpty) return AbnormalDirection.none;
       final avgRate = rates.reduce((a, b) => a + b) / rates.length;
-      return avgRate < _chickGrowthSlowRate;
+      // 增长率不足 → low；雏鸟正常不会"偏高"
+      if (avgRate < _chickGrowthSlowRate) return AbnormalDirection.low;
+      return AbnormalDirection.none;
+
     case '幼鸟':
     case '成鸟':
       final manualB = bird.bird.manualBaselineG;
+      final double baseline;
       if (manualB != null) {
-        return (latest - manualB).abs() / manualB >
-            _warningDeviationPct / 100;
+        baseline = manualB.toDouble();
+      } else {
+        if (weights.length < 3) return AbnormalDirection.none;
+        final values = weights.reversed.map((w) => w.weightG).toList();
+        double ema = values.first;
+        for (int i = 1; i < values.length; i++) {
+          ema = 0.2 * values[i] + 0.8 * ema;
+        }
+        baseline = ema;
       }
-      if (weights.length < 3) return false;
-      final values = weights.reversed.map((w) => w.weightG).toList();
-      double ema = values.first;
-      for (int i = 1; i < values.length; i++) {
-        ema = 0.2 * values[i] + 0.8 * ema;
-      }
-      return (latest - ema).abs() / ema > _warningDeviationPct / 100;
+      final deviation = (latest - baseline) / baseline * 100;
+      if (deviation.abs() <= _warningDeviationPct) return AbnormalDirection.none;
+      return deviation > 0 ? AbnormalDirection.high : AbnormalDirection.low;
   }
-  return false;
+  return AbnormalDirection.none;
 }
+
+/// 向后兼容包装：判断该鸟最近一次称重是否异常。
+/// [weights] 按 recordedAt DESC（最新在前）
+bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) =>
+    isLatestAbnormalDirection(bird, weights) != AbnormalDirection.none;
 
 // ==================== 告警检测实现 ====================
 

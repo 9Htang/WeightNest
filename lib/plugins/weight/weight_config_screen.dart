@@ -5,8 +5,9 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
 import '../../services/excel_export_service.dart';
+import 'grid_color_config.dart';
 
-/// 称重插件设置页 — 数据导出 + 品种称重间隔配置
+/// 称重插件设置页 — 数据导出 + 表格颜色 + 品种称重间隔配置
 class WeightConfigScreen extends ConsumerStatefulWidget {
   const WeightConfigScreen({super.key});
 
@@ -24,6 +25,7 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spAsync = ref.watch(allSpeciesProvider);
+    final cfg = ref.watch(gridColorConfigProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('称重设置')),
@@ -90,6 +92,15 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
                 ],
               ),
             ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── 称重表格颜色配置 ──
+          _ColorConfigCard(
+            config: cfg,
+            onChanged: (newCfg) =>
+                ref.read(gridColorConfigProvider.notifier).update(newCfg),
           ),
 
           const SizedBox(height: 16),
@@ -303,5 +314,274 @@ class _IntervalBadge extends StatelessWidget {
       ),
       child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 颜色配置卡片
+// ═══════════════════════════════════════════════
+
+const _palette = <Color>[
+  Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFF009688),
+  Color(0xFF2196F3), Color(0xFF3F51B5), Color(0xFF9C27B0),
+  Color(0xFFF44336), Color(0xFFE91E63), Color(0xFFFF5722),
+  Color(0xFFFF9800), Color(0xFFFFEB3B), Color(0xFF795548),
+  Color(0xFF607D8B), Color(0xFF9E9E9E), Color(0xFFE0E0E0),
+];
+
+class _ColorConfigCard extends StatelessWidget {
+  final GridColorConfig config;
+  final ValueChanged<GridColorConfig> onChanged;
+
+  const _ColorConfigCard({required this.config, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    final states = [
+      BirdCellState.weighedToday,
+      BirdCellState.overdue,
+      BirdCellState.abnormalHigh,
+      BirdCellState.abnormalLow,
+      BirdCellState.weaning,
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.palette_outlined, size: 22),
+              const SizedBox(width: 8),
+              Text('称重表格颜色',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 4),
+            Text('自定义各状态的单元格颜色与显示方式',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+
+            const Divider(height: 24),
+
+            // 显示模式
+            Text('显示方式',
+                style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurface.withAlpha(160))),
+            const SizedBox(height: 8),
+            SegmentedButton<CellDisplayMode>(
+              segments: CellDisplayMode.values
+                  .map((m) => ButtonSegment(
+                      value: m, label: Text(m.label, style: const TextStyle(fontSize: 12))))
+                  .toList(),
+              selected: {config.displayMode},
+              onSelectionChanged: (s) => onChanged(config.copyWith(displayMode: s.first)),
+              style: ButtonStyle(
+                padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 8)),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 边框粗细
+            if (config.displayMode != CellDisplayMode.fill) ...[
+              Row(children: [
+                Text('边框粗细',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface.withAlpha(160))),
+                const Spacer(),
+                Text('${config.borderWidth.toStringAsFixed(1)} px',
+                    style: theme.textTheme.bodySmall),
+              ]),
+              Slider(
+                value: config.borderWidth,
+                min: 1.0,
+                max: 4.0,
+                divisions: 6,
+                onChanged: (v) => onChanged(config.copyWith(borderWidth: v)),
+              ),
+            ],
+
+            // 填充透明度
+            if (config.displayMode != CellDisplayMode.border) ...[
+              Row(children: [
+                Text('填充浓度',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface.withAlpha(160))),
+                const Spacer(),
+                Text('${(config.fillOpacity * 100).round()}%',
+                    style: theme.textTheme.bodySmall),
+              ]),
+              Slider(
+                value: config.fillOpacity,
+                min: 0.05,
+                max: 0.40,
+                divisions: 7,
+                onChanged: (v) => onChanged(config.copyWith(fillOpacity: v)),
+              ),
+            ],
+
+            // 图例开关
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('显示图例', style: TextStyle(fontSize: 14)),
+              subtitle: const Text('在称重表格右下角显示颜色含义',
+                  style: TextStyle(fontSize: 12)),
+              value: config.showLegend,
+              onChanged: (v) => onChanged(config.copyWith(showLegend: v)),
+            ),
+
+            const Divider(height: 8),
+            const SizedBox(height: 8),
+
+            // 各状态颜色行
+            ...states.map((s) => _StateColorRow(
+                  state: s,
+                  color: config.borderColor(s),
+                  displayMode: config.displayMode,
+                  fillOpacity: config.fillOpacity,
+                  onColorPicked: (c) {
+                    final updated = Map<BirdCellState, Color>.from(config.colors);
+                    updated[s] = c;
+                    onChanged(config.copyWith(colors: updated));
+                  },
+                )),
+
+            const SizedBox(height: 8),
+
+            // 恢复默认
+            Center(
+              child: TextButton.icon(
+                onPressed: () => onChanged(GridColorConfig.defaults()),
+                icon: const Icon(Icons.restore, size: 16),
+                label: const Text('恢复默认颜色'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 状态颜色行
+// ═══════════════════════════════════════════════
+
+class _StateColorRow extends StatelessWidget {
+  final BirdCellState state;
+  final Color color;
+  final CellDisplayMode displayMode;
+  final double fillOpacity;
+  final ValueChanged<Color> onColorPicked;
+
+  const _StateColorRow({
+    required this.state,
+    required this.color,
+    required this.displayMode,
+    required this.fillOpacity,
+    required this.onColorPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showColorPicker(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(children: [
+          Expanded(child: Text(state.label, style: const TextStyle(fontSize: 13))),
+          Container(
+            width: 48,
+            height: 22,
+            decoration: BoxDecoration(
+              color: displayMode == CellDisplayMode.border
+                  ? Colors.transparent
+                  : color.withValues(alpha: fillOpacity),
+              border: displayMode == CellDisplayMode.fill
+                  ? null
+                  : Border.all(color: color, width: 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+        ]),
+      ),
+    );
+  }
+
+  void _showColorPicker(BuildContext context) {
+    Color picked = color;
+    showDialog<Color>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${state.label} 颜色'),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        content: StatefulBuilder(
+          builder: (ctx, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _palette.map((c) {
+                  final selected = c.value == picked.value;
+                  return GestureDetector(
+                    onTap: () => setState(() => picked = c),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: selected ? Border.all(color: Colors.white, width: 3) : null,
+                        boxShadow: selected
+                            ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 8)]
+                            : null,
+                      ),
+                      child: selected
+                          ? const Icon(Icons.check, size: 18, color: Colors.white)
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: displayMode == CellDisplayMode.border
+                      ? Colors.transparent
+                      : picked.withValues(alpha: fillOpacity),
+                  border: displayMode == CellDisplayMode.fill
+                      ? null
+                      : Border.all(color: picked, width: 2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(
+                  child: Text('预览效果',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, picked), child: const Text('应用')),
+        ],
+      ),
+    ).then((c) {
+      if (c != null) onColorPicked(c);
+    });
   }
 }

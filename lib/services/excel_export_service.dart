@@ -23,8 +23,20 @@ class ExcelExportService {
     final now = DateTime.now();
     final isCurrentMonth = (year == now.year && month == now.month);
 
-    // 获取所有鹦鹉
+    // 获取所有鹦鹉，按房间→容器分组排序
     final birds = await _db.getAllWithDetails();
+    birds.sort((a, b) {
+      final ra = a.room?.name ?? '', rb = b.room?.name ?? '';
+      if (ra != rb) {
+        if (ra.isEmpty) return 1;
+        if (rb.isEmpty) return -1;
+        return ra.compareTo(rb);
+      }
+      final ea = a.enclosure?.name ?? '', eb = b.enclosure?.name ?? '';
+      if (ea.isEmpty) return 1;
+      if (eb.isEmpty) return -1;
+      return ea.compareTo(eb);
+    });
 
     // 先收集所有数据：birdIndex → day → value
     final monthStart = DateTime(year, month, 1);
@@ -43,18 +55,26 @@ class ExcelExportService {
       }
     }
 
-    // ── 表头三行：第1行脚环号 | 第2行品种 | 第3行日期 ──
+    // ── 表头：脚环号 | 品种 | 房间 | 容器 ──
     final ringRow = <String>['脚环号'];
     final speciesRow = <String>['品种'];
+    final roomRow = <String>['房间'];
+    final enclosureRow = <String>['容器'];
     for (final b in birds) {
       ringRow.add((b.bird.ringNumber?.isNotEmpty == true ? b.bird.ringNumber : b.bird.name) ?? b.bird.name);
       speciesRow.add(b.species.name);
+      roomRow.add(b.room?.name ?? '');
+      enclosureRow.add(b.enclosure?.name ?? '');
     }
-    final dateHeaderRow = <String>['日期'];
-    dateHeaderRow.addAll(List.filled(birds.length, ''));
 
     _writeRow(sheet, 0, ringRow, bold: true);
     _writeRow(sheet, 1, speciesRow, bold: true);
+    _writeRow(sheet, 2, roomRow, bold: true);
+    _writeRow(sheet, 3, enclosureRow, bold: true);
+
+    // 合并房间行和容器行的相邻相同单元格
+    _mergeRow(sheet, 2, roomRow);
+    _mergeRow(sheet, 3, enclosureRow);
 
     // ── 每天一行：日期 | 鸟1数据 | 鸟2数据 | ... ──
     for (int d = 1; d <= daysInMonth; d++) {
@@ -66,7 +86,7 @@ class ExcelExportService {
           row.add(data[i]?[d] ?? '');
         }
       }
-      _writeRow(sheet, d + 1, row);
+      _writeRow(sheet, d + 3, row);
     }
 
     // 设置列宽自适应：日期列 + 每只鸟一列
@@ -83,6 +103,22 @@ class ExcelExportService {
     if (bytes == null) throw Exception('编码失败');
     await file.writeAsBytes(bytes);
     return file;
+  }
+
+  /// 合并同一行中相邻相同内容的单元格（跳过第一列标签列）
+  void _mergeRow(Sheet sheet, int row, List<String> values) {
+    int start = 1;
+    for (int i = 2; i <= values.length; i++) {
+      if (i < values.length && values[i] == values[i - 1]) continue;
+      final end = i - 1;
+      if (end > start) {
+        sheet.merge(
+          CellIndex.indexByColumnRow(columnIndex: start, rowIndex: row),
+          CellIndex.indexByColumnRow(columnIndex: end, rowIndex: row),
+        );
+      }
+      start = i;
+    }
   }
 
   /// 获取导出目录（Android 10+ scoped storage 不允直接写 Download，改用内部存储 + 分享）

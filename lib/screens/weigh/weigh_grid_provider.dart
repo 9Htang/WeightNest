@@ -34,7 +34,7 @@ class RoomColumn {
 /// 称重表格状态
 class WeighGridState {
   final List<RoomColumn> columns;
-  final List<int> birdOrder; // 按显示顺序排列的所有鸟 ID
+  final List<int> birdOrder;
   final int? selectedBirdId;
   final String weightText;
   final bool isFasting;
@@ -42,10 +42,12 @@ class WeighGridState {
   final String? message;
   final Weight? lastWeigh;
   final int todayCompleted;
-  final Set<int> abnormalBirdIds; // 上次称重异常的鸟 ID 集合
-  final Set<int> weaningBirdIds; // 处于断奶期的鸟 ID 集合
-  final Map<int, Weight?> latestWeights; // 每只鸟的最新体重
-  final Map<int, BirdWithDetails> birdById; // 鸟 ID → 详情，供输入面板 O(1) 查找
+  final Map<int, AbnormalDirection> abnormalDirections; // 体重异常方向
+  final Set<int> weighedTodayBirdIds; // 今日已称
+  final Set<int> overdueBirdIds;      // 超期未称
+  final Set<int> weaningBirdIds;
+  final Map<int, Weight?> latestWeights;
+  final Map<int, BirdWithDetails> birdById;
 
   const WeighGridState({
     this.columns = const [],
@@ -57,11 +59,16 @@ class WeighGridState {
     this.message,
     this.lastWeigh,
     this.todayCompleted = 0,
-    this.abnormalBirdIds = const {},
+    this.abnormalDirections = const {},
+    this.weighedTodayBirdIds = const {},
+    this.overdueBirdIds = const {},
     this.weaningBirdIds = const {},
     this.latestWeights = const {},
     this.birdById = const {},
   });
+
+  /// 向后兼容：任意方向的异常鸟 ID 集合
+  Set<int> get abnormalBirdIds => abnormalDirections.keys.toSet();
 
   WeighGridState copyWith({
     List<RoomColumn>? columns,
@@ -73,7 +80,9 @@ class WeighGridState {
     String? message,
     Weight? lastWeigh,
     int? todayCompleted,
-    Set<int>? abnormalBirdIds,
+    Map<int, AbnormalDirection>? abnormalDirections,
+    Set<int>? weighedTodayBirdIds,
+    Set<int>? overdueBirdIds,
     Set<int>? weaningBirdIds,
     Map<int, Weight?>? latestWeights,
     Map<int, BirdWithDetails>? birdById,
@@ -90,7 +99,9 @@ class WeighGridState {
         message: message,
         lastWeigh: clearLastWeigh ? null : (lastWeigh ?? this.lastWeigh),
         todayCompleted: todayCompleted ?? this.todayCompleted,
-        abnormalBirdIds: abnormalBirdIds ?? this.abnormalBirdIds,
+        abnormalDirections: abnormalDirections ?? this.abnormalDirections,
+        weighedTodayBirdIds: weighedTodayBirdIds ?? this.weighedTodayBirdIds,
+        overdueBirdIds: overdueBirdIds ?? this.overdueBirdIds,
         weaningBirdIds: weaningBirdIds ?? this.weaningBirdIds,
         latestWeights: latestWeights ?? this.latestWeights,
         birdById: birdById ?? this.birdById,
@@ -193,27 +204,68 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     final birdById = {for (final b in allBirds) b.bird.id: b};
     state = state.copyWith(columns: columns, birdOrder: birdOrder, birdById: birdById);
 
-    // 3. 计算哪些鸟上次称重异常 + 断奶期检测（批量查询，避免 N+1）
-    final abnormalIds = <int>{};
-    final weaningIds = <int>{};
+    // 3. 批量计算异常方向 / 断奶期 / 今日已称 / 超期
     final now = DateTime.now();
+    final todayDay = DateTime(now.year, now.month, now.day);
     final cutoff = now.subtract(const Duration(days: 90));
     final weightsByBird = await _db.getByBirdsInRange(
       allBirds.map((b) => b.bird.id).toList(),
       from: cutoff,
       to: now,
     );
+
+    final abnormalDirections = <int, AbnormalDirection>{};
+    final weaningIds = <int>{};
+    final weighedTodayIds = <int>{};
+    final overdueIds = <int>{};
+
     for (final bird in allBirds) {
       final weights = weightsByBird[bird.bird.id] ?? const <Weight>[];
-      if (weights.isNotEmpty && isLatestAbnormal(bird, weights.reversed.toList())) {
-        abnormalIds.add(bird.bird.id);
+
+      // 异常方向
+      if (weights.isNotEmpty) {
+        final dir = isLatestAbnormalDirection(bird, weights.reversed.toList());
+        if (dir != AbnormalDirection.none) {
+          abnormalDirections[bird.bird.id] = dir;
+        }
       }
+
+      // 断奶期
       if (isWeaningPhase(bird, weights)) {
         weaningIds.add(bird.bird.id);
       }
+
+      // 今日已称：最新称重日期 == 今天
+      if (weights.isNotEmpty) {
+        final latestDay = DateTime(
+          weights.last.recordedAt.year,
+          weights.last.recordedAt.month,
+          weights.last.recordedAt.day,
+        );
+        if (latestDay == todayDay) {
+          weighedTodayIds.add(bird.bird.id);
+        }
+      }
+
+      // 超期：距上次称重 > 间隔 × 1.5
+      if (weights.isNotEmpty) {
+        final daysSince = now.difference(weights.last.recordedAt).inDays;
+        final interval = bird.effectiveWeighIntervalDays;
+        if (interval > 0 && daysSince > interval * 1.5) {
+          overdueIds.add(bird.bird.id);
+        }
+      } else {
+        // 90 天无数据也视为超期
+        overdueIds.add(bird.bird.id);
+      }
     }
 
-    state = state.copyWith(abnormalBirdIds: abnormalIds, weaningBirdIds: weaningIds);
+    state = state.copyWith(
+      abnormalDirections: abnormalDirections,
+      weaningBirdIds: weaningIds,
+      weighedTodayBirdIds: weighedTodayIds,
+      overdueBirdIds: overdueIds,
+    );
 
     // 3.5 批量加载最新体重
     if (birdOrder.isNotEmpty) {
@@ -372,10 +424,18 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     final updatedLatestWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedLatestWeights[birdId] = savedWeight;
 
+    // 即时更新"今日已称" + 移除"超期"
+    final updatedWeighedToday = Set<int>.from(state.weighedTodayBirdIds)
+      ..add(birdId);
+    final updatedOverdue = Set<int>.from(state.overdueBirdIds)
+      ..remove(birdId);
+
     state = state.copyWith(
       isSaving: false,
       todayCompleted: done,
       latestWeights: updatedLatestWeights,
+      weighedTodayBirdIds: updatedWeighedToday,
+      overdueBirdIds: updatedOverdue,
     );
 
     // 自动跳下一只
