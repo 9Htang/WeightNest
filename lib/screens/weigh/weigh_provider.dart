@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/database.dart';
+import '../../core/plugin_registry.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
@@ -393,25 +394,43 @@ class WeighNotifier extends StateNotifier<WeighState> {
     state = state.copyWith(isSaving: true);
 
     final now = DateTime.now();
-    final savedWeight = await _db.addWeight(
-      birdId: bird.bird.id,
-      weightG: w,
-      recordedAt: now,
-      recordedBy: _userId,
-      isFasting: state.isFasting,
-    );
+
+    // 查找今日待完成称重任务（事务外查询）
+    final allTodayTasks = await _db.getTodayTasks(null);
+    final pendingTask = allTodayTasks
+        .where((t) => t.bird.id == bird.bird.id && t.task.status == '待完成')
+        .firstOrNull;
+
+    // 原子写入：Weights + ActivityLogs + 完成任务（单事务，防崩溃不一致）
+    late final Weight savedWeight;
+    await _db.transaction(() async {
+      savedWeight = await _db.addWeight(
+        birdId: bird.bird.id,
+        weightG: w,
+        recordedAt: now,
+        recordedBy: _userId,
+        isFasting: state.isFasting,
+      );
+
+      await pluginRegistry.operationService.recordInTransaction(
+        pluginId: 'weights',
+        actionType: 'weight_recorded',
+        birdId: bird.bird.id,
+        summary: '称重: ${w.toStringAsFixed(1)}g',
+        details: {
+          'weightG': w,
+          'isFasting': state.isFasting,
+          'weightId': savedWeight.id,
+        },
+        relatedTaskId: pendingTask?.task.id,
+        operatedBy: _userId,
+      );
+    });
 
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedWeights[bird.bird.id] = savedWeight;
 
     _onWeightSaved?.call();
-
-    final allTodayTasks = await _db.getTodayTasks(null);
-    final pendingTask = allTodayTasks.where((t) =>
-        t.bird.id == bird.bird.id && t.task.status == '待完成').firstOrNull;
-    if (pendingTask != null) {
-      await _db.completeTask(pendingTask.task.id, _userId ?? 1);
-    }
 
     final done = allTodayTasks.where((t) => t.task.status == '已完成').length
         + (pendingTask != null ? 1 : 0);

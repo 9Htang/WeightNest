@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
+import '../services/operation_service.dart';
 import 'plugin.dart';
 import 'event_bus.dart';
 
@@ -14,6 +15,14 @@ final _instance = PluginRegistry();
 class PluginRegistry {
   final List<FeaturePlugin> _plugins = [];
   final EventBus eventBus = EventBus();
+
+  /// 统一操作服务 —— 所有插件写操作的唯一入口。
+  /// 在 [setDatabase] 之后才可用（db 非 null）。
+  late final OperationService operationService = OperationService(
+    () => db,
+    eventBus,
+  );
+
   AppDatabase? db;
 
   List<FeaturePlugin> get plugins => List.unmodifiable(_plugins);

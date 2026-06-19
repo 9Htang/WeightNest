@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/database.dart';
+import '../../core/plugin_registry.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
 import '../../repositories/weight_repository.dart';
@@ -44,6 +45,7 @@ class WeighGridState {
   final Set<int> abnormalBirdIds; // 上次称重异常的鸟 ID 集合
   final Set<int> weaningBirdIds; // 处于断奶期的鸟 ID 集合
   final Map<int, Weight?> latestWeights; // 每只鸟的最新体重
+  final Map<int, BirdWithDetails> birdById; // 鸟 ID → 详情，供输入面板 O(1) 查找
 
   const WeighGridState({
     this.columns = const [],
@@ -58,6 +60,7 @@ class WeighGridState {
     this.abnormalBirdIds = const {},
     this.weaningBirdIds = const {},
     this.latestWeights = const {},
+    this.birdById = const {},
   });
 
   WeighGridState copyWith({
@@ -73,6 +76,7 @@ class WeighGridState {
     Set<int>? abnormalBirdIds,
     Set<int>? weaningBirdIds,
     Map<int, Weight?>? latestWeights,
+    Map<int, BirdWithDetails>? birdById,
     bool clearSelected = false,
     bool clearLastWeigh = false,
   }) =>
@@ -89,6 +93,7 @@ class WeighGridState {
         abnormalBirdIds: abnormalBirdIds ?? this.abnormalBirdIds,
         weaningBirdIds: weaningBirdIds ?? this.weaningBirdIds,
         latestWeights: latestWeights ?? this.latestWeights,
+        birdById: birdById ?? this.birdById,
       );
 }
 
@@ -185,18 +190,21 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
       }
     }
 
-    state = state.copyWith(columns: columns, birdOrder: birdOrder);
+    final birdById = {for (final b in allBirds) b.bird.id: b};
+    state = state.copyWith(columns: columns, birdOrder: birdOrder, birdById: birdById);
 
-    // 3. 计算哪些鸟上次称重异常 + 断奶期检测
+    // 3. 计算哪些鸟上次称重异常 + 断奶期检测（批量查询，避免 N+1）
     final abnormalIds = <int>{};
     final weaningIds = <int>{};
-    final cutoff = DateTime.now().subtract(const Duration(days: 90));
+    final now = DateTime.now();
+    final cutoff = now.subtract(const Duration(days: 90));
+    final weightsByBird = await _db.getByBirdsInRange(
+      allBirds.map((b) => b.bird.id).toList(),
+      from: cutoff,
+      to: now,
+    );
     for (final bird in allBirds) {
-      final weights = await _db.getByBirdInRange(
-        bird.bird.id,
-        from: cutoff,
-        to: DateTime.now(),
-      );
+      final weights = weightsByBird[bird.bird.id] ?? const <Weight>[];
       if (weights.isNotEmpty && isLatestAbnormal(bird, weights.reversed.toList())) {
         abnormalIds.add(bird.bird.id);
       }
@@ -322,24 +330,41 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     state = state.copyWith(isSaving: true);
 
     final now = DateTime.now();
-    final savedWeight = await _db.addWeight(
-      birdId: birdId,
-      weightG: w,
-      recordedAt: now,
-      recordedBy: _userId,
-      isFasting: state.isFasting,
-    );
 
-    _onWeightSaved?.call();
-
-    // 完成任务
+    // 查找今日待完成称重任务（事务外查询）
     final allTodayTasks = await _db.getTodayTasks(null);
     final pendingTask = allTodayTasks
         .where((t) => t.bird.id == birdId && t.task.status == '待完成')
         .firstOrNull;
-    if (pendingTask != null) {
-      await _db.completeTask(pendingTask.task.id, _userId ?? 1);
-    }
+
+    // 原子写入：Weights + ActivityLogs + 完成任务（单事务，防崩溃不一致）
+    late final Weight savedWeight;
+    await _db.transaction(() async {
+      savedWeight = await _db.addWeight(
+        birdId: birdId,
+        weightG: w,
+        recordedAt: now,
+        recordedBy: _userId,
+        isFasting: state.isFasting,
+      );
+
+      await pluginRegistry.operationService.recordInTransaction(
+        pluginId: 'weights',
+        actionType: 'weight_recorded',
+        birdId: birdId,
+        summary: '称重: ${w.toStringAsFixed(1)}g',
+        details: {
+          'weightG': w,
+          'isFasting': state.isFasting,
+          'weightId': savedWeight.id,
+        },
+        relatedTaskId: pendingTask?.task.id,
+        operatedBy: _userId,
+      );
+    });
+
+    _onWeightSaved?.call();
+
     final done = allTodayTasks.where((t) => t.task.status == '已完成').length +
         (pendingTask != null ? 1 : 0);
 

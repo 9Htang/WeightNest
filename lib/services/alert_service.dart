@@ -76,39 +76,48 @@ extension AlertRepository on AppDatabase {
   /// 持久化新检测到的异常（isRead = false），供首页横幅查询
   /// 同一天同一鸟+同一类型只保留一条未读记录；
   /// 若相同描述的已确认记录已存在也跳过（避免确认后立即重复出现）
+  ///
+  /// 批量实现：单事务内一次查出当天全部记录并在内存去重，避免逐条 2~3 次
+  /// 查询的 N+1（每次保存体重都会触发本方法）。
   Future<void> upsertUnreadAlerts(List<AnomalyAlert> alerts) async {
+    if (alerts.isEmpty) return;
     final today = DateTime.now();
     final dayStart = DateTime(today.year, today.month, today.day);
-    for (final a in alerts) {
-      // 1. 已有未读记录 → 跳过（去重）
-      final existingUnread = await (select(alertRecords)
-        ..where((t) => t.birdId.equals(a.bird.bird.id) &
-            t.alertType.equals(a.type) &
-            t.isRead.equals(false) &
-            t.createdAt.isBiggerOrEqualValue(dayStart)))
-        .getSingleOrNull();
-      if (existingUnread != null) continue;
 
-      // 2. 完全相同描述的已确认记录 → 跳过（用户已确认过这个具体预警）
-      final existingConfirmed = await (select(alertRecords)
-        ..where((t) => t.birdId.equals(a.bird.bird.id) &
-            t.alertType.equals(a.type) &
-            t.description.equals(a.description) &
-            t.isRead.equals(true) &
-            t.createdAt.isBiggerOrEqualValue(dayStart)))
-        .getSingleOrNull();
-      if (existingConfirmed != null) continue;
+    await transaction(() async {
+      final rows = await (select(alertRecords)
+            ..where((t) => t.createdAt.isBiggerOrEqualValue(dayStart)))
+          .get();
+      // 未读去重键：birdId:alertType ；已确认去重键：birdId:alertType:description
+      final unreadKeys = <String>{};
+      final confirmedKeys = <String>{};
+      for (final r in rows) {
+        final k = '${r.birdId}:${r.alertType}';
+        if (!r.isRead) {
+          unreadKeys.add(k);
+        } else {
+          confirmedKeys.add('$k:${r.description}');
+        }
+      }
 
-      // 3. 新预警 → 写入
-      await into(alertRecords).insert(AlertRecordsCompanion.insert(
-        uuid: genUuid(),
-        birdId: a.bird.bird.id,
-        alertType: a.type,
-        description: a.description,
-        severity: a.severity.name,
-        isRead: const Value(false),
-      ));
-    }
+      for (final a in alerts) {
+        final k = '${a.bird.bird.id}:${a.type}';
+        // 1. 已有未读记录 → 跳过（去重）
+        if (unreadKeys.contains(k)) continue;
+        // 2. 完全相同描述的已确认记录 → 跳过（用户已确认过这个具体预警）
+        if (confirmedKeys.contains('$k:${a.description}')) continue;
+        // 3. 新预警 → 写入
+        await into(alertRecords).insert(AlertRecordsCompanion.insert(
+          uuid: genUuid(),
+          birdId: a.bird.bird.id,
+          alertType: a.type,
+          description: a.description,
+          severity: a.severity.name,
+          isRead: const Value(false),
+        ));
+        unreadKeys.add(k); // 防止本次循环内重复写入
+      }
+    });
   }
 
   /// 确认单条提醒（当天同鸟+同类型+同描述去重）
@@ -160,6 +169,13 @@ extension AlertRepository on AppDatabase {
       ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff))
       ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .get();
+    // 批量取鸟详情（单次查询），避免逐行 N+1
+    final birdMap = <int, BirdWithDetails>{};
+    if (rows.isNotEmpty) {
+      for (final b in await getAllWithDetails()) {
+        birdMap[b.bird.id] = b;
+      }
+    }
     // 按 (birdId, alertType, description) 去重，保留最新一条
     final alerts = <AnomalyAlert>[];
     final seen = <String>{};
@@ -167,7 +183,7 @@ extension AlertRepository on AppDatabase {
       final key = '${r.birdId}:${r.alertType}:${r.description}';
       if (seen.contains(key)) continue;
       seen.add(key);
-      final bird = await getWithDetails(r.birdId);
+      final bird = birdMap[r.birdId];
       if (bird == null) continue;
       alerts.add(AnomalyAlert(
         bird: bird,
@@ -187,6 +203,13 @@ extension AlertRepository on AppDatabase {
       ..where((t) => t.createdAt.isBiggerOrEqualValue(cutoff))
       ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .get();
+    // 批量取鸟详情（单次查询），避免逐行 N+1
+    final birdMap = <int, BirdWithDetails>{};
+    if (rows.isNotEmpty) {
+      for (final b in await getAllWithDetails()) {
+        birdMap[b.bird.id] = b;
+      }
+    }
     // 按 (birdId, alertType, description) 去重，保留最新一条
     final results = <AlertWithStatus>[];
     final seen = <String>{};
@@ -194,7 +217,7 @@ extension AlertRepository on AppDatabase {
       final key = '${r.birdId}:${r.alertType}:${r.description}';
       if (seen.contains(key)) continue;
       seen.add(key);
-      final bird = await getWithDetails(r.birdId);
+      final bird = birdMap[r.birdId];
       if (bird == null) continue;
       results.add(AlertWithStatus(
         alert: AnomalyAlert(

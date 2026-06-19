@@ -10,6 +10,8 @@ import '../../screens/weigh/weigh_grid_screen.dart';
 import '../../screens/birds/bird_detail_screen.dart';
 import 'weight_table.dart';
 import 'weight_config_screen.dart';
+import '../../core/event_bus.dart';
+import '../../core/events.dart';
 
 // ==================== 体重告警阈值常量 ====================
 
@@ -490,6 +492,10 @@ class WeightPlugin extends FeaturePlugin {
         allBirds = await db.getAllWithDetails();
       }
 
+      // 批量取每只鸟的最新体重（单条 SQL），避免循环内 N+1
+      final latestWeightByBird = await db.getLatestByBirds(
+        allBirds.map((b) => b.bird.id).toList(),
+      );
       for (final bird in allBirds) {
         final ageDays = today.difference(bird.bird.birthDate).inDays;
         final intervalDays = computeEffectiveWeighInterval(
@@ -500,12 +506,7 @@ class WeightPlugin extends FeaturePlugin {
         if (intervalDays <= 0) continue;
 
         // Check last weigh date — need task if >= intervalDays has elapsed
-        final lastWeighList = await (db.select(db.weights)
-              ..where((w) => w.birdId.equals(bird.bird.id)))
-            .get();
-        final lastWeigh = lastWeighList.isNotEmpty
-            ? lastWeighList.reduce((a, b) => a.recordedAt.isAfter(b.recordedAt) ? a : b)
-            : null;
+        final lastWeigh = latestWeightByBird[bird.bird.id];
 
         // Compare calendar days (not exact time) — a weigh at 23:50 yesterday
         // and a login at 00:10 today are 1 calendar day apart, not 0 hours.
@@ -547,17 +548,19 @@ class WeightPlugin extends FeaturePlugin {
       allBirds = await db.getAllWithDetails();
     }
 
-    // 对每只鸟执行体重检测
-    final cutoff = DateTime.now().subtract(Duration(days: _analysisWindowDays));
+    // 对每只鸟执行体重检测（批量查询，避免 N+1）
+    final now = DateTime.now();
+    final cutoff = now.subtract(Duration(days: _analysisWindowDays));
     // 查询繁育中的鸟：繁育期间不催称重
     final activeBreedingIds = (pluginRegistry
         .call('breeding', 'getActiveBreedingBirdIds') as Set<int>?) ?? {};
+    final weightsByBird = await db.getByBirdsInRange(
+      allBirds.map((b) => b.bird.id).toList(),
+      from: cutoff,
+      to: now,
+    );
     for (final bird in allBirds) {
-      final weights = await db.getByBirdInRange(
-        bird.bird.id,
-        from: cutoff,
-        to: DateTime.now(),
-      );
+      final weights = weightsByBird[bird.bird.id] ?? const <Weight>[];
 
       // 90天无体重：安全网兜底
       if (weights.isEmpty) {
@@ -595,6 +598,15 @@ class WeightPlugin extends FeaturePlugin {
     }
 
     return alerts;
+  }
+
+  @override
+  void registerEvents(EventBus bus) {
+    bus.on<OperationRecordedEvent>((e) {
+      if (e.pluginId == 'medication' && e.actionType == 'medication_given') {
+        debugPrint('[WeightPlugin] 观察到喂药事件: ${e.summary} (birdId=${e.birdId})');
+      }
+    });
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,30 +31,83 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
     _bird = widget.bird;
   }
 
-  /// 更新本地状态并持久化到数据库
+  /// 更新本地状态并持久化到数据库，接入统一操作流水线。
   Future<void> _save(Map<String, dynamic> fields) async {
-    final db = ref.read(databaseProvider);
-    await db.updateBird(
-      _bird.bird.id,
-      name: fields['name'] as String?,
-      speciesId: fields['speciesId'] as int?,
-      roomId: fields.containsKey('roomId') ? fields['roomId'] as int? : _bird.bird.roomId,
-      enclosureId: fields.containsKey('enclosureId') ? fields['enclosureId'] as int? : _bird.bird.enclosureId,
-      birthDate: fields['birthDate'] as DateTime?,
-      gender: fields['gender'] as String?,
-      status: fields['status'] as String?,
-      notes: fields['notes'] as String?,
-      ringNumber: fields['ringNumber'] as String?,
-      manualBaselineG: fields.containsKey('manualBaselineG') ? fields['manualBaselineG'] as double? : _bird.bird.manualBaselineG,
-      weaningOverride: fields.containsKey('weaningOverride') ? fields['weaningOverride'] as bool? : _bird.bird.weaningOverride,
-    );
-    // 刷新本地状态
-    final updated = await db.getAllWithDetails();
-    final fresh = updated.where((b) => b.bird.id == _bird.bird.id).firstOrNull;
-    if (fresh != null && mounted) {
-      setState(() => _bird = fresh);
-      ref.invalidate(allBirdsProvider);
+    try {
+      final db = ref.read(databaseProvider);
+      await db.updateBird(
+        _bird.bird.id,
+        name: fields['name'] as String?,
+        speciesId: fields['speciesId'] as int?,
+        roomId: fields.containsKey('roomId') ? fields['roomId'] as int? : _bird.bird.roomId,
+        enclosureId: fields.containsKey('enclosureId') ? fields['enclosureId'] as int? : _bird.bird.enclosureId,
+        birthDate: fields['birthDate'] as DateTime?,
+        gender: fields['gender'] as String?,
+        status: fields['status'] as String?,
+        notes: fields['notes'] as String?,
+        ringNumber: fields['ringNumber'] as String?,
+        manualBaselineG: fields.containsKey('manualBaselineG') ? fields['manualBaselineG'] as double? : _bird.bird.manualBaselineG,
+        weaningOverride: fields.containsKey('weaningOverride') ? fields['weaningOverride'] as bool? : _bird.bird.weaningOverride,
+      );
+
+      // 记录操作日志 + 触发跨插件事件
+      final jsonSafeDetails = fields.map((k, v) => MapEntry(k, v is DateTime ? (v as DateTime).toIso8601String() : v));
+      await pluginRegistry.operationService.record(
+        pluginId: 'core',
+        actionType: 'bird_updated',
+        birdId: _bird.bird.id,
+        summary: _generateUpdateSummary(fields),
+        details: jsonSafeDetails,
+      );
+
+      // 刷新本地状态
+      final updated = await db.getAllWithDetails();
+      final fresh = updated.where((b) => b.bird.id == _bird.bird.id).firstOrNull;
+      if (fresh != null && mounted) {
+        setState(() => _bird = fresh);
+        ref.invalidate(allBirdsProvider);
+        ref.read(weightSavedProvider.notifier).state++; // 触发时间轴刷新
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
+  }
+
+  /// 生成人类可读的变更摘要
+  String _generateUpdateSummary(Map<String, dynamic> changes) {
+    if (changes.containsKey('name')) return '修改名称为「${changes['name']}」';
+    if (changes.containsKey('status')) return '修改状态为「${changes['status']}」';
+    if (changes.containsKey('roomId')) {
+      if (changes['roomId'] == null) return '移出房间';
+      return '转移房间';
+    }
+    if (changes.containsKey('enclosureId')) {
+      if (changes['enclosureId'] == null) return '移出容器';
+      return '转移容器';
+    }
+    if (changes.containsKey('speciesId')) return '修改品种';
+    if (changes.containsKey('gender')) return '修改性别为「${changes['gender']}」';
+    if (changes.containsKey('birthDate')) return '修改出生日期';
+    if (changes.containsKey('ringNumber')) {
+      if (changes['ringNumber'] == null || (changes['ringNumber'] as String).isEmpty) return '清除脚环号';
+      return '修改脚环号为「${changes['ringNumber']}」';
+    }
+    if (changes.containsKey('notes')) {
+      if (changes['notes'] == null || (changes['notes'] as String).isEmpty) return '清除备注';
+      return '修改备注';
+    }
+    if (changes.containsKey('manualBaselineG')) {
+      if (changes['manualBaselineG'] == null) return '清除手动基线体重';
+      return '设置手动基线体重为 ${changes['manualBaselineG']}g';
+    }
+    if (changes.containsKey('weaningOverride')) {
+      return changes['weaningOverride'] == true ? '标记为断奶' : '取消断奶标记';
+    }
+    return '更新了鹦鹉信息';
   }
 
   @override
@@ -136,41 +191,31 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
             // 插件详情区
             _PluginDetailTabs(birdId: _bird.bird.id, weightsAsync: weightsAsync, theme: theme, initialPluginId: widget.initialPluginId),
 
-            // 历史记录
-            if (pluginRegistry.getPlugin('weights')?.enabled == true) ...[
-              const SizedBox(height: 16),
-              Text('历史记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              weightsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('加载失败')),
-                data: (weights) => weights.isEmpty
-                    ? const Center(child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('暂无体重记录'),
-                      ))
-                    : Column(
-                        children: weights.map((w) {
-                          return Dismissible(
-                            key: ValueKey('weight_${w.id}'),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) => _confirmDeleteWeight(context, w, _bird.bird.uuid),
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              color: Colors.red.shade400,
-                              child: const Icon(Icons.delete, color: Colors.white),
-                            ),
-                            child: _WeightRow(
-                              weight: w,
-                              theme: theme,
-                              onTap: () => _showEditWeightDialog(context, w, _bird.bird.uuid),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-              ),
-            ],
+            // 操作记录（统一时间轴）
+            const SizedBox(height: 16),
+            Text('操作记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ref.watch(activityLogsProvider(_bird.bird.id)).when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败')),
+              data: (logs) => logs.isEmpty
+                  ? const Center(child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('暂无操作记录'),
+                    ))
+                  : Column(
+                      children: logs.map((log) {
+                        final canDelete = log.actionType == 'weight_recorded';
+                        final canEdit = log.actionType == 'weight_recorded';
+                        return _ActivityLogTile(
+                          log: log,
+                          theme: theme,
+                          onDelete: canDelete ? () => _deleteWeightFromLog(log) : null,
+                          onEdit: canEdit ? () => _editWeightFromLog(log) : null,
+                        );
+                      }).toList(),
+                    ),
+            ),
           ],
         ),
       ),
@@ -222,8 +267,9 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
             const Padding(padding: EdgeInsets.all(16), child: Text('选择房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             ListTile(
@@ -258,8 +304,9 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
             const Padding(padding: EdgeInsets.all(16), child: Text('选择容器', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             ListTile(
@@ -286,8 +333,9 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
             const Padding(padding: EdgeInsets.all(16), child: Text('选择状态', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             ...presets.map((s) => ListTile(
@@ -370,12 +418,17 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
     });
   }
 
-  Future<bool> _confirmDeleteWeight(BuildContext context, Weight weight, String birdUuid) async {
+  /// 从 ActivityLog 中提取 weightId 并删除对应的 Weights 记录 + 日志
+  Future<void> _deleteWeightFromLog(ActivityLog log) async {
+    final details = _parseDetails(log.details);
+    final weightId = details['weightId'] as int?;
+    if (weightId == null) return;
+
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: Text('删除 ${weight.weightG.toStringAsFixed(1)}g 的体重记录？'),
+        content: Text('删除 "${log.summary}" 记录？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           FilledButton(
@@ -386,22 +439,72 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
         ],
       ),
     );
-    if (result == true && context.mounted) {
-      await ref.read(databaseProvider).removeWeight(weight.id);
+    if (result != true) return;
+
+    try {
+      final db = ref.read(databaseProvider);
+      await db.transaction(() async {
+        await db.removeWeight(weightId);
+        await (db.delete(db.activityLogs)..where((t) => t.id.equals(log.id))).go();
+      });
       ref.read(weightSavedProvider.notifier).state++;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
-    return result ?? false;
   }
 
-  void _showEditWeightDialog(BuildContext context, Weight weight, String birdUuid) {
+  /// 从 ActivityLog 提取 weightId，查 Weight 后弹出编辑框
+  Future<void> _editWeightFromLog(ActivityLog log) async {
+    final details = _parseDetails(log.details);
+    final weightId = details['weightId'] as int?;
+    if (weightId == null) return;
+
+    final db = ref.read(databaseProvider);
+    final weight = await (db.select(db.weights)..where((w) => w.id.equals(weightId))).getSingleOrNull();
+    if (weight == null || !mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) => _WeightEditDialog(weight: weight, onSave: (w, fasting, time) async {
-        final db = ref.read(databaseProvider);
-        await db.updateWeight(weight.id, weightG: w, isFasting: fasting, recordedAt: time);
-        ref.read(weightSavedProvider.notifier).state++;
+        try {
+          await db.transaction(() async {
+            await db.updateWeight(weight.id, weightG: w, isFasting: fasting, recordedAt: time);
+            // 同步更新 ActivityLog 的 summary
+            await (db.update(db.activityLogs)..where((t) => t.id.equals(log.id)))
+                .write(ActivityLogsCompanion(
+              summary: Value('称重: ${w.toStringAsFixed(1)}g'),
+              details: Value(jsonEncode({
+                ...details,
+                'weightG': w,
+                'isFasting': fasting,
+              })),
+            ));
+          });
+          ref.read(weightSavedProvider.notifier).state++;
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('编辑失败: $e'), backgroundColor: Colors.red),
+            );
+          }
+        }
       }),
     );
+  }
+
+  /// 安全解析 ActivityLog.details JSON
+  static Map<String, dynamic> _parseDetails(String? jsonStr) {
+    if (jsonStr == null || jsonStr.isEmpty) return {};
+    try {
+      final parsed = jsonDecode(jsonStr);
+      return parsed is Map<String, dynamic> ? parsed : {};
+    } catch (_) {
+      return {};
+    }
   }
 }
 
@@ -560,8 +663,9 @@ class _EditableHeaderState extends State<_EditableHeader> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
             const Padding(padding: EdgeInsets.all(16), child: Text('选择品种', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             ...spList.map((s) => ListTile(
@@ -770,8 +874,9 @@ class _BaselineCard extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
             const Padding(padding: EdgeInsets.all(16), child: Text('断奶模式', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             ListTile(
@@ -803,50 +908,98 @@ class _BaselineCard extends ConsumerWidget {
   }
 }
 
-// ═══════════════════════════════════════════════
-// 以下保持不变：体重行、图表、插件Tab、体重编辑
-// ═══════════════════════════════════════════════
-
-class _WeightRow extends StatelessWidget {
-  final Weight weight;
+/// 统一操作时间轴磁贴
+///
+/// 根据 [ActivityLog.pluginId] 显示对应图标和颜色。
+/// [onDelete] / [onEdit] 非 null 时启用滑动删除 / 点击编辑。
+class _ActivityLogTile extends StatelessWidget {
+  final ActivityLog log;
   final ThemeData theme;
-  final VoidCallback? onTap;
-  const _WeightRow({required this.weight, required this.theme, this.onTap});
+  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
+
+  const _ActivityLogTile({
+    required this.log,
+    required this.theme,
+    this.onDelete,
+    this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('MM-dd HH:mm').format(weight.recordedAt);
-    final card = Card(
+    final dateStr = DateFormat('MM-dd HH:mm').format(log.operatedAt);
+    final (icon, color) = _pluginVisual(log.pluginId);
+
+    final tile = Card(
       margin: const EdgeInsets.symmetric(vertical: 2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withAlpha(25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(dateStr, style: theme.textTheme.bodySmall),
-                  if (weight.notes != null && weight.notes!.isNotEmpty)
-                    Text(weight.notes!, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                  Text(log.summary, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(dateStr, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
                 ],
               ),
-            ),
-            if (weight.isFasting)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Chip(label: Text('空腹', style: TextStyle(fontSize: 11)), visualDensity: VisualDensity.compact),
-              ),
-            Text(
-              '${weight.weightG.toStringAsFixed(1)}g',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
             ),
           ],
         ),
       ),
     );
-    if (onTap == null) return card;
-    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: card);
+
+    // 支持滑动删除
+    if (onDelete != null) {
+      return Dismissible(
+        key: ValueKey('log_${log.id}'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (_) async {
+          onDelete?.call();
+          return false; // Dismissible doesn't actually dismiss — deletion is handled by onDelete
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          color: Colors.red.shade400,
+          child: const Icon(Icons.delete, color: Colors.white),
+        ),
+        child: onEdit != null
+            ? InkWell(onTap: onEdit, borderRadius: BorderRadius.circular(12), child: tile)
+            : tile,
+      );
+    }
+
+    if (onEdit != null) {
+      return InkWell(onTap: onEdit, borderRadius: BorderRadius.circular(12), child: tile);
+    }
+    return tile;
+  }
+
+  /// 根据 pluginId 返回 (图标, 颜色)
+  static (IconData, Color) _pluginVisual(String pluginId) {
+    switch (pluginId) {
+      case 'weights':
+        return (Icons.monitor_weight_outlined, Colors.blue);
+      case 'medication':
+        return (Icons.medication_outlined, Colors.orange);
+      case 'breeding':
+        return (Icons.pets, Colors.purple);
+      default:
+        return (Icons.history, Colors.grey);
+    }
   }
 }
 

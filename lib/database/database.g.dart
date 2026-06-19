@@ -7615,6 +7615,585 @@ class MatingEventsCompanion extends UpdateCompanion<MatingEvent> {
   }
 }
 
+class $ActivityLogsTable extends ActivityLogs
+    with TableInfo<$ActivityLogsTable, ActivityLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActivityLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+  @override
+  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
+      'bird_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE SET NULL'));
+  static const VerificationMeta _pluginIdMeta =
+      const VerificationMeta('pluginId');
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+      'plugin_id', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 30),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _actionTypeMeta =
+      const VerificationMeta('actionType');
+  @override
+  late final GeneratedColumn<String> actionType = GeneratedColumn<String>(
+      'action_type', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 30),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _summaryMeta =
+      const VerificationMeta('summary');
+  @override
+  late final GeneratedColumn<String> summary = GeneratedColumn<String>(
+      'summary', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 200),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _detailsMeta =
+      const VerificationMeta('details');
+  @override
+  late final GeneratedColumn<String> details = GeneratedColumn<String>(
+      'details', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _relatedTaskIdMeta =
+      const VerificationMeta('relatedTaskId');
+  @override
+  late final GeneratedColumn<int> relatedTaskId = GeneratedColumn<int>(
+      'related_task_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES tasks (id) ON DELETE SET NULL'));
+  static const VerificationMeta _operatedByMeta =
+      const VerificationMeta('operatedBy');
+  @override
+  late final GeneratedColumn<int> operatedBy = GeneratedColumn<int>(
+      'operated_by', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES users (id)'));
+  static const VerificationMeta _operatedAtMeta =
+      const VerificationMeta('operatedAt');
+  @override
+  late final GeneratedColumn<DateTime> operatedAt = GeneratedColumn<DateTime>(
+      'operated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        birdId,
+        pluginId,
+        actionType,
+        summary,
+        details,
+        relatedTaskId,
+        operatedBy,
+        operatedAt,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'activity_logs';
+  @override
+  VerificationContext validateIntegrity(Insertable<ActivityLog> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('bird_id')) {
+      context.handle(_birdIdMeta,
+          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
+    }
+    if (data.containsKey('plugin_id')) {
+      context.handle(_pluginIdMeta,
+          pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta));
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('action_type')) {
+      context.handle(
+          _actionTypeMeta,
+          actionType.isAcceptableOrUnknown(
+              data['action_type']!, _actionTypeMeta));
+    } else if (isInserting) {
+      context.missing(_actionTypeMeta);
+    }
+    if (data.containsKey('summary')) {
+      context.handle(_summaryMeta,
+          summary.isAcceptableOrUnknown(data['summary']!, _summaryMeta));
+    } else if (isInserting) {
+      context.missing(_summaryMeta);
+    }
+    if (data.containsKey('details')) {
+      context.handle(_detailsMeta,
+          details.isAcceptableOrUnknown(data['details']!, _detailsMeta));
+    }
+    if (data.containsKey('related_task_id')) {
+      context.handle(
+          _relatedTaskIdMeta,
+          relatedTaskId.isAcceptableOrUnknown(
+              data['related_task_id']!, _relatedTaskIdMeta));
+    }
+    if (data.containsKey('operated_by')) {
+      context.handle(
+          _operatedByMeta,
+          operatedBy.isAcceptableOrUnknown(
+              data['operated_by']!, _operatedByMeta));
+    }
+    if (data.containsKey('operated_at')) {
+      context.handle(
+          _operatedAtMeta,
+          operatedAt.isAcceptableOrUnknown(
+              data['operated_at']!, _operatedAtMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActivityLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActivityLog(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      birdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bird_id']),
+      pluginId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}plugin_id'])!,
+      actionType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}action_type'])!,
+      summary: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}summary'])!,
+      details: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}details']),
+      relatedTaskId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}related_task_id']),
+      operatedBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}operated_by']),
+      operatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}operated_at'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $ActivityLogsTable createAlias(String alias) {
+    return $ActivityLogsTable(attachedDatabase, alias);
+  }
+}
+
+class ActivityLog extends DataClass implements Insertable<ActivityLog> {
+  final int id;
+  final String uuid;
+
+  /// 关联的鹦鹉（繁育等不关联单只鸟时可 null）
+  final int? birdId;
+
+  /// 插件标识: 'weights' | 'medication' | 'breeding'
+  final String pluginId;
+
+  /// 操作类型: 'weight_recorded' | 'medication_given' | 'medication_skipped' | 'breeding_started' 等
+  final String actionType;
+
+  /// 人类可读简述，如 "称重: 45.2g", "喂药: 恩诺沙星 0.5ml"
+  final String summary;
+
+  /// JSON 格式的操作详情，如 {"drugName":"恩诺沙星","dosage":"0.5ml","weightId":42}
+  final String? details;
+
+  /// 关联的待办任务 ID（操作完成后自动标记任务为已完成）
+  final int? relatedTaskId;
+
+  /// 操作人 ID
+  final int? operatedBy;
+
+  /// 操作发生时间
+  final DateTime operatedAt;
+  final DateTime createdAt;
+  const ActivityLog(
+      {required this.id,
+      required this.uuid,
+      this.birdId,
+      required this.pluginId,
+      required this.actionType,
+      required this.summary,
+      this.details,
+      this.relatedTaskId,
+      this.operatedBy,
+      required this.operatedAt,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    if (!nullToAbsent || birdId != null) {
+      map['bird_id'] = Variable<int>(birdId);
+    }
+    map['plugin_id'] = Variable<String>(pluginId);
+    map['action_type'] = Variable<String>(actionType);
+    map['summary'] = Variable<String>(summary);
+    if (!nullToAbsent || details != null) {
+      map['details'] = Variable<String>(details);
+    }
+    if (!nullToAbsent || relatedTaskId != null) {
+      map['related_task_id'] = Variable<int>(relatedTaskId);
+    }
+    if (!nullToAbsent || operatedBy != null) {
+      map['operated_by'] = Variable<int>(operatedBy);
+    }
+    map['operated_at'] = Variable<DateTime>(operatedAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ActivityLogsCompanion toCompanion(bool nullToAbsent) {
+    return ActivityLogsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      birdId:
+          birdId == null && nullToAbsent ? const Value.absent() : Value(birdId),
+      pluginId: Value(pluginId),
+      actionType: Value(actionType),
+      summary: Value(summary),
+      details: details == null && nullToAbsent
+          ? const Value.absent()
+          : Value(details),
+      relatedTaskId: relatedTaskId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedTaskId),
+      operatedBy: operatedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(operatedBy),
+      operatedAt: Value(operatedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ActivityLog.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActivityLog(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      birdId: serializer.fromJson<int?>(json['birdId']),
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      actionType: serializer.fromJson<String>(json['actionType']),
+      summary: serializer.fromJson<String>(json['summary']),
+      details: serializer.fromJson<String?>(json['details']),
+      relatedTaskId: serializer.fromJson<int?>(json['relatedTaskId']),
+      operatedBy: serializer.fromJson<int?>(json['operatedBy']),
+      operatedAt: serializer.fromJson<DateTime>(json['operatedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'birdId': serializer.toJson<int?>(birdId),
+      'pluginId': serializer.toJson<String>(pluginId),
+      'actionType': serializer.toJson<String>(actionType),
+      'summary': serializer.toJson<String>(summary),
+      'details': serializer.toJson<String?>(details),
+      'relatedTaskId': serializer.toJson<int?>(relatedTaskId),
+      'operatedBy': serializer.toJson<int?>(operatedBy),
+      'operatedAt': serializer.toJson<DateTime>(operatedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ActivityLog copyWith(
+          {int? id,
+          String? uuid,
+          Value<int?> birdId = const Value.absent(),
+          String? pluginId,
+          String? actionType,
+          String? summary,
+          Value<String?> details = const Value.absent(),
+          Value<int?> relatedTaskId = const Value.absent(),
+          Value<int?> operatedBy = const Value.absent(),
+          DateTime? operatedAt,
+          DateTime? createdAt}) =>
+      ActivityLog(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        birdId: birdId.present ? birdId.value : this.birdId,
+        pluginId: pluginId ?? this.pluginId,
+        actionType: actionType ?? this.actionType,
+        summary: summary ?? this.summary,
+        details: details.present ? details.value : this.details,
+        relatedTaskId:
+            relatedTaskId.present ? relatedTaskId.value : this.relatedTaskId,
+        operatedBy: operatedBy.present ? operatedBy.value : this.operatedBy,
+        operatedAt: operatedAt ?? this.operatedAt,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  ActivityLog copyWithCompanion(ActivityLogsCompanion data) {
+    return ActivityLog(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      birdId: data.birdId.present ? data.birdId.value : this.birdId,
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      actionType:
+          data.actionType.present ? data.actionType.value : this.actionType,
+      summary: data.summary.present ? data.summary.value : this.summary,
+      details: data.details.present ? data.details.value : this.details,
+      relatedTaskId: data.relatedTaskId.present
+          ? data.relatedTaskId.value
+          : this.relatedTaskId,
+      operatedBy:
+          data.operatedBy.present ? data.operatedBy.value : this.operatedBy,
+      operatedAt:
+          data.operatedAt.present ? data.operatedAt.value : this.operatedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityLog(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('birdId: $birdId, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('actionType: $actionType, ')
+          ..write('summary: $summary, ')
+          ..write('details: $details, ')
+          ..write('relatedTaskId: $relatedTaskId, ')
+          ..write('operatedBy: $operatedBy, ')
+          ..write('operatedAt: $operatedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uuid, birdId, pluginId, actionType,
+      summary, details, relatedTaskId, operatedBy, operatedAt, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActivityLog &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.birdId == this.birdId &&
+          other.pluginId == this.pluginId &&
+          other.actionType == this.actionType &&
+          other.summary == this.summary &&
+          other.details == this.details &&
+          other.relatedTaskId == this.relatedTaskId &&
+          other.operatedBy == this.operatedBy &&
+          other.operatedAt == this.operatedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class ActivityLogsCompanion extends UpdateCompanion<ActivityLog> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int?> birdId;
+  final Value<String> pluginId;
+  final Value<String> actionType;
+  final Value<String> summary;
+  final Value<String?> details;
+  final Value<int?> relatedTaskId;
+  final Value<int?> operatedBy;
+  final Value<DateTime> operatedAt;
+  final Value<DateTime> createdAt;
+  const ActivityLogsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.birdId = const Value.absent(),
+    this.pluginId = const Value.absent(),
+    this.actionType = const Value.absent(),
+    this.summary = const Value.absent(),
+    this.details = const Value.absent(),
+    this.relatedTaskId = const Value.absent(),
+    this.operatedBy = const Value.absent(),
+    this.operatedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  ActivityLogsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    this.birdId = const Value.absent(),
+    required String pluginId,
+    required String actionType,
+    required String summary,
+    this.details = const Value.absent(),
+    this.relatedTaskId = const Value.absent(),
+    this.operatedBy = const Value.absent(),
+    this.operatedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        pluginId = Value(pluginId),
+        actionType = Value(actionType),
+        summary = Value(summary);
+  static Insertable<ActivityLog> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? birdId,
+    Expression<String>? pluginId,
+    Expression<String>? actionType,
+    Expression<String>? summary,
+    Expression<String>? details,
+    Expression<int>? relatedTaskId,
+    Expression<int>? operatedBy,
+    Expression<DateTime>? operatedAt,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (birdId != null) 'bird_id': birdId,
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (actionType != null) 'action_type': actionType,
+      if (summary != null) 'summary': summary,
+      if (details != null) 'details': details,
+      if (relatedTaskId != null) 'related_task_id': relatedTaskId,
+      if (operatedBy != null) 'operated_by': operatedBy,
+      if (operatedAt != null) 'operated_at': operatedAt,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  ActivityLogsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int?>? birdId,
+      Value<String>? pluginId,
+      Value<String>? actionType,
+      Value<String>? summary,
+      Value<String?>? details,
+      Value<int?>? relatedTaskId,
+      Value<int?>? operatedBy,
+      Value<DateTime>? operatedAt,
+      Value<DateTime>? createdAt}) {
+    return ActivityLogsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      birdId: birdId ?? this.birdId,
+      pluginId: pluginId ?? this.pluginId,
+      actionType: actionType ?? this.actionType,
+      summary: summary ?? this.summary,
+      details: details ?? this.details,
+      relatedTaskId: relatedTaskId ?? this.relatedTaskId,
+      operatedBy: operatedBy ?? this.operatedBy,
+      operatedAt: operatedAt ?? this.operatedAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (birdId.present) {
+      map['bird_id'] = Variable<int>(birdId.value);
+    }
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (actionType.present) {
+      map['action_type'] = Variable<String>(actionType.value);
+    }
+    if (summary.present) {
+      map['summary'] = Variable<String>(summary.value);
+    }
+    if (details.present) {
+      map['details'] = Variable<String>(details.value);
+    }
+    if (relatedTaskId.present) {
+      map['related_task_id'] = Variable<int>(relatedTaskId.value);
+    }
+    if (operatedBy.present) {
+      map['operated_by'] = Variable<int>(operatedBy.value);
+    }
+    if (operatedAt.present) {
+      map['operated_at'] = Variable<DateTime>(operatedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('birdId: $birdId, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('actionType: $actionType, ')
+          ..write('summary: $summary, ')
+          ..write('details: $details, ')
+          ..write('relatedTaskId: $relatedTaskId, ')
+          ..write('operatedBy: $operatedBy, ')
+          ..write('operatedAt: $operatedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7633,6 +8212,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $BreedingRecordsTable(this);
   late final $EggsTable eggs = $EggsTable(this);
   late final $MatingEventsTable matingEvents = $MatingEventsTable(this);
+  late final $ActivityLogsTable activityLogs = $ActivityLogsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7651,7 +8231,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         breedingPairs,
         breedingRecords,
         eggs,
-        matingEvents
+        matingEvents,
+        activityLogs
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -7738,6 +8319,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('mating_events', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('activity_logs', kind: UpdateKind.update),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('tasks',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('activity_logs', kind: UpdateKind.update),
             ],
           ),
         ],
@@ -8140,6 +8735,21 @@ final class $$UsersTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
+
+  static MultiTypedResultKey<$ActivityLogsTable, List<ActivityLog>>
+      _activityLogsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.activityLogs,
+          aliasName:
+              $_aliasNameGenerator(db.users.id, db.activityLogs.operatedBy));
+
+  $$ActivityLogsTableProcessedTableManager get activityLogsRefs {
+    final manager = $$ActivityLogsTableTableManager($_db, $_db.activityLogs)
+        .filter((f) => f.operatedBy.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activityLogsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
@@ -8211,6 +8821,27 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
             $$SyncQueueTableFilterComposer(
               $db: $db,
               $table: $db.syncQueue,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> activityLogsRefs(
+      Expression<bool> Function($$ActivityLogsTableFilterComposer f) f) {
+    final $$ActivityLogsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.operatedBy,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableFilterComposer(
+              $db: $db,
+              $table: $db.activityLogs,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -8335,6 +8966,27 @@ class $$UsersTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> activityLogsRefs<T extends Object>(
+      Expression<T> Function($$ActivityLogsTableAnnotationComposer a) f) {
+    final $$ActivityLogsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.operatedBy,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.activityLogs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$UsersTableTableManager extends RootTableManager<
@@ -8348,7 +9000,8 @@ class $$UsersTableTableManager extends RootTableManager<
     $$UsersTableUpdateCompanionBuilder,
     (User, $$UsersTableReferences),
     User,
-    PrefetchHooks Function({bool weightsRefs, bool syncQueueRefs})> {
+    PrefetchHooks Function(
+        {bool weightsRefs, bool syncQueueRefs, bool activityLogsRefs})> {
   $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
       : super(TableManagerState(
           db: db,
@@ -8408,12 +9061,15 @@ class $$UsersTableTableManager extends RootTableManager<
                   (e.readTable(table), $$UsersTableReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: (
-              {weightsRefs = false, syncQueueRefs = false}) {
+              {weightsRefs = false,
+              syncQueueRefs = false,
+              activityLogsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
                 if (weightsRefs) db.weights,
-                if (syncQueueRefs) db.syncQueue
+                if (syncQueueRefs) db.syncQueue,
+                if (activityLogsRefs) db.activityLogs
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
@@ -8439,6 +9095,18 @@ class $$UsersTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem: (item,
                                 referencedItems) =>
                             referencedItems.where((e) => e.userId == item.id),
+                        typedResults: items),
+                  if (activityLogsRefs)
+                    await $_getPrefetchedData<User, $UsersTable, ActivityLog>(
+                        currentTable: table,
+                        referencedTable:
+                            $$UsersTableReferences._activityLogsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$UsersTableReferences(db, table, p0)
+                                .activityLogsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.operatedBy == item.id),
                         typedResults: items)
                 ];
               },
@@ -8458,7 +9126,8 @@ typedef $$UsersTableProcessedTableManager = ProcessedTableManager<
     $$UsersTableUpdateCompanionBuilder,
     (User, $$UsersTableReferences),
     User,
-    PrefetchHooks Function({bool weightsRefs, bool syncQueueRefs})>;
+    PrefetchHooks Function(
+        {bool weightsRefs, bool syncQueueRefs, bool activityLogsRefs})>;
 typedef $$RoomsTableCreateCompanionBuilder = RoomsCompanion Function({
   Value<int> id,
   required String uuid,
@@ -9459,6 +10128,20 @@ final class $$BirdsTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
+
+  static MultiTypedResultKey<$ActivityLogsTable, List<ActivityLog>>
+      _activityLogsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.activityLogs,
+          aliasName: $_aliasNameGenerator(db.birds.id, db.activityLogs.birdId));
+
+  $$ActivityLogsTableProcessedTableManager get activityLogsRefs {
+    final manager = $$ActivityLogsTableTableManager($_db, $_db.activityLogs)
+        .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activityLogsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
@@ -9716,6 +10399,27 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
             $$EggsTableFilterComposer(
               $db: $db,
               $table: $db.eggs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> activityLogsRefs(
+      Expression<bool> Function($$ActivityLogsTableFilterComposer f) f) {
+    final $$ActivityLogsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableFilterComposer(
+              $db: $db,
+              $table: $db.activityLogs,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -10103,6 +10807,27 @@ class $$BirdsTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> activityLogsRefs<T extends Object>(
+      Expression<T> Function($$ActivityLogsTableAnnotationComposer a) f) {
+    final $$ActivityLogsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.activityLogs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$BirdsTableTableManager extends RootTableManager<
@@ -10126,7 +10851,8 @@ class $$BirdsTableTableManager extends RootTableManager<
         bool medicationsRefs,
         bool maleBreedingPairs,
         bool femaleBreedingPairs,
-        bool eggsRefs})> {
+        bool eggsRefs,
+        bool activityLogsRefs})> {
   $$BirdsTableTableManager(_$AppDatabase db, $BirdsTable table)
       : super(TableManagerState(
           db: db,
@@ -10231,7 +10957,8 @@ class $$BirdsTableTableManager extends RootTableManager<
               medicationsRefs = false,
               maleBreedingPairs = false,
               femaleBreedingPairs = false,
-              eggsRefs = false}) {
+              eggsRefs = false,
+              activityLogsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
@@ -10241,7 +10968,8 @@ class $$BirdsTableTableManager extends RootTableManager<
                 if (medicationsRefs) db.medications,
                 if (maleBreedingPairs) db.breedingPairs,
                 if (femaleBreedingPairs) db.breedingPairs,
-                if (eggsRefs) db.eggs
+                if (eggsRefs) db.eggs,
+                if (activityLogsRefs) db.activityLogs
               ],
               addJoins: <
                   T extends TableManagerState<
@@ -10369,6 +11097,18 @@ class $$BirdsTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem:
                             (item, referencedItems) => referencedItems
                                 .where((e) => e.chickBirdId == item.id),
+                        typedResults: items),
+                  if (activityLogsRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, ActivityLog>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BirdsTableReferences._activityLogsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .activityLogsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.birdId == item.id),
                         typedResults: items)
                 ];
               },
@@ -10398,7 +11138,8 @@ typedef $$BirdsTableProcessedTableManager = ProcessedTableManager<
         bool medicationsRefs,
         bool maleBreedingPairs,
         bool femaleBreedingPairs,
-        bool eggsRefs})>;
+        bool eggsRefs,
+        bool activityLogsRefs})>;
 typedef $$WeightsTableCreateCompanionBuilder = WeightsCompanion Function({
   Value<int> id,
   required String uuid,
@@ -10874,6 +11615,21 @@ final class $$TasksTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
   }
+
+  static MultiTypedResultKey<$ActivityLogsTable, List<ActivityLog>>
+      _activityLogsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.activityLogs,
+          aliasName:
+              $_aliasNameGenerator(db.tasks.id, db.activityLogs.relatedTaskId));
+
+  $$ActivityLogsTableProcessedTableManager get activityLogsRefs {
+    final manager = $$ActivityLogsTableTableManager($_db, $_db.activityLogs)
+        .filter((f) => f.relatedTaskId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activityLogsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
@@ -10956,6 +11712,27 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
+  }
+
+  Expression<bool> activityLogsRefs(
+      Expression<bool> Function($$ActivityLogsTableFilterComposer f) f) {
+    final $$ActivityLogsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.relatedTaskId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableFilterComposer(
+              $db: $db,
+              $table: $db.activityLogs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
   }
 }
 
@@ -11124,6 +11901,27 @@ class $$TasksTableAnnotationComposer
             ));
     return composer;
   }
+
+  Expression<T> activityLogsRefs<T extends Object>(
+      Expression<T> Function($$ActivityLogsTableAnnotationComposer a) f) {
+    final $$ActivityLogsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.activityLogs,
+        getReferencedColumn: (t) => t.relatedTaskId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ActivityLogsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.activityLogs,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$TasksTableTableManager extends RootTableManager<
@@ -11137,7 +11935,7 @@ class $$TasksTableTableManager extends RootTableManager<
     $$TasksTableUpdateCompanionBuilder,
     (Task, $$TasksTableReferences),
     Task,
-    PrefetchHooks Function({bool birdId, bool roomId})> {
+    PrefetchHooks Function({bool birdId, bool roomId, bool activityLogsRefs})> {
   $$TasksTableTableManager(_$AppDatabase db, $TasksTable table)
       : super(TableManagerState(
           db: db,
@@ -11212,10 +12010,11 @@ class $$TasksTableTableManager extends RootTableManager<
               .map((e) =>
                   (e.readTable(table), $$TasksTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({birdId = false, roomId = false}) {
+          prefetchHooksCallback: (
+              {birdId = false, roomId = false, activityLogsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [],
+              explicitlyWatchedTables: [if (activityLogsRefs) db.activityLogs],
               addJoins: <
                   T extends TableManagerState<
                       dynamic,
@@ -11251,7 +12050,20 @@ class $$TasksTableTableManager extends RootTableManager<
                 return state;
               },
               getPrefetchedDataCallback: (items) async {
-                return [];
+                return [
+                  if (activityLogsRefs)
+                    await $_getPrefetchedData<Task, $TasksTable, ActivityLog>(
+                        currentTable: table,
+                        referencedTable:
+                            $$TasksTableReferences._activityLogsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$TasksTableReferences(db, table, p0)
+                                .activityLogsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.relatedTaskId == item.id),
+                        typedResults: items)
+                ];
               },
             );
           },
@@ -11269,7 +12081,7 @@ typedef $$TasksTableProcessedTableManager = ProcessedTableManager<
     $$TasksTableUpdateCompanionBuilder,
     (Task, $$TasksTableReferences),
     Task,
-    PrefetchHooks Function({bool birdId, bool roomId})>;
+    PrefetchHooks Function({bool birdId, bool roomId, bool activityLogsRefs})>;
 typedef $$AlertRecordsTableCreateCompanionBuilder = AlertRecordsCompanion
     Function({
   Value<int> id,
@@ -14084,6 +14896,518 @@ typedef $$MatingEventsTableProcessedTableManager = ProcessedTableManager<
     (MatingEvent, $$MatingEventsTableReferences),
     MatingEvent,
     PrefetchHooks Function({bool breedingRecordId})>;
+typedef $$ActivityLogsTableCreateCompanionBuilder = ActivityLogsCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  Value<int?> birdId,
+  required String pluginId,
+  required String actionType,
+  required String summary,
+  Value<String?> details,
+  Value<int?> relatedTaskId,
+  Value<int?> operatedBy,
+  Value<DateTime> operatedAt,
+  Value<DateTime> createdAt,
+});
+typedef $$ActivityLogsTableUpdateCompanionBuilder = ActivityLogsCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int?> birdId,
+  Value<String> pluginId,
+  Value<String> actionType,
+  Value<String> summary,
+  Value<String?> details,
+  Value<int?> relatedTaskId,
+  Value<int?> operatedBy,
+  Value<DateTime> operatedAt,
+  Value<DateTime> createdAt,
+});
+
+final class $$ActivityLogsTableReferences
+    extends BaseReferences<_$AppDatabase, $ActivityLogsTable, ActivityLog> {
+  $$ActivityLogsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds
+      .createAlias($_aliasNameGenerator(db.activityLogs.birdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager? get birdId {
+    final $_column = $_itemColumn<int>('bird_id');
+    if ($_column == null) return null;
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $TasksTable _relatedTaskIdTable(_$AppDatabase db) =>
+      db.tasks.createAlias(
+          $_aliasNameGenerator(db.activityLogs.relatedTaskId, db.tasks.id));
+
+  $$TasksTableProcessedTableManager? get relatedTaskId {
+    final $_column = $_itemColumn<int>('related_task_id');
+    if ($_column == null) return null;
+    final manager = $$TasksTableTableManager($_db, $_db.tasks)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_relatedTaskIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $UsersTable _operatedByTable(_$AppDatabase db) => db.users.createAlias(
+      $_aliasNameGenerator(db.activityLogs.operatedBy, db.users.id));
+
+  $$UsersTableProcessedTableManager? get operatedBy {
+    final $_column = $_itemColumn<int>('operated_by');
+    if ($_column == null) return null;
+    final manager = $$UsersTableTableManager($_db, $_db.users)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_operatedByTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$ActivityLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $ActivityLogsTable> {
+  $$ActivityLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get pluginId => $composableBuilder(
+      column: $table.pluginId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get actionType => $composableBuilder(
+      column: $table.actionType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get summary => $composableBuilder(
+      column: $table.summary, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get details => $composableBuilder(
+      column: $table.details, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get operatedAt => $composableBuilder(
+      column: $table.operatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$BirdsTableFilterComposer get birdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$TasksTableFilterComposer get relatedTaskId {
+    final $$TasksTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.relatedTaskId,
+        referencedTable: $db.tasks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$TasksTableFilterComposer(
+              $db: $db,
+              $table: $db.tasks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get operatedBy {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.operatedBy,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableFilterComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$ActivityLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActivityLogsTable> {
+  $$ActivityLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+      column: $table.pluginId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get actionType => $composableBuilder(
+      column: $table.actionType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get summary => $composableBuilder(
+      column: $table.summary, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get details => $composableBuilder(
+      column: $table.details, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get operatedAt => $composableBuilder(
+      column: $table.operatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$BirdsTableOrderingComposer get birdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$TasksTableOrderingComposer get relatedTaskId {
+    final $$TasksTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.relatedTaskId,
+        referencedTable: $db.tasks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$TasksTableOrderingComposer(
+              $db: $db,
+              $table: $db.tasks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get operatedBy {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.operatedBy,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableOrderingComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$ActivityLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActivityLogsTable> {
+  $$ActivityLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<String> get actionType => $composableBuilder(
+      column: $table.actionType, builder: (column) => column);
+
+  GeneratedColumn<String> get summary =>
+      $composableBuilder(column: $table.summary, builder: (column) => column);
+
+  GeneratedColumn<String> get details =>
+      $composableBuilder(column: $table.details, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get operatedAt => $composableBuilder(
+      column: $table.operatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BirdsTableAnnotationComposer get birdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$TasksTableAnnotationComposer get relatedTaskId {
+    final $$TasksTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.relatedTaskId,
+        referencedTable: $db.tasks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$TasksTableAnnotationComposer(
+              $db: $db,
+              $table: $db.tasks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get operatedBy {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.operatedBy,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableAnnotationComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$ActivityLogsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ActivityLogsTable,
+    ActivityLog,
+    $$ActivityLogsTableFilterComposer,
+    $$ActivityLogsTableOrderingComposer,
+    $$ActivityLogsTableAnnotationComposer,
+    $$ActivityLogsTableCreateCompanionBuilder,
+    $$ActivityLogsTableUpdateCompanionBuilder,
+    (ActivityLog, $$ActivityLogsTableReferences),
+    ActivityLog,
+    PrefetchHooks Function(
+        {bool birdId, bool relatedTaskId, bool operatedBy})> {
+  $$ActivityLogsTableTableManager(_$AppDatabase db, $ActivityLogsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActivityLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActivityLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActivityLogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int?> birdId = const Value.absent(),
+            Value<String> pluginId = const Value.absent(),
+            Value<String> actionType = const Value.absent(),
+            Value<String> summary = const Value.absent(),
+            Value<String?> details = const Value.absent(),
+            Value<int?> relatedTaskId = const Value.absent(),
+            Value<int?> operatedBy = const Value.absent(),
+            Value<DateTime> operatedAt = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              ActivityLogsCompanion(
+            id: id,
+            uuid: uuid,
+            birdId: birdId,
+            pluginId: pluginId,
+            actionType: actionType,
+            summary: summary,
+            details: details,
+            relatedTaskId: relatedTaskId,
+            operatedBy: operatedBy,
+            operatedAt: operatedAt,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            Value<int?> birdId = const Value.absent(),
+            required String pluginId,
+            required String actionType,
+            required String summary,
+            Value<String?> details = const Value.absent(),
+            Value<int?> relatedTaskId = const Value.absent(),
+            Value<int?> operatedBy = const Value.absent(),
+            Value<DateTime> operatedAt = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              ActivityLogsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            birdId: birdId,
+            pluginId: pluginId,
+            actionType: actionType,
+            summary: summary,
+            details: details,
+            relatedTaskId: relatedTaskId,
+            operatedBy: operatedBy,
+            operatedAt: operatedAt,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$ActivityLogsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {birdId = false, relatedTaskId = false, operatedBy = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (birdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.birdId,
+                    referencedTable:
+                        $$ActivityLogsTableReferences._birdIdTable(db),
+                    referencedColumn:
+                        $$ActivityLogsTableReferences._birdIdTable(db).id,
+                  ) as T;
+                }
+                if (relatedTaskId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.relatedTaskId,
+                    referencedTable:
+                        $$ActivityLogsTableReferences._relatedTaskIdTable(db),
+                    referencedColumn: $$ActivityLogsTableReferences
+                        ._relatedTaskIdTable(db)
+                        .id,
+                  ) as T;
+                }
+                if (operatedBy) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.operatedBy,
+                    referencedTable:
+                        $$ActivityLogsTableReferences._operatedByTable(db),
+                    referencedColumn:
+                        $$ActivityLogsTableReferences._operatedByTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$ActivityLogsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ActivityLogsTable,
+    ActivityLog,
+    $$ActivityLogsTableFilterComposer,
+    $$ActivityLogsTableOrderingComposer,
+    $$ActivityLogsTableAnnotationComposer,
+    $$ActivityLogsTableCreateCompanionBuilder,
+    $$ActivityLogsTableUpdateCompanionBuilder,
+    (ActivityLog, $$ActivityLogsTableReferences),
+    ActivityLog,
+    PrefetchHooks Function({bool birdId, bool relatedTaskId, bool operatedBy})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14115,4 +15439,6 @@ class $AppDatabaseManager {
   $$EggsTableTableManager get eggs => $$EggsTableTableManager(_db, _db.eggs);
   $$MatingEventsTableTableManager get matingEvents =>
       $$MatingEventsTableTableManager(_db, _db.matingEvents);
+  $$ActivityLogsTableTableManager get activityLogs =>
+      $$ActivityLogsTableTableManager(_db, _db.activityLogs);
 }

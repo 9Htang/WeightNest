@@ -156,8 +156,9 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       showModalBottomSheet(
         context: this.context,
         builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
             children: [
               ListTile(
                 leading: const Icon(Icons.all_inclusive),
@@ -278,8 +279,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                   context: context,
                   useRootNavigator: true,
                   builder: (ctx) => SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
                       children: [
                         const Padding(
                           padding: EdgeInsets.all(16),
@@ -324,8 +326,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                   context: context,
                   useRootNavigator: true,
                   builder: (ctx) => SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
                       children: [
                         const Padding(
                           padding: EdgeInsets.all(16),
@@ -394,8 +397,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                         context: context,
                         useRootNavigator: true,
                         builder: (ctx) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                          child: ListView(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
                             children: [
                               const Padding(
                                 padding: EdgeInsets.all(16),
@@ -519,7 +523,10 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
               ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
-            if (mounted) Navigator.pop(context, bird.id);
+            if (mounted) {
+              ProviderScope.containerOf(context).read(weightSavedProvider.notifier).state++;
+              Navigator.pop(context, bird.id);
+            }
           },
           child: const Text('创建'),
         ),

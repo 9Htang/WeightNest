@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
+import '../core/plugin_registry.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -67,7 +68,7 @@ extension BirdRepository on AppDatabase {
           ..addColumns([birds.sortOrder.max()]))
         .map((row) => row.read(birds.sortOrder.max()))
         .getSingle();
-    await into(birds).insert(BirdsCompanion.insert(
+    final bird = await into(birds).insertReturning(BirdsCompanion.insert(
       uuid: uuid ?? genUuid(),
       name: name,
       speciesId: speciesId,
@@ -79,8 +80,17 @@ extension BirdRepository on AppDatabase {
       notes: Value(notes),
       sortOrder: Value((maxRow ?? 0) + 1),
     ));
-    final rows = await customSelect('SELECT last_insert_rowid() as id').get();
-    return (await getBirdById(rows.first.read<int>('id')))!;
+
+    // 记录创建操作（fire-and-forget，不影响主流程返回速度）
+    pluginRegistry.operationService.record(
+      pluginId: 'core',
+      actionType: 'bird_created',
+      birdId: bird.id,
+      summary: '创建新鸟: $name',
+      details: {'name': name, 'speciesId': speciesId},
+    );
+
+    return bird;
   }
 
   Future<Bird> updateBird(int id, {

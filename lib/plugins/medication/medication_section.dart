@@ -101,7 +101,18 @@ class _MedicationSectionState extends State<MedicationSection> {
                   const SizedBox(height: 8),
                   ...logs.map((l) => _TodayLogItem(
                         data: l,
-                        onGive: () => _db.giveMedication(l.task.id).then((_) => _reload()),
+                        onGive: () => pluginRegistry.operationService.record(
+                            pluginId: 'medication',
+                            actionType: 'medication_given',
+                            birdId: l.task.birdId,
+                            summary: '喂药: ${l.drugName} ${l.dosage}',
+                            details: {
+                              'drugName': l.drugName,
+                              'dosage': l.dosage,
+                              'medicationId': l.medicationId,
+                            },
+                            relatedTaskId: l.task.id,
+                          ).then((_) => _reload()),
                         onSkip: () => _db.skipMedication(l.task.id).then((_) => _reload()),
                       )),
                 ],

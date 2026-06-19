@@ -341,3 +341,39 @@ class MatingEvents extends Table {
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
+
+/// 统一操作日志表 —— 所有插件行为的流水账
+///
+/// 每次用户执行写操作（称重、喂药、繁育等）都在此表中产生一条记录。
+/// 通过 [relatedTaskId] 关联对应的待办任务，操作时自动完成任务。
+/// [details] 为 JSON 格式，存储插件特定的操作详情。
+class ActivityLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uuid => text().unique()();
+
+  /// 关联的鹦鹉（繁育等不关联单只鸟时可 null）
+  IntColumn get birdId => integer().nullable().references(Birds, #id, onDelete: KeyAction.setNull)();
+
+  /// 插件标识: 'weights' | 'medication' | 'breeding'
+  TextColumn get pluginId => text().withLength(max: 30)();
+
+  /// 操作类型: 'weight_recorded' | 'medication_given' | 'medication_skipped' | 'breeding_started' 等
+  TextColumn get actionType => text().withLength(max: 30)();
+
+  /// 人类可读简述，如 "称重: 45.2g", "喂药: 恩诺沙星 0.5ml"
+  TextColumn get summary => text().withLength(max: 200)();
+
+  /// JSON 格式的操作详情，如 {"drugName":"恩诺沙星","dosage":"0.5ml","weightId":42}
+  TextColumn get details => text().nullable()();
+
+  /// 关联的待办任务 ID（操作完成后自动标记任务为已完成）
+  IntColumn get relatedTaskId => integer().nullable().references(Tasks, #id, onDelete: KeyAction.setNull)();
+
+  /// 操作人 ID
+  IntColumn get operatedBy => integer().nullable().references(Users, #id)();
+
+  /// 操作发生时间
+  DateTimeColumn get operatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}

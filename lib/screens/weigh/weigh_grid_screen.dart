@@ -84,10 +84,12 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(weighGridProvider);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final selected = state.selectedBirdId;
+    // 仅订阅选中态 / 断奶标记（按键时不变）→ AppBar、布局比例、图例不随打字重建
+    final selected = ref.watch(weighGridProvider.select((s) => s.selectedBirdId));
+    final hasWeaning =
+        ref.watch(weighGridProvider.select((s) => s.weaningBirdIds.isNotEmpty));
 
     return Scaffold(
       appBar: AppBar(
@@ -108,48 +110,60 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
             children: [
               Expanded(
                 flex: selected != null ? 3 : 10,
-                child: state.columns.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final nonEmpty = state.columns.where((c) => !c.isEmpty).length;
-                          final avail = constraints.maxWidth - 16; // 左右 margin 8+8
-                          _colWidth = nonEmpty > 0
-                              ? (avail / nonEmpty).clamp(_minColWidth, avail)
-                              : avail;
-                          return Container(
-                            margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                            decoration: BoxDecoration(
-                              color: scheme.surface,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                              border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              controller: _scrollController,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: state.columns.map((col) {
-                                  return _RoomColumnWidget(
-                                    width: _colWidth,
-                                    column: col,
-                                    selectedBirdId: selected,
-                                    abnormalBirdIds: state.abnormalBirdIds,
-                                    weaningBirdIds: state.weaningBirdIds,
-                                    latestWeights: state.latestWeights,
-                                    theme: theme,
-                                    scheme: scheme,
-                                    onTapBird: (birdId) {
-                                      ref.read(weighGridProvider.notifier).selectBird(birdId);
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                child: Consumer(builder: (context, ref, _) {
+                  // 表格列：仅订阅结构/选中/异常/断奶/最新体重 → 打字时不重建
+                  final s = ref.watch(weighGridProvider.select((s) => (
+                        s.columns,
+                        s.selectedBirdId,
+                        s.abnormalBirdIds,
+                        s.weaningBirdIds,
+                        s.latestWeights,
+                      )));
+                  final columns = s.$1;
+                  if (columns.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final nonEmpty = columns.where((c) => !c.isEmpty).length;
+                      final avail = constraints.maxWidth - 16; // 左右 margin 8+8
+                      _colWidth = nonEmpty > 0
+                          ? (avail / nonEmpty).clamp(_minColWidth, avail)
+                          : avail;
+                      return Container(
+                        margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                        decoration: BoxDecoration(
+                          color: scheme.surface,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                          border: Border.all(color: scheme.outlineVariant.withAlpha(50), width: 0.5),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          controller: _scrollController,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: columns.map((col) {
+                              return _RoomColumnWidget(
+                                width: _colWidth,
+                                column: col,
+                                selectedBirdId: s.$2,
+                                abnormalBirdIds: s.$3,
+                                weaningBirdIds: s.$4,
+                                latestWeights: s.$5,
+                                theme: theme,
+                                scheme: scheme,
+                                onTapBird: (birdId) {
+                                  ref.read(weighGridProvider.notifier).selectBird(birdId);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
               ),
               AnimatedCrossFade(
                 duration: const Duration(milliseconds: 250),
@@ -157,16 +171,34 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
                 firstChild: const SizedBox.shrink(),
-                secondChild: _WeighInputPanel(
-                  state: state,
-                  theme: theme,
-                  notifier: ref.read(weighGridProvider.notifier),
-                ),
+                secondChild: Consumer(builder: (context, ref, _) {
+                  // 输入面板：仅订阅输入态 → 仅面板随打字重建（表格列不受影响）
+                  final s = ref.watch(weighGridProvider.select((s) => (
+                        s.selectedBirdId,
+                        s.weightText,
+                        s.isFasting,
+                        s.isSaving,
+                        s.message,
+                        s.lastWeigh,
+                        s.birdById,
+                      )));
+                  return _WeighInputPanel(
+                    selectedBirdId: s.$1,
+                    weightText: s.$2,
+                    isFasting: s.$3,
+                    isSaving: s.$4,
+                    message: s.$5,
+                    lastWeigh: s.$6,
+                    birdById: s.$7,
+                    theme: theme,
+                    notifier: ref.read(weighGridProvider.notifier),
+                  );
+                }),
               ),
             ],
           ),
           // z=1: 断奶期图例 — 屏幕右下角，选中鸟时隐藏以避开键盘
-          if (state.weaningBirdIds.isNotEmpty && selected == null)
+          if (hasWeaning && selected == null)
             Positioned(
               bottom: 8,
               right: 12,
@@ -466,39 +498,37 @@ class _BirdCell extends StatelessWidget {
 // ═══════════════════════════════════════════════
 
 class _WeighInputPanel extends StatelessWidget {
-  final WeighGridState state;
+  final int? selectedBirdId;
+  final String weightText;
+  final bool isFasting;
+  final bool isSaving;
+  final String? message;
+  final Weight? lastWeigh;
+  final Map<int, BirdWithDetails> birdById;
   final ThemeData theme;
   final WeighGridNotifier notifier;
 
   const _WeighInputPanel({
-    required this.state,
+    required this.selectedBirdId,
+    required this.weightText,
+    required this.isFasting,
+    required this.isSaving,
+    required this.message,
+    required this.lastWeigh,
+    required this.birdById,
     required this.theme,
     required this.notifier,
   });
 
   @override
   Widget build(BuildContext context) {
-    final birdId = state.selectedBirdId;
+    final birdId = selectedBirdId;
     if (birdId == null) return const SizedBox.shrink();
 
-    // 查找鸟信息
-    BirdWithDetails? bird;
-    for (final col in state.columns) {
-      for (final g in col.groups) {
-        final found = g.birds.cast<BirdWithDetails?>().firstWhere(
-              (b) => b?.bird.id == birdId,
-              orElse: () => null,
-            );
-        if (found != null) {
-          bird = found;
-          break;
-        }
-      }
-      if (bird != null) break;
-    }
-
+    // O(1) 查找选中鸟，替代原遍历全部列/分组的嵌套循环
+    final bird = birdById[birdId];
     final scheme = theme.colorScheme;
-    final lastWeigh = state.lastWeigh;
+    final lastWeigh = this.lastWeigh;
 
     return Container(
       decoration: BoxDecoration(
@@ -558,17 +588,17 @@ class _WeighInputPanel extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (state.weightText.isNotEmpty)
+                    if (weightText.isNotEmpty)
                       TextButton(
                         onPressed: notifier.clearWeight,
                         child: const Text('清空'),
                       ),
                     FilledButton(
-                      onPressed: state.isSaving ? null : notifier.saveWeight,
+                      onPressed: isSaving ? null : notifier.saveWeight,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       ),
-                      child: state.isSaving
+                      child: isSaving
                           ? const SizedBox(
                               width: 20, height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
@@ -580,20 +610,20 @@ class _WeighInputPanel extends StatelessWidget {
               const SizedBox(height: 8),
               // 体重显示
               WeighDisplay(
-                weightText: state.weightText,
-                message: state.message,
+                weightText: weightText,
+                message: message,
                 theme: theme,
               ),
               const SizedBox(height: 8),
               // 快速调整
               QuickAdjustBar(
-                isFasting: state.isFasting,
+                isFasting: isFasting,
                 theme: theme,
                 onMinus1: () => notifier.adjustWeight(-1),
                 onMinus10: () => notifier.adjustWeight(-10),
                 onPlus1: () => notifier.adjustWeight(1),
                 onPlus10: () => notifier.adjustWeight(10),
-                onToggleFasting: () => notifier.setFasting(!state.isFasting),
+                onToggleFasting: () => notifier.setFasting(!isFasting),
               ),
               // 数字键盘
               WeighNumPad(

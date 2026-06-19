@@ -72,6 +72,7 @@ final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
 final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
   final worker = ref.watch(workerProvider);
+  ref.watch(weightSavedProvider); // 体重保存后自动刷新
   return db.getTodayTasks(worker.userId);
 });
 
@@ -210,6 +211,17 @@ final medicationPlansProvider = FutureProvider.family<List<Medication>, int>((re
 /// 用户工作时间配置（多插件共享）
 final workHoursProvider = FutureProvider<WorkHoursConfig>((ref) async {
   return WorkHoursConfig.load();
+});
+
+/// 某只鹦鹉的操作日志（ActivityLogs 统一时间轴）
+final activityLogsProvider =
+    FutureProvider.family<List<ActivityLog>, int>((ref, birdId) async {
+  ref.watch(weightSavedProvider); // 操作后触发刷新
+  final db = ref.watch(databaseProvider);
+  return (db.select(db.activityLogs)
+        ..where((t) => t.birdId.equals(birdId))
+        ..orderBy([(t) => OrderingTerm.desc(t.operatedAt)]))
+      .get();
 });
 
 /// 体重保存通知——用于触发图表刷新

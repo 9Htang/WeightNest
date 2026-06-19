@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../../database/database.dart';
+import '../../core/plugin_registry.dart';
 import '../../utils/uuid.dart';
 
 extension BreedingRepository on AppDatabase {
@@ -88,12 +89,30 @@ extension BreedingRepository on AppDatabase {
       throw StateError('该配对已有进行中的繁育记录');
     }
 
-    return into(breedingRecords).insertReturning(
+    final record = await into(breedingRecords).insertReturning(
       BreedingRecordsCompanion.insert(
         uuid: genUuid(),
         pairId: pairId,
       ),
     );
+
+    // 记录统一操作日志
+    final pair = await getPairById(pairId);
+    if (pair != null) {
+      await pluginRegistry.operationService.record(
+        pluginId: 'breeding',
+        actionType: 'breeding_started',
+        summary: '开始繁育记录',
+        details: {
+          'pairId': pairId,
+          'maleBirdId': pair.maleBirdId,
+          'femaleBirdId': pair.femaleBirdId,
+          'recordId': record.id,
+        },
+      );
+    }
+
+    return record;
   }
 
   /// Advance to next stage: 配对->产蛋->孵化->育雏->完结
@@ -108,6 +127,7 @@ extension BreedingRepository on AppDatabase {
       throw StateError('繁育记录已完结或处于未知阶段');
     }
 
+    final fromStage = record.stage;
     final nextStage = stages[currentIndex + 1];
     final now = DateTime.now();
     await (update(breedingRecords)..where((t) => t.id.equals(recordId)))
@@ -116,10 +136,32 @@ extension BreedingRepository on AppDatabase {
       endDate: nextStage == '已完结' ? Value(now) : const Value.absent(),
       updatedAt: Value(now),
     ));
+
+    // 记录统一操作日志
+    final pair = await getPairById(record.pairId);
+    if (pair != null) {
+      await pluginRegistry.operationService.record(
+        pluginId: 'breeding',
+        actionType: 'breeding_stage_advanced',
+        summary: '繁育阶段: $fromStage → $nextStage',
+        details: {
+          'pairId': record.pairId,
+          'maleBirdId': pair.maleBirdId,
+          'femaleBirdId': pair.femaleBirdId,
+          'recordId': recordId,
+          'fromStage': fromStage,
+          'toStage': nextStage,
+        },
+      );
+    }
   }
 
   /// Force-finish breeding at any stage with a reason
   Future<void> finishBreeding(int recordId, {String? reason}) async {
+    final record = await (select(breedingRecords)..where((t) => t.id.equals(recordId)))
+        .getSingleOrNull();
+    if (record == null) return;
+
     final now = DateTime.now();
     await (update(breedingRecords)..where((t) => t.id.equals(recordId)))
         .write(BreedingRecordsCompanion(
@@ -128,6 +170,24 @@ extension BreedingRepository on AppDatabase {
       endReason: Value(reason),
       updatedAt: Value(now),
     ));
+
+    // 记录统一操作日志
+    final pair = await getPairById(record.pairId);
+    if (pair != null) {
+      await pluginRegistry.operationService.record(
+        pluginId: 'breeding',
+        actionType: 'breeding_finished',
+        summary: '繁育结束${reason != null ? ": $reason" : ""}',
+        details: {
+          'pairId': record.pairId,
+          'maleBirdId': pair.maleBirdId,
+          'femaleBirdId': pair.femaleBirdId,
+          'recordId': recordId,
+          'fromStage': record.stage,
+          'reason': reason,
+        },
+      );
+    }
   }
 
   /// Get the active (non-completed) breeding record for a pair
@@ -158,13 +218,37 @@ extension BreedingRepository on AppDatabase {
   // ── 蛋 ──
 
   Future<Egg> addEgg(int breedingRecordId, {DateTime? laidDate}) async {
-    return into(eggs).insertReturning(
+    final egg = await into(eggs).insertReturning(
       EggsCompanion.insert(
         uuid: genUuid(),
         breedingRecordId: breedingRecordId,
         laidDate: laidDate ?? DateTime.now(),
       ),
     );
+
+    // 记录统一操作日志
+    final record = await (select(breedingRecords)..where((t) => t.id.equals(breedingRecordId)))
+        .getSingleOrNull();
+    if (record != null) {
+      final pair = await getPairById(record.pairId);
+      if (pair != null) {
+        await pluginRegistry.operationService.record(
+          pluginId: 'breeding',
+          actionType: 'egg_laid',
+          summary: '产蛋记录',
+          details: {
+            'pairId': record.pairId,
+            'maleBirdId': pair.maleBirdId,
+            'femaleBirdId': pair.femaleBirdId,
+            'recordId': breedingRecordId,
+            'eggId': egg.id,
+            'laidDate': egg.laidDate.toIso8601String(),
+          },
+        );
+      }
+    }
+
+    return egg;
   }
 
   Future<List<Egg>> getEggsByRecord(int breedingRecordId) async {
@@ -187,7 +271,7 @@ extension BreedingRepository on AppDatabase {
   // ── 踩背 ──
 
   Future<MatingEvent> addMatingEvent(int breedingRecordId, {DateTime? observedDate, String? notes}) async {
-    return into(matingEvents).insertReturning(
+    final event = await into(matingEvents).insertReturning(
       MatingEventsCompanion.insert(
         uuid: genUuid(),
         breedingRecordId: breedingRecordId,
@@ -195,6 +279,30 @@ extension BreedingRepository on AppDatabase {
         notes: Value(notes),
       ),
     );
+
+    // 记录统一操作日志
+    final record = await (select(breedingRecords)..where((t) => t.id.equals(breedingRecordId)))
+        .getSingleOrNull();
+    if (record != null) {
+      final pair = await getPairById(record.pairId);
+      if (pair != null) {
+        await pluginRegistry.operationService.record(
+          pluginId: 'breeding',
+          actionType: 'mating_observed',
+          summary: '踩背观察${notes != null ? ": $notes" : ""}',
+          details: {
+            'pairId': record.pairId,
+            'maleBirdId': pair.maleBirdId,
+            'femaleBirdId': pair.femaleBirdId,
+            'recordId': breedingRecordId,
+            'matingEventId': event.id,
+            'observedDate': event.observedDate.toIso8601String(),
+          },
+        );
+      }
+    }
+
+    return event;
   }
 
   Future<List<MatingEvent>> getMatingEventsByRecord(int breedingRecordId) async {

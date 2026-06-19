@@ -194,7 +194,8 @@ extension TaskRepository on AppDatabase {
               }
             }
           }
-          // Upgrade pending weigh task to completed if bird was weighed today
+          // 兜底：称重入口未传 relatedTaskId 时，事后检测今日体重自动完成称重任务。
+          // 理想路径是称重时通过 OperationService.record() 传入 relatedTaskId 统一完成。
           if (task.status == '待完成' && task.taskType == 'weigh') {
             final lastWeigh = await (select(weights)
                   ..where((w) => w.birdId.equals(task.birdId) &

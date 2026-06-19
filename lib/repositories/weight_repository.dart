@@ -23,6 +23,34 @@ extension WeightRepository on AppDatabase {
             ..orderBy([(t) => OrderingTerm.asc(t.recordedAt)]))
           .get();
 
+  /// 批量按日期范围获取多只鸟的体重记录。
+  ///
+  /// 单条 SQL（`bird_id IN (...)`）替代 N 次 [getByBirdInRange]，消除 N+1。
+  /// 返回 `Map<birdId, List<Weight>>`，每只鸟的列表按 recordedAt 升序（最早在前），
+  /// 与 [getByBirdInRange] 排序一致。无记录的鸟对应空列表。
+  Future<Map<int, List<Weight>>> getByBirdsInRange(
+    List<int> birdIds, {
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    if (birdIds.isEmpty) return const {};
+    final rows = await (select(weights)
+          ..where((t) =>
+              t.birdId.isIn(birdIds) &
+              t.recordedAt.isBiggerOrEqualValue(from) &
+              t.recordedAt.isSmallerOrEqualValue(to))
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.birdId),
+            (t) => OrderingTerm.asc(t.recordedAt),
+          ]))
+        .get();
+    final result = <int, List<Weight>>{for (final id in birdIds) id: <Weight>[]};
+    for (final w in rows) {
+      result[w.birdId]!.add(w);
+    }
+    return result;
+  }
+
   Future<List<Weight>> getRecentByBird(int birdId, {int limit = 10}) =>
       (select(weights)
             ..where((t) => t.birdId.equals(birdId))
