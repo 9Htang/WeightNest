@@ -3365,6 +3365,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   late final GeneratedColumn<DateTime> dueDate = GeneratedColumn<DateTime>(
       'due_date', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _deadlineMeta =
+      const VerificationMeta('deadline');
+  @override
+  late final GeneratedColumn<DateTime> deadline = GeneratedColumn<DateTime>(
+      'deadline', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -3416,6 +3422,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         assignedUserId,
         taskType,
         dueDate,
+        deadline,
         status,
         completedAt,
         completedBy,
@@ -3468,6 +3475,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     } else if (isInserting) {
       context.missing(_dueDateMeta);
     }
+    if (data.containsKey('deadline')) {
+      context.handle(_deadlineMeta,
+          deadline.isAcceptableOrUnknown(data['deadline']!, _deadlineMeta));
+    }
     if (data.containsKey('status')) {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
@@ -3519,6 +3530,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           .read(DriftSqlType.string, data['${effectivePrefix}task_type'])!,
       dueDate: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}due_date'])!,
+      deadline: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deadline']),
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       completedAt: attachedDatabase.typeMapping
@@ -3556,8 +3569,11 @@ class Task extends DataClass implements Insertable<Task> {
   /// 任务类型：weigh / medication / ...
   final String taskType;
 
-  /// 任务日期（weigh 为当天零点，medication 为具体喂药时间）
+  /// 任务日期（weigh 为当天 taskReadyTime（工作开始前30min），medication 为具体喂药时间）
   final DateTime dueDate;
+
+  /// 逾期截止时间（weigh 为次日 taskReadyTime，medication 为下一剂时间；生成时算好写入）
+  final DateTime? deadline;
 
   /// 任务状态：待完成/已完成/逾期/已跳过
   final String status;
@@ -3580,6 +3596,7 @@ class Task extends DataClass implements Insertable<Task> {
       this.assignedUserId,
       required this.taskType,
       required this.dueDate,
+      this.deadline,
       required this.status,
       this.completedAt,
       this.completedBy,
@@ -3600,6 +3617,9 @@ class Task extends DataClass implements Insertable<Task> {
     }
     map['task_type'] = Variable<String>(taskType);
     map['due_date'] = Variable<DateTime>(dueDate);
+    if (!nullToAbsent || deadline != null) {
+      map['deadline'] = Variable<DateTime>(deadline);
+    }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
@@ -3627,6 +3647,9 @@ class Task extends DataClass implements Insertable<Task> {
           : Value(assignedUserId),
       taskType: Value(taskType),
       dueDate: Value(dueDate),
+      deadline: deadline == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deadline),
       status: Value(status),
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
@@ -3653,6 +3676,7 @@ class Task extends DataClass implements Insertable<Task> {
       assignedUserId: serializer.fromJson<int?>(json['assignedUserId']),
       taskType: serializer.fromJson<String>(json['taskType']),
       dueDate: serializer.fromJson<DateTime>(json['dueDate']),
+      deadline: serializer.fromJson<DateTime?>(json['deadline']),
       status: serializer.fromJson<String>(json['status']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       completedBy: serializer.fromJson<int?>(json['completedBy']),
@@ -3672,6 +3696,7 @@ class Task extends DataClass implements Insertable<Task> {
       'assignedUserId': serializer.toJson<int?>(assignedUserId),
       'taskType': serializer.toJson<String>(taskType),
       'dueDate': serializer.toJson<DateTime>(dueDate),
+      'deadline': serializer.toJson<DateTime?>(deadline),
       'status': serializer.toJson<String>(status),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'completedBy': serializer.toJson<int?>(completedBy),
@@ -3689,6 +3714,7 @@ class Task extends DataClass implements Insertable<Task> {
           Value<int?> assignedUserId = const Value.absent(),
           String? taskType,
           DateTime? dueDate,
+          Value<DateTime?> deadline = const Value.absent(),
           String? status,
           Value<DateTime?> completedAt = const Value.absent(),
           Value<int?> completedBy = const Value.absent(),
@@ -3704,6 +3730,7 @@ class Task extends DataClass implements Insertable<Task> {
             assignedUserId.present ? assignedUserId.value : this.assignedUserId,
         taskType: taskType ?? this.taskType,
         dueDate: dueDate ?? this.dueDate,
+        deadline: deadline.present ? deadline.value : this.deadline,
         status: status ?? this.status,
         completedAt: completedAt.present ? completedAt.value : this.completedAt,
         completedBy: completedBy.present ? completedBy.value : this.completedBy,
@@ -3722,6 +3749,7 @@ class Task extends DataClass implements Insertable<Task> {
           : this.assignedUserId,
       taskType: data.taskType.present ? data.taskType.value : this.taskType,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
+      deadline: data.deadline.present ? data.deadline.value : this.deadline,
       status: data.status.present ? data.status.value : this.status,
       completedAt:
           data.completedAt.present ? data.completedAt.value : this.completedAt,
@@ -3743,6 +3771,7 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('assignedUserId: $assignedUserId, ')
           ..write('taskType: $taskType, ')
           ..write('dueDate: $dueDate, ')
+          ..write('deadline: $deadline, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('completedBy: $completedBy, ')
@@ -3762,6 +3791,7 @@ class Task extends DataClass implements Insertable<Task> {
       assignedUserId,
       taskType,
       dueDate,
+      deadline,
       status,
       completedAt,
       completedBy,
@@ -3779,6 +3809,7 @@ class Task extends DataClass implements Insertable<Task> {
           other.assignedUserId == this.assignedUserId &&
           other.taskType == this.taskType &&
           other.dueDate == this.dueDate &&
+          other.deadline == this.deadline &&
           other.status == this.status &&
           other.completedAt == this.completedAt &&
           other.completedBy == this.completedBy &&
@@ -3795,6 +3826,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<int?> assignedUserId;
   final Value<String> taskType;
   final Value<DateTime> dueDate;
+  final Value<DateTime?> deadline;
   final Value<String> status;
   final Value<DateTime?> completedAt;
   final Value<int?> completedBy;
@@ -3809,6 +3841,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.assignedUserId = const Value.absent(),
     this.taskType = const Value.absent(),
     this.dueDate = const Value.absent(),
+    this.deadline = const Value.absent(),
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.completedBy = const Value.absent(),
@@ -3824,6 +3857,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.assignedUserId = const Value.absent(),
     this.taskType = const Value.absent(),
     required DateTime dueDate,
+    this.deadline = const Value.absent(),
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.completedBy = const Value.absent(),
@@ -3841,6 +3875,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<int>? assignedUserId,
     Expression<String>? taskType,
     Expression<DateTime>? dueDate,
+    Expression<DateTime>? deadline,
     Expression<String>? status,
     Expression<DateTime>? completedAt,
     Expression<int>? completedBy,
@@ -3856,6 +3891,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (assignedUserId != null) 'assigned_user_id': assignedUserId,
       if (taskType != null) 'task_type': taskType,
       if (dueDate != null) 'due_date': dueDate,
+      if (deadline != null) 'deadline': deadline,
       if (status != null) 'status': status,
       if (completedAt != null) 'completed_at': completedAt,
       if (completedBy != null) 'completed_by': completedBy,
@@ -3873,6 +3909,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       Value<int?>? assignedUserId,
       Value<String>? taskType,
       Value<DateTime>? dueDate,
+      Value<DateTime?>? deadline,
       Value<String>? status,
       Value<DateTime?>? completedAt,
       Value<int?>? completedBy,
@@ -3887,6 +3924,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       assignedUserId: assignedUserId ?? this.assignedUserId,
       taskType: taskType ?? this.taskType,
       dueDate: dueDate ?? this.dueDate,
+      deadline: deadline ?? this.deadline,
       status: status ?? this.status,
       completedAt: completedAt ?? this.completedAt,
       completedBy: completedBy ?? this.completedBy,
@@ -3920,6 +3958,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (dueDate.present) {
       map['due_date'] = Variable<DateTime>(dueDate.value);
     }
+    if (deadline.present) {
+      map['deadline'] = Variable<DateTime>(deadline.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -3951,6 +3992,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('assignedUserId: $assignedUserId, ')
           ..write('taskType: $taskType, ')
           ..write('dueDate: $dueDate, ')
+          ..write('deadline: $deadline, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('completedBy: $completedBy, ')
@@ -11561,6 +11603,7 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<int?> assignedUserId,
   Value<String> taskType,
   required DateTime dueDate,
+  Value<DateTime?> deadline,
   Value<String> status,
   Value<DateTime?> completedAt,
   Value<int?> completedBy,
@@ -11576,6 +11619,7 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<int?> assignedUserId,
   Value<String> taskType,
   Value<DateTime> dueDate,
+  Value<DateTime?> deadline,
   Value<String> status,
   Value<DateTime?> completedAt,
   Value<int?> completedBy,
@@ -11655,6 +11699,9 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get dueDate => $composableBuilder(
       column: $table.dueDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deadline => $composableBuilder(
+      column: $table.deadline, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
@@ -11761,6 +11808,9 @@ class $$TasksTableOrderingComposer
   ColumnOrderings<DateTime> get dueDate => $composableBuilder(
       column: $table.dueDate, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get deadline => $composableBuilder(
+      column: $table.deadline, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
@@ -11843,6 +11893,9 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get dueDate =>
       $composableBuilder(column: $table.dueDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deadline =>
+      $composableBuilder(column: $table.deadline, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -11954,6 +12007,7 @@ class $$TasksTableTableManager extends RootTableManager<
             Value<int?> assignedUserId = const Value.absent(),
             Value<String> taskType = const Value.absent(),
             Value<DateTime> dueDate = const Value.absent(),
+            Value<DateTime?> deadline = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int?> completedBy = const Value.absent(),
@@ -11969,6 +12023,7 @@ class $$TasksTableTableManager extends RootTableManager<
             assignedUserId: assignedUserId,
             taskType: taskType,
             dueDate: dueDate,
+            deadline: deadline,
             status: status,
             completedAt: completedAt,
             completedBy: completedBy,
@@ -11984,6 +12039,7 @@ class $$TasksTableTableManager extends RootTableManager<
             Value<int?> assignedUserId = const Value.absent(),
             Value<String> taskType = const Value.absent(),
             required DateTime dueDate,
+            Value<DateTime?> deadline = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int?> completedBy = const Value.absent(),
@@ -11999,6 +12055,7 @@ class $$TasksTableTableManager extends RootTableManager<
             assignedUserId: assignedUserId,
             taskType: taskType,
             dueDate: dueDate,
+            deadline: deadline,
             status: status,
             completedAt: completedAt,
             completedBy: completedBy,

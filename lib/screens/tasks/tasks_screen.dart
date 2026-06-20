@@ -430,7 +430,9 @@ class _MedTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLate = !done && medInfo.task.dueDate.isBefore(DateTime.now());
+    final deadline = medInfo.task.deadline ?? medInfo.task.dueDate;
+    final isLate = !done && deadline.isBefore(DateTime.now());
+    final overdueDays = isLate ? DateTime.now().difference(deadline).inDays : 0;
     final ring = birdRingNumber;
 
     return Card(
@@ -492,7 +494,7 @@ class _MedTaskCard extends StatelessWidget {
                             TextSpan(text: '  #$ring'),
                           TextSpan(text: ' · ${medInfo.timeLabel}'),
                           if (isLate && !done)
-                            const TextSpan(text: ' (已逾期)'),
+                            TextSpan(text: ' (已逾期 $overdueDays 天)'),
                         ],
                       ),
                     ),

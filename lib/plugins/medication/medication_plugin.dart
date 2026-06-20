@@ -123,12 +123,23 @@ class MedicationPlugin extends FeaturePlugin {
         if (med.endDate != null && today.isAfter(med.endDate!)) continue;
 
         final slots = await distributedTimeSlots(med.timesPerDay);
-        for (final slot in slots) {
-          final dueDate = DateTime(today.year, today.month, today.day, slot.hour, slot.minute);
+        // 构建每剂的 dueDate
+        final dueDates = slots
+            .map((s) => DateTime(today.year, today.month, today.day, s.hour, s.minute))
+            .toList();
+        final tomorrow = today.add(const Duration(days: 1));
+        for (int i = 0; i < slots.length; i++) {
+          final dueDate = dueDates[i];
+          // deadline = 下一剂时间（最后一剂 = 次日第一剂）
+          final deadline = i + 1 < dueDates.length
+              ? dueDates[i + 1]
+              : DateTime(tomorrow.year, tomorrow.month, tomorrow.day,
+                  slots[0].hour, slots[0].minute);
           descriptors.add(PluginTaskDescriptor(
             birdId: med.birdId,
             taskType: 'medication',
             dueDate: dueDate,
+            deadline: deadline,
             label: '${med.drugName} ${med.dosage}',
             metadata: {
               'medicationId': med.id.toString(),

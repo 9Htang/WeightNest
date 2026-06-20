@@ -424,6 +424,24 @@ class _ColorConfigCard extends StatelessWidget {
               ),
             ],
 
+            // 表格最小列宽
+            Row(children: [
+              Text('表格最小列宽',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurface.withAlpha(160))),
+              const Spacer(),
+              Text('${config.minColumnWidth.round()} px',
+                  style: theme.textTheme.bodySmall),
+            ]),
+            Slider(
+              value: config.minColumnWidth,
+              min: GridColorConfig.minColumnWidthFloor,
+              max: GridColorConfig.minColumnWidthCeil,
+              divisions: 49,
+              onChanged: (v) => onChanged(config.copyWith(minColumnWidth: v)),
+            ),
+            const SizedBox(height: 8),
+
             // 图例开关
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,

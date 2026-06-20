@@ -82,6 +82,10 @@ class GridColorConfig {
   final double borderWidth;
   final double fillOpacity;
   final bool showLegend;
+  final double minColumnWidth;
+
+  static const double minColumnWidthFloor = 152.0;
+  static const double minColumnWidthCeil  = 250.0;
 
   const GridColorConfig({
     required this.colors,
@@ -89,6 +93,7 @@ class GridColorConfig {
     this.borderWidth = 2.0,
     this.fillOpacity = 0.12,
     this.showLegend = true,
+    this.minColumnWidth = 152.0,
   });
 
   factory GridColorConfig.defaults() => GridColorConfig(
@@ -109,12 +114,14 @@ class GridColorConfig {
     double? borderWidth,
     double? fillOpacity,
     bool? showLegend,
+    double? minColumnWidth,
   }) => GridColorConfig(
     colors: colors ?? Map<BirdCellState, Color>.from(this.colors),
     displayMode: displayMode ?? this.displayMode,
     borderWidth: borderWidth ?? this.borderWidth,
     fillOpacity: fillOpacity ?? this.fillOpacity,
     showLegend: showLegend ?? this.showLegend,
+    minColumnWidth: minColumnWidth ?? this.minColumnWidth,
   );
 
   // ── 序列化 ──
@@ -123,6 +130,7 @@ class GridColorConfig {
   static const _borderWKey = 'wgc_border_w';
   static const _fillOpKey  = 'wgc_fill_op';
   static const _legendKey  = 'wgc_legend';
+  static const _colWKey    = 'wgc_col_w';
 
   static String _colorKey(BirdCellState s) => 'wgc_color_${s.name}';
 
@@ -132,6 +140,7 @@ class GridColorConfig {
     await p.setDouble(_borderWKey, borderWidth);
     await p.setDouble(_fillOpKey, fillOpacity);
     await p.setBool(_legendKey, showLegend);
+    await p.setDouble(_colWKey, minColumnWidth);
     for (final s in BirdCellState.values) {
       await p.setInt(_colorKey(s), (colors[s] ?? Color(_defaults[s]!)).value);
     }
@@ -152,12 +161,16 @@ class GridColorConfig {
       colors[s] = v != null ? Color(v) : Color(_defaults[s]!);
     }
 
+    final storedColW = p.getDouble(_colWKey) ?? minColumnWidthFloor;
+    final colW = storedColW.clamp(minColumnWidthFloor, minColumnWidthCeil);
+
     return GridColorConfig(
       colors: colors,
       displayMode: mode,
       borderWidth: p.getDouble(_borderWKey) ?? 2.0,
       fillOpacity: p.getDouble(_fillOpKey) ?? 0.12,
       showLegend: p.getBool(_legendKey) ?? true,
+      minColumnWidth: colW,
     );
   }
 }

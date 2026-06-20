@@ -4,7 +4,6 @@ import 'package:drift/drift.dart';
 import '../database/database.dart';
 import '../core/plugin_registry.dart';
 import '../utils/uuid.dart';
-import 'bird_repository.dart';
 
 extension TaskRepository on AppDatabase {
   Future<List<TaskWithBird>> getTodayTasks(int? userId) {
@@ -42,13 +41,12 @@ extension TaskRepository on AppDatabase {
   }
 
   Future<List<TaskWithBird>> getOverdueTasks() {
-    final today = DateTime.now();
-    final dayStart = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now();
 
     return (select(tasks).join([
       innerJoin(birds, birds.id.equalsExp(tasks.birdId)),
     ])
-      ..where(tasks.dueDate.isSmallerThanValue(dayStart) &
+      ..where(tasks.deadline.isSmallerThanValue(now) &
           tasks.status.equals('待完成'))
       ..orderBy([OrderingTerm.asc(tasks.dueDate)]))
         .map((row) => TaskWithBird(
@@ -89,15 +87,16 @@ extension TaskRepository on AppDatabase {
   }
 
   static bool _generating = false;
-  static DateTime? _lastGeneratedDay;
+  static DateTime? _lastRun;
 
   /// Mark all past-due pending tasks as 逾期.
-  /// Called on every [generateTodayTasks] invocation, before the same-day guard,
+  /// Called on every [generateTodayTasks] invocation, before the throttle,
   /// so overdue marking always runs regardless of whether generation is skipped.
-  Future<void> _markOverdueTasks(DateTime dayStart) async {
+  Future<void> _markOverdueTasks() async {
+    final now = DateTime.now();
     await (update(tasks)
           ..where((t) =>
-              t.dueDate.isSmallerThanValue(dayStart) &
+              t.deadline.isSmallerThanValue(now) &
               t.status.equals('待完成')))
         .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
   }
@@ -107,7 +106,7 @@ extension TaskRepository on AppDatabase {
     final allTasks = await (select(tasks)).get();
     final grouped = <String, List<Task>>{};
     for (final t in allTasks) {
-      // Weigh tasks dedup by date only (dueDate should be midnight);
+      // Weigh tasks dedup by date only;
       // medication tasks keep full timestamp — different time slots on the same day are legitimate.
       final key = t.taskType == 'weigh'
           ? '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String().substring(0, 10)}'
@@ -143,40 +142,45 @@ extension TaskRepository on AppDatabase {
     final dayStart = DateTime(today.year, today.month, today.day);
     debugPrint('[TaskGen] start — ${today.toIso8601String().substring(0, 10)} force=$force');
 
-    // 防护：若 _lastGeneratedDay 为未来时间（时钟调整/系统挂起），重置为 null
-    if (_lastGeneratedDay != null && _lastGeneratedDay!.isAfter(dayStart)) {
-      debugPrint('[TaskGen] _lastGeneratedDay ($_lastGeneratedDay) is in the future, resetting');
-      _lastGeneratedDay = null;
-    }
+    // 逾期标记始终执行，不受节流影响
+    await _markOverdueTasks();
 
-    // 逾期标记始终执行，不依赖同日守卫
-    await _markOverdueTasks(dayStart);
-
-    // 同一天已生成过任务则跳过（force=true 或跨天时重新生成）
-    if (!force && _lastGeneratedDay != null && _lastGeneratedDay!.isAtSameMomentAs(dayStart)) {
-      debugPrint('[TaskGen] same-day guard, skip (lastGenerated=$_lastGeneratedDay)');
+    // 60 秒节流：避免冷启动/切前台/定时器短时间内重复跑生成逻辑
+    if (!force && _lastRun != null && DateTime.now().difference(_lastRun!).inSeconds < 60) {
+      debugPrint('[TaskGen] throttle, skip (lastRun=$_lastRun)');
       return 0;
     }
+    _lastRun = DateTime.now();
 
     // 包裹事务：cleanup + 修补/生成原子执行，防止崩溃导致任务丢失
     final result = await transaction(() async {
       await cleanupDuplicateTasks();
       final dayEnd = dayStart.add(const Duration(days: 1));
 
-      // Query existing tasks for today and build dedup key set.
-      // Key = birdId_taskType_dueDateIso — allows multiple tasks per bird
-      // (different types or different times of day for medication).
-      var existingKeys = <String>{};
+      // Build dedup key set from existing tasks for today (medication uses full timestamp).
+      var existingTodayKeys = <String>{};
+      // Weigh cross-day dedup: bird IDs that already have an uncompleted weigh task.
+      var weighIncompleteBirdIds = <int>{};
       if (!force) {
         final existingTasks = await (select(tasks)
               ..where((t) => t.dueDate.isBiggerOrEqualValue(dayStart) &
                   t.dueDate.isSmallerThanValue(dayEnd)))
             .get();
 
-        existingKeys = existingTasks
+        existingTodayKeys = existingTasks
             .map((t) => '${t.birdId}_${t.taskType}_${t.dueDate.toIso8601String()}')
             .toSet();
         debugPrint('[TaskGen] existing tasks today: ${existingTasks.length}');
+
+        // 称重跨天去重：收集所有未完成称重任务的 birdId
+        final weighIncomplete = await (select(tasks)
+              ..where((t) => t.taskType.equals('weigh') &
+                  (t.status.equals('待完成') | t.status.equals('逾期'))))
+            .get();
+        weighIncompleteBirdIds = weighIncomplete.map((t) => t.birdId).toSet();
+        if (weighIncompleteBirdIds.isNotEmpty) {
+          debugPrint('[TaskGen] weigh incomplete birds: ${weighIncompleteBirdIds.length}');
+        }
 
         // Patch / upgrade existing tasks
         int patched = 0;
@@ -195,7 +199,6 @@ extension TaskRepository on AppDatabase {
             }
           }
           // 兜底：称重入口未传 relatedTaskId 时，事后检测今日体重自动完成称重任务。
-          // 理想路径是称重时通过 OperationService.record() 传入 relatedTaskId 统一完成。
           if (task.status == '待完成' && task.taskType == 'weigh') {
             final lastWeigh = await (select(weights)
                   ..where((w) => w.birdId.equals(task.birdId) &
@@ -230,8 +233,13 @@ extension TaskRepository on AppDatabase {
           debugPrint('[TaskGen] plugin ${plugin.id}: ${descriptors.length} task descriptors');
 
           for (final d in descriptors) {
+            // 称重跨天去重：该鸟已有未完成称重任务 → 跳过
+            if (d.taskType == 'weigh' && weighIncompleteBirdIds.contains(d.birdId)) {
+              continue;
+            }
+            // 今日去重：检查 (birdId, taskType, dueDate) 是否已存在
             final key = '${d.birdId}_${d.taskType}_${d.dueDate.toIso8601String()}';
-            if (existingKeys.contains(key)) {
+            if (existingTodayKeys.contains(key)) {
               continue;
             }
 
@@ -251,10 +259,12 @@ extension TaskRepository on AppDatabase {
               assignedUserId: Value(assignedUserId),
               taskType: Value(d.taskType),
               dueDate: d.dueDate,
+              deadline: Value(d.deadline),
               status: const Value('待完成'),
               metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
             ));
-            existingKeys.add(key); // prevent intra-run duplicates
+            existingTodayKeys.add(key);
+            weighIncompleteBirdIds.add(d.birdId); // prevent intra-run weigh duplicates
             generated++;
           }
         } catch (e) {
@@ -266,7 +276,6 @@ extension TaskRepository on AppDatabase {
       return generated;
     });
 
-    _lastGeneratedDay = dayStart;
     return result;
     } finally {
       _generating = false;
@@ -322,6 +331,7 @@ extension TaskRepository on AppDatabase {
             assignedUserId: Value(assignedUserId),
             taskType: Value(d.taskType),
             dueDate: d.dueDate,
+            deadline: Value(d.deadline),
             status: const Value('待完成'),
             metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
           ));

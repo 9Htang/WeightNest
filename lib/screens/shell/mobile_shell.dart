@@ -24,7 +24,6 @@ class MobileShell extends ConsumerStatefulWidget {
 
 class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
-  DateTime? _lastCheckedDay;
   Timer? _dateCheckTimer;
 
   // 懒加载 Tab：仅构建当前激活的标签页，首次访问后缓存
@@ -82,7 +81,6 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _updateLastCheckedDay();
       ref.read(databaseProvider).generateTodayTasks();
       ref.invalidate(todayTasksProvider);
       ref.invalidate(alertListProvider);
@@ -97,24 +95,13 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
   }
 
   void _startDateCheckTimer() {
-    _updateLastCheckedDay();
     _dateCheckTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      if (_lastCheckedDay != null && _lastCheckedDay != today) {
-        _lastCheckedDay = today;
-        if (mounted) {
-          ref.read(databaseProvider).generateTodayTasks();
-          ref.invalidate(todayTasksProvider);
-          ref.invalidate(alertListProvider);
-        }
+      if (mounted) {
+        ref.read(databaseProvider).generateTodayTasks();
+        ref.invalidate(todayTasksProvider);
+        ref.invalidate(alertListProvider);
       }
     });
-  }
-
-  void _updateLastCheckedDay() {
-    final now = DateTime.now();
-    _lastCheckedDay = DateTime(now.year, now.month, now.day);
   }
 
   @override
@@ -161,7 +148,27 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WeightNest'),
+        title: FutureBuilder<String>(
+          future: getAppVersion(),
+          builder: (context, snapshot) {
+            final v = snapshot.data ?? '';
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('WeightNest'),
+                const SizedBox(width: 8),
+                Text(
+                  'v$v',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: Theme.of(context).colorScheme.onSurface.withAlpha(110),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: const [],
       ),
       body: const HomeScreenContent(),
@@ -191,9 +198,6 @@ class HomeScreenContent extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 版本号（自动从 pubspec.yaml 读取）
-          _VersionBadge(theme: theme),
-
           // ── 今日统计卡片 ──
           tasksAsync.when(
             loading: () => const _StatsSkeleton(),
@@ -617,35 +621,6 @@ void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
       ),
     ),
   );
-}
-
-/// 自动从 pubspec.yaml 读取版本号，无需手动同步
-class _VersionBadge extends StatelessWidget {
-  final ThemeData theme;
-  const _VersionBadge({required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: getAppVersion(),
-      builder: (context, snapshot) {
-        final v = snapshot.data ?? '';
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'v$v',
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurface.withAlpha(80),
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _QuickChip extends StatelessWidget {

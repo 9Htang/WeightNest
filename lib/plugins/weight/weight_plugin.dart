@@ -10,6 +10,7 @@ import '../../screens/weigh/weigh_grid_screen.dart';
 import '../../screens/birds/bird_detail_screen.dart';
 import 'weight_table.dart';
 import 'weight_config_screen.dart';
+import '../../services/work_hours_config.dart';
 import '../../core/event_bus.dart';
 import '../../core/events.dart';
 
@@ -514,6 +515,15 @@ class WeightPlugin extends FeaturePlugin {
     try {
       final today = DateTime.now();
 
+      // 时间闸门：每日批量生成时，未到 taskReadyTime 不生成
+      WorkHoursConfig? wh;
+      if (birdId == null) {
+        wh = await WorkHoursConfig.load();
+        final ready = wh.taskReadyTime;
+        final todayReady = DateTime(today.year, today.month, today.day, ready.hour, ready.minute);
+        if (DateTime.now().isBefore(todayReady)) return [];
+      }
+
       // Query birds — scoped to birdId if provided, otherwise all
       final List<BirdWithDetails> allBirds;
       if (birdId != null) {
@@ -550,10 +560,19 @@ class WeightPlugin extends FeaturePlugin {
             daysSinceLast! >= intervalDays;
 
         if (needsTask) {
+          // 确保已加载工作时段配置（birdId != null 路径未经过闸门）
+          wh ??= await WorkHoursConfig.load();
+          final ready = wh.taskReadyTime; // TimeOfDay
+          final todayReady = DateTime(today.year, today.month, today.day, ready.hour, ready.minute);
+          // deadline = 次日 taskReadyTime
+          final tomorrow = today.add(const Duration(days: 1));
+          final tomorrowReady = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, ready.hour, ready.minute);
+
           descriptors.add(PluginTaskDescriptor(
             birdId: bird.bird.id,
             taskType: 'weigh',
-            dueDate: todayDay, // midnight — stable dedup key across restarts
+            dueDate: todayReady,
+            deadline: tomorrowReady,
             label: '称重',
           ));
         }

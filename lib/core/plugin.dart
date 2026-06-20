@@ -270,6 +270,7 @@ class PluginTaskDescriptor {
   final int birdId;
   final String taskType;
   final DateTime dueDate;
+  final DateTime? deadline;
   final String label;
   final Map<String, String>? metadata;
 
@@ -277,6 +278,7 @@ class PluginTaskDescriptor {
     required this.birdId,
     required this.taskType,
     required this.dueDate,
+    this.deadline,
     required this.label,
     this.metadata,
   });

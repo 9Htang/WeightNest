@@ -9,6 +9,7 @@ import '../../plugins/weight/grid_color_config.dart';
 import '../worker/worker_screen.dart';
 import 'weigh_grid_provider.dart';
 import 'weigh_input_widgets.dart';
+import '../birds/bird_detail_screen.dart';
 
 class WeighGridScreen extends ConsumerStatefulWidget {
   final int? initialRoomId;
@@ -26,12 +27,11 @@ class WeighGridScreen extends ConsumerStatefulWidget {
   ConsumerState<WeighGridScreen> createState() => _WeighGridScreenState();
 }
 
-const _minColWidth = 152.0;
 const _headerHeight = 36.0;
 
 class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
   final _scrollController = ScrollController();
-  double _colWidth = _minColWidth; // 运行时计算，供 _scrollToSelectedBird 使用
+  double _colWidth = 152.0; // 运行时计算，首帧后被 cfg.minColumnWidth 覆盖
 
   @override
   void initState() {
@@ -133,7 +133,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                       final nonEmpty = columns.where((c) => !c.isEmpty).length;
                       final avail = constraints.maxWidth - 16;
                       _colWidth = nonEmpty > 0
-                          ? (avail / nonEmpty).clamp(_minColWidth, avail)
+                          ? (avail / nonEmpty).clamp(cfg.minColumnWidth, avail)
                           : avail;
                       return Container(
                         margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
@@ -734,20 +734,38 @@ class _WeighInputPanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                bird.bird.name,
-                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BirdDetailScreen(
+                                  bird: bird,
+                                  initialPluginId: 'weights',
+                                ),
                               ),
-                              if (bird.bird.ringNumber != null) ...[
-                                const SizedBox(width: 6),
-                                Text('#${bird.bird.ringNumber}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                        color: scheme.primary,
-                                        fontWeight: FontWeight.w500)),
-                              ],
-                            ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    bird.bird.name,
+                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  if (bird.bird.ringNumber != null) ...[
+                                    const SizedBox(width: 6),
+                                    Text('#${bird.bird.ringNumber}',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w500)),
+                                  ],
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.open_in_new, size: 12, color: scheme.onSurface.withAlpha(120)),
+                                ],
+                              ),
+                            ),
                           ),
                           if (lastWeigh != null)
                             Text(

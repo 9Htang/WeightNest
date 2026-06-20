@@ -159,8 +159,11 @@ class Tasks extends Table {
   /// 任务类型：weigh / medication / ...
   TextColumn get taskType => text().withLength(max: 20).withDefault(const Constant('weigh'))();
 
-  /// 任务日期（weigh 为当天零点，medication 为具体喂药时间）
+  /// 任务日期（weigh 为当天 taskReadyTime（工作开始前30min），medication 为具体喂药时间）
   DateTimeColumn get dueDate => dateTime()();
+
+  /// 逾期截止时间（weigh 为次日 taskReadyTime，medication 为下一剂时间；生成时算好写入）
+  DateTimeColumn get deadline => dateTime().nullable()();
 
   /// 任务状态：待完成/已完成/逾期/已跳过
   TextColumn get status => text().withLength(max: 20).withDefault(const Constant('待完成'))();

@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +78,13 @@ class AppDatabase extends _$AppDatabase {
                 'CREATE INDEX IF NOT EXISTS idx_alert_records_lookup ON alert_records(bird_id, alert_type, is_read, created_at)'));
             await m.createIndex(Index('medications',
                 'CREATE INDEX IF NOT EXISTS idx_medications_bird ON medications(bird_id)'));
+          }
+          if (from < 13) {
+            // v12 → v13: tasks.deadline — 逾期截止时间，生成时算好写入
+            await m.addColumn(tasks, tasks.deadline);
+            // 存量未完成任务用 dueDate 回填 deadline，防止永久卡在"待完成"
+            await customStatement(
+              "UPDATE tasks SET deadline = due_date WHERE deadline IS NULL AND status IN ('待完成', '逾期')");
           }
         },
       );
