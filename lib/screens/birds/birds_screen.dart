@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_clock.dart';
 import '../../providers.dart';
 import '../../core/plugin_registry.dart';
 import '../../repositories/bird_repository.dart';
@@ -240,7 +241,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
   int? _selectedEnclosureId;
   String? _selectedEnclosureName;
   String _gender = '未知';
-  DateTime _birthDate = DateTime.now();
+  DateTime _birthDate = AppClock.now;
 
   @override
   void dispose() {
@@ -479,7 +480,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                   context: context,
                   initialDate: _birthDate,
                   firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
+                  lastDate: AppClock.now,
                 );
                 if (d != null && mounted) setState(() => _birthDate = d);
               },

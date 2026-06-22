@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_clock.dart';
 import '../../providers.dart';
 import '../../repositories/task_repository.dart';
 import '../../database/database.dart';
@@ -18,6 +19,9 @@ class TasksScreen extends ConsumerStatefulWidget {
 
 class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchText = '';
+  String? _filterTaskType; // null = 全部, 'weigh', 'medication'
 
   @override
   void initState() {
@@ -28,8 +32,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
+
+  void _onSearchChanged(String value) => setState(() => _searchText = value);
+
+  void _onFilterChanged(String? value) =>
+      setState(() => _filterTaskType = value == _filterTaskType ? null : value);
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +65,77 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _TodayTasks(tasksAsync: tasksAsync, ref: ref),
-          _OverdueTasks(ref: ref),
+          // 搜索栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: '搜索鸟名或脚环号',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchText.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ),
+          // 筛选标签
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: Row(
+              children: [
+                _buildFilterChip('全部', null),
+                const SizedBox(width: 8),
+                _buildFilterChip('称重', 'weigh'),
+                const SizedBox(width: 8),
+                _buildFilterChip('喂药', 'medication'),
+              ],
+            ),
+          ),
+          // 标签页内容
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _TodayTasks(
+                  tasksAsync: tasksAsync,
+                  ref: ref,
+                  searchText: _searchText,
+                  filterTaskType: _filterTaskType,
+                ),
+                _OverdueTasks(
+                  ref: ref,
+                  searchText: _searchText,
+                  filterTaskType: _filterTaskType,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String? value) {
+    final selected = _filterTaskType == value;
+    return FilterChip(
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      selected: selected,
+      onSelected: (_) => _onFilterChanged(value),
+      visualDensity: VisualDensity.compact,
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+      checkmarkColor: Theme.of(context).colorScheme.primary,
     );
   }
 }
@@ -69,13 +143,35 @@ class _TasksScreenState extends ConsumerState<TasksScreen> with SingleTickerProv
 class _TodayTasks extends ConsumerWidget {
   final AsyncValue<List<TaskWithBird>> tasksAsync;
   final WidgetRef ref;
+  final String searchText;
+  final String? filterTaskType;
 
-  const _TodayTasks({required this.tasksAsync, required this.ref});
+  const _TodayTasks({
+    required this.tasksAsync,
+    required this.ref,
+    this.searchText = '',
+    this.filterTaskType,
+  });
+
+  bool _matchesSearch(TaskWithBird t) {
+    if (searchText.isEmpty) return true;
+    final q = searchText.toLowerCase();
+    return t.bird.name.toLowerCase().contains(q) ||
+        (t.bird.ringNumber?.toLowerCase().contains(q) ?? false);
+  }
+
+  bool _matchesFilter(TaskWithBird t) {
+    if (filterTaskType == null) return true;
+    return t.task.taskType == filterTaskType;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef localRef) {
-    final tasks = tasksAsync.valueOrNull ?? [];
+    final rawTasks = tasksAsync.valueOrNull ?? [];
     final isLoading = tasksAsync.isLoading;
+
+    // 客户端筛选
+    final tasks = rawTasks.where((t) => _matchesSearch(t) && _matchesFilter(t)).toList();
 
     if (isLoading && tasks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -197,8 +293,26 @@ class _TodayTasks extends ConsumerWidget {
 
 class _OverdueTasks extends ConsumerWidget {
   final WidgetRef ref;
+  final String searchText;
+  final String? filterTaskType;
 
-  const _OverdueTasks({required this.ref});
+  const _OverdueTasks({
+    required this.ref,
+    this.searchText = '',
+    this.filterTaskType,
+  });
+
+  bool _matchesSearch(TaskWithBird t) {
+    if (searchText.isEmpty) return true;
+    final q = searchText.toLowerCase();
+    return t.bird.name.toLowerCase().contains(q) ||
+        (t.bird.ringNumber?.toLowerCase().contains(q) ?? false);
+  }
+
+  bool _matchesFilter(TaskWithBird t) {
+    if (filterTaskType == null) return true;
+    return t.task.taskType == filterTaskType;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef localRef) {
@@ -207,7 +321,10 @@ class _OverdueTasks extends ConsumerWidget {
     return overdueAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => const Center(child: Text('加载失败')),
-      data: (tasks) {
+      data: (rawTasks) {
+        // 客户端筛选
+        final tasks = rawTasks.where((t) => _matchesSearch(t) && _matchesFilter(t)).toList();
+
         if (tasks.isEmpty) {
           return Center(
             child: Column(
@@ -222,15 +339,26 @@ class _OverdueTasks extends ConsumerWidget {
           );
         }
 
+        final weighTasks = tasks.where((t) => t.task.taskType == 'weigh').toList();
+        final medTasks = tasks.where((t) => t.task.taskType == 'medication').toList();
+
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            SectionHeader(title: '逾期未称重 (${tasks.length})', color: Colors.orange),
-            // 逾期任务同样改为称重按钮，返回后刷新逾期列表
-            ...tasks.map((t) => _TaskCard(
+            SectionHeader(title: '逾期任务 (${tasks.length})', color: Colors.orange),
+            // 称重逾期任务
+            ...weighTasks.map((t) => _TaskCard(
               task: t,
               urgent: true,
               onWeigh: () => _startWeighing(context, t.bird.roomId, t.bird.id),
+            )),
+            // 喂药逾期任务
+            ...medTasks.map((t) => _MedTaskCard(
+              medInfo: MedTaskInfo.fromTask(t.task),
+              birdName: t.bird.name,
+              birdRingNumber: t.bird.ringNumber,
+              onGive: () => _giveMed(t.task.id, ref),
+              onSkip: () => _skipMed(t.task.id, ref),
             )),
           ],
         );
@@ -245,6 +373,16 @@ class _OverdueTasks extends ConsumerWidget {
         builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId),
       ),
     );
+    ref.invalidate(overdueTasksProvider);
+  }
+
+  Future<void> _giveMed(int taskId, WidgetRef ref) async {
+    await ref.read(databaseProvider).giveMedication(taskId);
+    ref.invalidate(overdueTasksProvider);
+  }
+
+  Future<void> _skipMed(int taskId, WidgetRef ref) async {
+    await ref.read(databaseProvider).skipMedication(taskId);
     ref.invalidate(overdueTasksProvider);
   }
 }
@@ -431,8 +569,8 @@ class _MedTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final deadline = medInfo.task.deadline ?? medInfo.task.dueDate;
-    final isLate = !done && deadline.isBefore(DateTime.now());
-    final overdueDays = isLate ? DateTime.now().difference(deadline).inDays : 0;
+    final isLate = !done && deadline.isBefore(AppClock.now);
+    final overdueDays = isLate ? AppClock.now.difference(deadline).inDays : 0;
     final ring = birdRingNumber;
 
     return Card(

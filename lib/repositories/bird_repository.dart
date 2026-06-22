@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../core/plugin_registry.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
@@ -63,6 +64,8 @@ extension BirdRepository on AppDatabase {
     String gender = '未知',
     String? notes,
     String? uuid,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     final maxRow = await (selectOnly(birds)
           ..addColumns([birds.sortOrder.max()]))
@@ -79,6 +82,8 @@ extension BirdRepository on AppDatabase {
       gender: Value(gender),
       notes: Value(notes),
       sortOrder: Value((maxRow ?? 0) + 1),
+      createdAt: Value(createdAt ?? AppClock.now),
+      updatedAt: Value(updatedAt ?? AppClock.now),
     ));
 
     // 记录创建操作（fire-and-forget，不影响主流程返回速度）
@@ -114,7 +119,7 @@ extension BirdRepository on AppDatabase {
       enclosureId: Value(enclosureId),
       manualBaselineG: Value(manualBaselineG),
       weaningOverride: Value(weaningOverride),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }
@@ -127,19 +132,19 @@ extension BirdRepository on AppDatabase {
   /// 单独设置鸟的容器（支持设为 null 以移出容器）
   Future<void> setBirdEnclosure(int birdId, int? enclosureId) async {
     await (update(birds)..where((t) => t.id.equals(birdId)))
-        .write(BirdsCompanion(enclosureId: Value(enclosureId), updatedAt: Value(DateTime.now())));
+        .write(BirdsCompanion(enclosureId: Value(enclosureId), updatedAt: Value(AppClock.now)));
   }
 
   Future<void> updateWeighInterval(int birdId, int? days) async {
     await (update(birds)..where((t) => t.id.equals(birdId)))
-        .write(BirdsCompanion(weighIntervalDays: Value(days), updatedAt: Value(DateTime.now())));
+        .write(BirdsCompanion(weighIntervalDays: Value(days), updatedAt: Value(AppClock.now)));
   }
 
   Future<void> updateSortOrders(Map<int, int> birdIdToOrder) => batch((b) {
         for (final entry in birdIdToOrder.entries) {
           b.update(
             birds,
-            BirdsCompanion(sortOrder: Value(entry.value), updatedAt: Value(DateTime.now())),
+            BirdsCompanion(sortOrder: Value(entry.value), updatedAt: Value(AppClock.now)),
             where: (t) => t.id.equals(entry.key),
           );
         }
@@ -219,7 +224,7 @@ class BirdWithDetails {
   BirdWithDetails({required this.bird, required this.species, this.room, this.enclosure});
 
   int get ageDays {
-    final days = DateTime.now().difference(bird.birthDate).inDays;
+    final days = AppClock.now.difference(bird.birthDate).inDays;
     if (days < 0) {
       debugPrint('[BirdWithDetails] ${bird.name}: birthDate is in the future, ageDays=$days — clamping to 0');
       return 0;

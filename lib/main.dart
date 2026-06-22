@@ -1,12 +1,21 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app.dart';
+import 'core/app_clock.dart';
+import 'core/debug_log_sink.dart';
 import 'plugins/plugins.dart';
+import 'services/notification_service.dart';
 
 void main() async {
+  if (kDebugMode) {
+    DebugLogSink.install();
+  }
   WidgetsFlutterBinding.ensureInitialized();
+  await AppClock.restore();
   registerPlugins();
+  await NotificationService.instance.init();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

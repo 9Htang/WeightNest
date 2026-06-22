@@ -1,4 +1,5 @@
 ﻿import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -19,6 +20,8 @@ extension UserRepository on AppDatabase {
       displayName: displayName,
       passwordHash: passwordHash,
       role: Value(role),
+      createdAt: Value(AppClock.now),
+      updatedAt: Value(AppClock.now),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
     return (await getUserById(rows.first.read<int>('id')))!;
@@ -29,8 +32,8 @@ extension UserRepository on AppDatabase {
         .writeReturning(UsersCompanion(
       displayName: displayName != null ? Value(displayName) : const Value.absent(),
       role: role != null ? Value(role) : const Value.absent(),
-      deletedAt: isActive != null ? Value(isActive ? null : DateTime.now()) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
+      deletedAt: isActive != null ? Value(isActive ? null : AppClock.now) : const Value.absent(),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }

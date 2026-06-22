@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../core/plugin_registry.dart';
 import '../../utils/uuid.dart';
@@ -29,6 +30,8 @@ extension BreedingRepository on AppDatabase {
         femaleBirdId: femaleBirdId,
         pairName: Value(pairName),
         notes: Value(notes),
+        createdAt: Value(AppClock.now),
+        updatedAt: Value(AppClock.now),
       ),
     );
   }
@@ -38,8 +41,8 @@ extension BreedingRepository on AppDatabase {
     await (update(breedingPairs)..where((t) => t.id.equals(pairId)))
         .write(BreedingPairsCompanion(
       status: const Value('separated'),
-      separatedDate: Value(DateTime.now()),
-      updatedAt: Value(DateTime.now()),
+      separatedDate: Value(AppClock.now),
+      updatedAt: Value(AppClock.now),
     ));
   }
 
@@ -93,6 +96,8 @@ extension BreedingRepository on AppDatabase {
       BreedingRecordsCompanion.insert(
         uuid: genUuid(),
         pairId: pairId,
+        createdAt: Value(AppClock.now),
+        updatedAt: Value(AppClock.now),
       ),
     );
 
@@ -129,7 +134,7 @@ extension BreedingRepository on AppDatabase {
 
     final fromStage = record.stage;
     final nextStage = stages[currentIndex + 1];
-    final now = DateTime.now();
+    final now = AppClock.now;
     await (update(breedingRecords)..where((t) => t.id.equals(recordId)))
         .write(BreedingRecordsCompanion(
       stage: Value(nextStage),
@@ -162,7 +167,7 @@ extension BreedingRepository on AppDatabase {
         .getSingleOrNull();
     if (record == null) return;
 
-    final now = DateTime.now();
+    final now = AppClock.now;
     await (update(breedingRecords)..where((t) => t.id.equals(recordId)))
         .write(BreedingRecordsCompanion(
       stage: const Value('已完结'),
@@ -222,7 +227,9 @@ extension BreedingRepository on AppDatabase {
       EggsCompanion.insert(
         uuid: genUuid(),
         breedingRecordId: breedingRecordId,
-        laidDate: laidDate ?? DateTime.now(),
+        laidDate: laidDate ?? AppClock.now,
+        createdAt: Value(AppClock.now),
+        updatedAt: Value(AppClock.now),
       ),
     );
 
@@ -264,7 +271,7 @@ extension BreedingRepository on AppDatabase {
       status: Value(status),
       hatchDate: Value(hatchDate),
       chickBirdId: Value(chickBirdId),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
   }
 
@@ -275,8 +282,9 @@ extension BreedingRepository on AppDatabase {
       MatingEventsCompanion.insert(
         uuid: genUuid(),
         breedingRecordId: breedingRecordId,
-        observedDate: observedDate ?? DateTime.now(),
+        observedDate: observedDate ?? AppClock.now,
         notes: Value(notes),
+        createdAt: Value(AppClock.now),
       ),
     );
 

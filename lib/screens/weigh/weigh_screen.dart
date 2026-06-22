@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../repositories/bird_repository.dart';
 import '../worker/worker_screen.dart';
 import 'weigh_provider.dart';
+import 'weigh_input_widgets.dart';
+import 'weigh_input_config.dart';
 
 class WeighScreen extends ConsumerStatefulWidget {
   final int? roomId;
@@ -45,6 +47,8 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
     final state = ref.watch(weighProvider);
     final theme = Theme.of(context);
     final bird = state.currentBird;
+    final inputConfig = ref.watch(weighInputConfigProvider);
+    final notifier = ref.read(weighProvider.notifier);
 
     if (state.birds.isEmpty) {
       final location = state.enclosureName ?? state.roomName ?? '';
@@ -127,33 +131,60 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                     _BirdInfoHeader(
                         bird: bird, state: state, theme: theme),
 
-                  // ── 体重显示区 ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 8),
-                    child:
-                        _WeightDisplay(state: state, theme: theme),
-                  ),
-
-                  // ── 快速调整按钮 ──
-                  _QuickAdjustBar(
-                      state: state,
+                  // ── 输入区域：按键模式显示键盘+快速调整，转盘模式仅显示半圆弧 ──
+                  if (inputConfig.mode == WeighInputMode.keypad) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      child: WeighDisplay(
+                        weightText: state.weightText,
+                        message: state.message,
+                        theme: theme,
+                        showUnit: false,
+                        onMinus1: () => notifier.adjustWeight(-1),
+                        onMinus10: () => notifier.adjustWeight(-10),
+                        onPlus1: () => notifier.adjustWeight(1),
+                        onPlus10: () => notifier.adjustWeight(10),
+                        isFasting: state.isFasting,
+                        onToggleFasting: () =>
+                            notifier.setFasting(!state.isFasting),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    WeighNumPad(
+                      onDigit: notifier.appendDigit,
+                      onDelete: notifier.deleteDigit,
                       theme: theme,
-                      notifier: ref.read(weighProvider.notifier)),
-
-                  const SizedBox(height: 12),
-
-                  // ── 数字键盘 ──
-                  _NumPad(
-                      notifier: ref.read(weighProvider.notifier),
-                      theme: theme),
+                    ),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        height: 260,
+                        child: WeighDial(
+                          side: inputConfig.dialSide,
+                          weightText: state.weightText,
+                          message: state.message,
+                          isFasting: state.isFasting,
+                          onToggleFasting: () => notifier.setFasting(!state.isFasting),
+                          lastWeightG: state.latestWeights[state.currentBird?.bird.id]?.weightG,
+                          growthStage: state.currentBird?.growthStage ?? '成鸟',
+                          sensitivity: inputConfig.sensitivity,
+                          speedThreshold: inputConfig.speedThreshold,
+                          windowSize: inputConfig.windowSize,
+                          fastStep: inputConfig.fastStep,
+                          onDelta: (delta) => notifier.adjustWeight(delta),
+                          theme: theme,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
           // ── 底部操作栏（含三层导航） ──
           _BottomActions(
-              notifier: ref.read(weighProvider.notifier),
+              notifier: notifier,
               state: state,
               theme: theme),
         ],
@@ -300,218 +331,8 @@ class _BirdInfoHeader extends StatelessWidget {
   }
 }
 
-/// 体重显示区
-class _WeightDisplay extends StatelessWidget {
-  final WeighState state;
-  final ThemeData theme;
-
-  const _WeightDisplay({required this.state, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    final displayText =
-        state.weightText.isEmpty ? '0.0' : state.weightText;
-    return Column(
-      children: [
-        Text(
-          displayText,
-          style: const TextStyle(
-            fontSize: 64,
-            fontWeight: FontWeight.w700,
-            fontFeatures: [FontFeature.tabularFigures()],
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '克 (g)',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withAlpha(120),
-          ),
-        ),
-        if (state.message != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            state.message!,
-            style: TextStyle(
-              color: state.message!.startsWith('✅')
-                  ? Colors.green
-                  : Colors.orange,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// 快速调整
-class _QuickAdjustBar extends StatelessWidget {
-  final WeighState state;
-  final ThemeData theme;
-  final WeighNotifier notifier;
-
-  const _QuickAdjustBar(
-      {required this.state,
-      required this.theme,
-      required this.notifier});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _QuickBtn(
-            icon: Icons.remove,
-            label: '-1g',
-            onTap: () => notifier.adjustWeight(-1),
-            onLongPress: () => notifier.adjustWeight(-10),
-          ),
-          const SizedBox(width: 16),
-          _QuickBtn(
-            icon: Icons.add,
-            label: '+1g',
-            onTap: () => notifier.adjustWeight(1),
-            onLongPress: () => notifier.adjustWeight(10),
-          ),
-          const SizedBox(width: 16),
-          ActionChip(
-            avatar: Icon(
-              state.isFasting
-                  ? Icons.check_circle
-                  : Icons.circle_outlined,
-              size: 18,
-              color: state.isFasting ? Colors.white : null,
-            ),
-            label: const Text('空腹'),
-            backgroundColor:
-                state.isFasting ? theme.colorScheme.primary : null,
-            onPressed: () => notifier.setFasting(!state.isFasting),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _QuickBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .outline
-                  .withAlpha(60)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 4),
-            Text(label,
-                style: const TextStyle(fontWeight: FontWeight.w500)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 数字键盘
-class _NumPad extends StatelessWidget {
-  final WeighNotifier notifier;
-  final ThemeData theme;
-
-  const _NumPad({required this.notifier, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          for (final row in [
-            ['1', '2', '3'],
-            ['4', '5', '6'],
-            ['7', '8', '9'],
-            ['.', '0', '⌫'],
-          ])
-            Row(
-              children: row.map((key) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: SizedBox(
-                      height: 60,
-                      child: Material(
-                        color: key == '⌫'
-                            ? theme.colorScheme.error.withAlpha(25)
-                            : theme.colorScheme.surfaceContainerHighest
-                                .withAlpha(80),
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            if (key == '⌫') {
-                              notifier.deleteDigit();
-                            } else {
-                              notifier.appendDigit(key);
-                            }
-                          },
-                          child: Center(
-                            child: key == '⌫'
-                                ? const Icon(Icons.backspace_outlined,
-                                    size: 24)
-                                : Text(
-                                    key,
-                                    style: TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w500,
-                                      color: key == '.'
-                                          ? theme.colorScheme.primary
-                                          : null,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 底部操作栏 — 三层导航（鸟 ⊂ 容器 ⊂ 房间）
-class _BottomActions extends StatelessWidget {
+class _BottomActions extends ConsumerWidget {
   final WeighNotifier notifier;
   final WeighState state;
   final ThemeData theme;
@@ -522,7 +343,7 @@ class _BottomActions extends StatelessWidget {
       required this.theme});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Container(
@@ -608,14 +429,23 @@ class _BottomActions extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
 
-                // 清空
-                if (state.weightText.isNotEmpty)
-                  TextButton(
-                    onPressed: notifier.clearWeight,
-                    child: const Text('清空'),
-                  )
-                else
-                  const SizedBox(width: 48),
+                // 模式切换
+                TextButton(
+                  onPressed: () {
+                    final cfg = ref.read(weighInputConfigProvider);
+                    final notifier = ref.read(weighInputConfigProvider.notifier);
+                    notifier.setMode(
+                      cfg.mode == WeighInputMode.dial
+                          ? WeighInputMode.keypad
+                          : WeighInputMode.dial,
+                    );
+                  },
+                  child: Text(
+                    ref.watch(weighInputConfigProvider).mode == WeighInputMode.dial
+                        ? '键盘'
+                        : '转盘',
+                  ),
+                ),
 
                 const Spacer(),
 

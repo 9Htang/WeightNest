@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
+import '../lib/core/app_clock.dart';
 import '../lib/database/database.dart';
 import '../lib/services/alert_service.dart';
 import '../lib/repositories/bird_repository.dart';
@@ -32,7 +33,7 @@ Future<Bird> createTestBird(AppDatabase db, {
   return db.createBird(
     name: name,
     speciesId: speciesId,
-    birthDate: DateTime.now().subtract(Duration(days: daysAgo)),
+    birthDate: AppClock.now.subtract(Duration(days: daysAgo)),
   );
 }
 
@@ -43,7 +44,7 @@ Future<void> addWeightSeries(AppDatabase db, int birdId,
     await db.addWeight(
       birdId: birdId,
       weightG: e.grams,
-      recordedAt: DateTime.now().subtract(Duration(hours: e.hoursAgo)),
+      recordedAt: AppClock.now.subtract(Duration(hours: e.hoursAgo)),
     );
   }
 }
@@ -223,9 +224,9 @@ void main() {
 
     test('同分钟内覆盖', () async {
       final w1 = await db.addWeight(
-          birdId: bird.id, weightG: 10.0, recordedAt: DateTime.now());
+          birdId: bird.id, weightG: 10.0, recordedAt: AppClock.now);
       final w2 = await db.addWeight(
-          birdId: bird.id, weightG: 11.0, recordedAt: DateTime.now());
+          birdId: bird.id, weightG: 11.0, recordedAt: AppClock.now);
       // 第二次应该覆盖第一次（同分钟）
       final weights = await db.getByBird(bird.id);
       expect(weights.length, 1);
@@ -235,9 +236,9 @@ void main() {
     test('不同分钟不覆盖', () async {
       final w1 = await db.addWeight(
           birdId: bird.id, weightG: 10.0,
-          recordedAt: DateTime.now().subtract(const Duration(minutes: 2)));
+          recordedAt: AppClock.now.subtract(const Duration(minutes: 2)));
       final w2 = await db.addWeight(
-          birdId: bird.id, weightG: 11.0, recordedAt: DateTime.now());
+          birdId: bird.id, weightG: 11.0, recordedAt: AppClock.now);
       final weights = await db.getByBird(bird.id);
       expect(weights.length, 2);
     });

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
@@ -376,7 +377,7 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
       context: context,
       initialDate: _bird.bird.birthDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: AppClock.now,
     );
     if (d != null && mounted) {
       _save({'birthDate': d});
@@ -1346,7 +1347,7 @@ class _WeightEditDialogState extends State<_WeightEditDialog> {
             subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_recordedAt)),
             trailing: const Icon(Icons.access_time),
             onTap: () async {
-              final date = await showDatePicker(context: context, initialDate: _recordedAt, firstDate: DateTime(2020), lastDate: DateTime.now());
+              final date = await showDatePicker(context: context, initialDate: _recordedAt, firstDate: DateTime(2020), lastDate: AppClock.now);
               if (date == null || !mounted) return;
               final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_recordedAt));
               if (time == null) return;

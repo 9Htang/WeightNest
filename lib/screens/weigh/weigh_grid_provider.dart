@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../core/plugin_registry.dart';
 import '../../providers.dart';
@@ -205,7 +206,7 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     state = state.copyWith(columns: columns, birdOrder: birdOrder, birdById: birdById);
 
     // 3. 批量计算异常方向 / 断奶期 / 今日已称 / 超期
-    final now = DateTime.now();
+    final now = AppClock.now;
     final todayDay = DateTime(now.year, now.month, now.day);
     final cutoff = now.subtract(const Duration(days: 90));
     final weightsByBird = await _db.getByBirdsInRange(
@@ -344,6 +345,9 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
   void appendDigit(String digit) {
     if (digit == '.' && state.weightText.contains('.')) return;
     if (state.weightText.length >= 6) return;
+    // 只允许一位小数
+    final dot = state.weightText.indexOf('.');
+    if (dot >= 0 && state.weightText.length - dot > 1) return;
     state = state.copyWith(weightText: state.weightText + digit, message: null);
   }
 
@@ -362,7 +366,7 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
   void adjustWeight(double delta) {
     final current = double.tryParse(state.weightText) ?? 0;
-    final newVal = (current + delta).toStringAsFixed(1);
+    final newVal = (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
     state = state.copyWith(weightText: newVal, message: null);
   }
 
@@ -381,7 +385,7 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     state = state.copyWith(isSaving: true);
 
-    final now = DateTime.now();
+    final now = AppClock.now;
 
     // 查找今日待完成称重任务（事务外查询）
     final allTodayTasks = await _db.getTodayTasks(null);

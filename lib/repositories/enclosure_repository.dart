@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -77,7 +78,7 @@ extension EnclosureRepository on AppDatabase {
     return result;
   }
 
-  Future<Enclosure> createEnclosure(String name, int roomId) async {
+  Future<Enclosure> createEnclosure(String name, int roomId, {DateTime? createdAt, DateTime? updatedAt}) async {
     final maxRow = await (selectOnly(enclosures)
           ..addColumns([enclosures.sortOrder.max()]))
         .map((row) => row.read(enclosures.sortOrder.max()))
@@ -87,6 +88,8 @@ extension EnclosureRepository on AppDatabase {
       name: name,
       roomId: roomId,
       sortOrder: Value((maxRow ?? 0) + 1),
+      createdAt: Value(createdAt ?? AppClock.now),
+      updatedAt: Value(updatedAt ?? AppClock.now),
     ));
     final rows =
         await customSelect('SELECT last_insert_rowid() as id').get();
@@ -100,7 +103,7 @@ extension EnclosureRepository on AppDatabase {
       name: name != null ? Value(name) : const Value.absent(),
       sortOrder:
           sortOrder != null ? Value(sortOrder) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }
@@ -113,7 +116,7 @@ extension EnclosureRepository on AppDatabase {
             enclosures,
             EnclosuresCompanion(
                 sortOrder: Value(entry.value),
-                updatedAt: Value(DateTime.now())),
+                updatedAt: Value(AppClock.now)),
             where: (t) => t.id.equals(entry.key),
           );
         }

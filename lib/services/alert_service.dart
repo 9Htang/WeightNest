@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../core/app_clock.dart';
 import '../core/plugin.dart';
 import '../core/plugin_registry.dart';
 import '../repositories/bird_repository.dart';
 import '../utils/uuid.dart';
+import 'notification_service.dart';
 
 class AnomalyAlert {
   final BirdWithDetails bird;
@@ -58,7 +60,7 @@ class AlertService {
               type: pa.type,
               description: pa.description,
               severity: pa.severity,
-              createdAt: DateTime.now(),
+              createdAt: AppClock.now,
             ));
           }
         }
@@ -79,9 +81,12 @@ extension AlertRepository on AppDatabase {
   ///
   /// 批量实现：单事务内一次查出当天全部记录并在内存去重，避免逐条 2~3 次
   /// 查询的 N+1（每次保存体重都会触发本方法）。
-  Future<void> upsertUnreadAlerts(List<AnomalyAlert> alerts) async {
-    if (alerts.isEmpty) return;
-    final today = DateTime.now();
+  ///
+  /// 返回本次新写入的告警（用于发送通知）。
+  Future<List<AnomalyAlert>> upsertUnreadAlerts(List<AnomalyAlert> alerts) async {
+    if (alerts.isEmpty) return [];
+    final newAlerts = <AnomalyAlert>[];
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
 
     await transaction(() async {
@@ -114,15 +119,25 @@ extension AlertRepository on AppDatabase {
           description: a.description,
           severity: a.severity.name,
           isRead: const Value(false),
+          createdAt: Value(AppClock.now),
+          updatedAt: Value(AppClock.now),
         ));
         unreadKeys.add(k); // 防止本次循环内重复写入
+        newAlerts.add(a);
       }
     });
+
+    // 异步发通知，不阻塞调用方
+    if (newAlerts.isNotEmpty) {
+      NotificationService.instance.showAlerts(newAlerts);
+    }
+
+    return newAlerts;
   }
 
   /// 确认单条提醒（当天同鸟+同类型+同描述去重）
   Future<void> confirmAlert(int birdId, String alertType, String description) async {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final existing = await (select(alertRecords)
       ..where((t) => t.birdId.equals(birdId) &
@@ -132,7 +147,7 @@ extension AlertRepository on AppDatabase {
       .getSingleOrNull();
     if (existing != null) {
       await (update(alertRecords)..where((t) => t.id.equals(existing.id)))
-          .write(AlertRecordsCompanion(isRead: Value(true), updatedAt: Value(DateTime.now())));
+          .write(AlertRecordsCompanion(isRead: Value(true), updatedAt: Value(AppClock.now)));
     } else {
       await into(alertRecords).insert(AlertRecordsCompanion.insert(
         uuid: genUuid(),
@@ -141,6 +156,8 @@ extension AlertRepository on AppDatabase {
         description: description,
         severity: 'warning',
         isRead: Value(true),
+        createdAt: Value(AppClock.now),
+        updatedAt: Value(AppClock.now),
       ));
     }
   }
@@ -154,7 +171,7 @@ extension AlertRepository on AppDatabase {
 
   /// 获取今日已确认的 birdId:alertType:description 集合
   Future<Set<String>> getConfirmedAlertKeys() async {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final rows = await (select(alertRecords)
       ..where((t) => t.isRead.equals(true) & t.createdAt.isBiggerOrEqualValue(dayStart)))
@@ -164,7 +181,7 @@ extension AlertRepository on AppDatabase {
 
   /// 获取近 N 天内未确认的告警（去重、含鸟详情、含触发时间）
   Future<List<AnomalyAlert>> getUnconfirmedAlerts(int days) async {
-    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final cutoff = AppClock.now.subtract(Duration(days: days));
     final rows = await (select(alertRecords)
       ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff))
       ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
@@ -198,7 +215,7 @@ extension AlertRepository on AppDatabase {
 
   /// 获取近 N 天内全部告警记录（含确认状态），供全部告警列表使用
   Future<List<AlertWithStatus>> getAllAlertRecordsWithStatus(int days) async {
-    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final cutoff = AppClock.now.subtract(Duration(days: days));
     final rows = await (select(alertRecords)
       ..where((t) => t.createdAt.isBiggerOrEqualValue(cutoff))
       ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
@@ -236,7 +253,7 @@ extension AlertRepository on AppDatabase {
 
   /// 获取近 N 天内全部告警记录的确认状态，供全部告警列表 join 用
   Future<Map<String, AlertStatusInfo>> getAlertStatusMap(int days) async {
-    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final cutoff = AppClock.now.subtract(Duration(days: days));
     final rows = await (select(alertRecords)
       ..where((t) => t.createdAt.isBiggerOrEqualValue(cutoff)))
       .get();

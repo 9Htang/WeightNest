@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../core/app_clock.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
 import '../../services/excel_export_service.dart';
+import '../../screens/weigh/weigh_input_config.dart';
 import 'grid_color_config.dart';
 
 /// 称重插件设置页 — 数据导出 + 表格颜色 + 品种称重间隔配置
@@ -105,6 +107,11 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
 
           const SizedBox(height: 16),
 
+          // ── 输入偏好 ──
+          _InputPrefsCard(),
+
+          const SizedBox(height: 16),
+
           // ── 品种称重间隔配置 ──
           Card(
             child: Padding(
@@ -154,7 +161,7 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
   }
 
   Future<void> _pickMonth() async {
-    final now = DateTime.now();
+    final now = AppClock.now;
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(_selectedYear ?? now.year, _selectedMonth ?? now.month),
@@ -601,5 +608,261 @@ class _StateColorRow extends StatelessWidget {
     ).then((c) {
       if (c != null) onColorPicked(c);
     });
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 输入偏好卡片
+// ═══════════════════════════════════════════════
+
+class _InputPrefsCard extends ConsumerWidget {
+  const _InputPrefsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cfg = ref.watch(weighInputConfigProvider);
+    final notifier = ref.read(weighInputConfigProvider.notifier);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.touch_app, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  '输入偏好',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '设置快速称重的默认输入方式和转盘参数',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+
+            // ── 默认输入模式 ──
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('默认输入模式', style: TextStyle(fontSize: 14)),
+                ),
+                SegmentedButton<WeighInputMode>(
+                  segments: WeighInputMode.values.map((m) {
+                    return ButtonSegment<WeighInputMode>(
+                      value: m,
+                      label: Text(m.label, style: const TextStyle(fontSize: 13)),
+                    );
+                  }).toList(),
+                  selected: {cfg.mode},
+                  onSelectionChanged: (sel) => notifier.setMode(sel.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: theme.colorScheme.primaryContainer,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ── 转盘位置 ──
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('转盘位置', style: TextStyle(fontSize: 14)),
+                ),
+                SegmentedButton<DialSide>(
+                  segments: DialSide.values.map((s) {
+                    return ButtonSegment<DialSide>(
+                      value: s,
+                      label: Text(s.label, style: const TextStyle(fontSize: 13)),
+                      icon: Icon(
+                        s == DialSide.left ? Icons.swipe_left : Icons.swipe_right,
+                        size: 16,
+                      ),
+                    );
+                  }).toList(),
+                  selected: {cfg.dialSide},
+                  onSelectionChanged: (sel) => notifier.setDialSide(sel.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: theme.colorScheme.primaryContainer,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── 转盘灵敏度 ──
+            Row(
+              children: [
+                const Text('转盘灵敏度', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${cfg.sensitivity.toStringAsFixed(0)}°',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.sensitivity,
+                    min: WeighInputConfig.sensitivityMin,
+                    max: WeighInputConfig.sensitivityMax,
+                    divisions: 20,
+                    label: '${cfg.sensitivity.toStringAsFixed(0)}°',
+                    onChanged: (v) => notifier.setSensitivity(v),
+                  ),
+                ),
+                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '每刻度角度，值越小越灵敏（一圈=360°）',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── 速度阈值 ──
+            Row(
+              children: [
+                const Text('速度阈值', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('灵敏', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.speedThreshold,
+                    min: WeighInputConfig.speedThresholdMin,
+                    max: WeighInputConfig.speedThresholdMax,
+                    divisions: 10,
+                    label: '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
+                    onChanged: (v) => notifier.setSpeedThreshold(v),
+                  ),
+                ),
+                const Text('迟钝', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '慢/快的分界线，超过此速度触发快速档',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 窗口大小 ──
+            Row(
+              children: [
+                const Text('平滑窗口', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${cfg.windowSize}帧',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('灵敏', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.windowSize.toDouble(),
+                    min: WeighInputConfig.windowSizeMin.toDouble(),
+                    max: WeighInputConfig.windowSizeMax.toDouble(),
+                    divisions: 9,
+                    label: '${cfg.windowSize}帧',
+                    onChanged: (v) => notifier.setWindowSize(v.round()),
+                  ),
+                ),
+                const Text('平缓', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '滑动平均帧数，越大越平缓，越不易误触快档',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 快速步长 ──
+            Row(
+              children: [
+                const Text('快速步长', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${cfg.fastStep.toStringAsFixed(1)}g',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.fastStep,
+                    min: WeighInputConfig.fastStepMin,
+                    max: WeighInputConfig.fastStepMax,
+                    divisions: 7,
+                    label: '${cfg.fastStep.toStringAsFixed(1)}g',
+                    onChanged: (v) => notifier.setFastStep(v),
+                  ),
+                ),
+                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '快速滑动时的步长（慢速始终 0.1g）',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

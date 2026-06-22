@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:weight_nest/core/app_clock.dart';
 import 'package:weight_nest/core/plugin_registry.dart';
 import 'package:weight_nest/database/database.dart';
 import 'package:weight_nest/plugins/breeding/breeding_repository.dart';
@@ -435,9 +436,9 @@ class _BreedingRecordDetailScreenState
   Future<void> _addEgg(BuildContext context) async {
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: AppClock.now,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: AppClock.now,
       helpText: '选择产蛋日期',
     );
     if (date == null || !mounted || _record == null) return;
@@ -489,9 +490,9 @@ class _BreedingRecordDetailScreenState
                   onTap: () async {
                     final d = await showDatePicker(
                       context: ctx,
-                      initialDate: hatchDate ?? DateTime.now(),
+                      initialDate: hatchDate ?? AppClock.now,
                       firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
+                      lastDate: AppClock.now,
                       helpText: '选择出壳日期',
                     );
                     if (d != null) setDlg(() => hatchDate = d);
@@ -581,9 +582,9 @@ class _BreedingRecordDetailScreenState
   Future<void> _addMatingEvent(BuildContext context) async {
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: AppClock.now,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: AppClock.now,
       helpText: '选择观察日期',
     );
     if (date == null || !mounted || _record == null) return;

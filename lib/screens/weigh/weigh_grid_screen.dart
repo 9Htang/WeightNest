@@ -9,6 +9,7 @@ import '../../plugins/weight/grid_color_config.dart';
 import '../worker/worker_screen.dart';
 import 'weigh_grid_provider.dart';
 import 'weigh_input_widgets.dart';
+import 'weigh_input_config.dart';
 import '../birds/bird_detail_screen.dart';
 
 class WeighGridScreen extends ConsumerStatefulWidget {
@@ -190,6 +191,7 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                         s.lastWeigh,
                         s.birdById,
                       )));
+                  final inputConfig = ref.watch(weighInputConfigProvider);
                   return _WeighInputPanel(
                     selectedBirdId: s.$1,
                     weightText: s.$2,
@@ -198,8 +200,22 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                     message: s.$5,
                     lastWeigh: s.$6,
                     birdById: s.$7,
+                    inputMode: inputConfig.mode,
+                    dialSide: inputConfig.dialSide,
+                    dialSensitivity: inputConfig.sensitivity,
+                    speedThreshold: inputConfig.speedThreshold,
+                    windowSize: inputConfig.windowSize,
+                    fastStep: inputConfig.fastStep,
                     theme: theme,
                     notifier: ref.read(weighGridProvider.notifier),
+                    onSwitchMode: () {
+                      final cfg = ref.read(weighInputConfigProvider);
+                      ref.read(weighInputConfigProvider.notifier).setMode(
+                        cfg.mode == WeighInputMode.dial
+                            ? WeighInputMode.keypad
+                            : WeighInputMode.dial,
+                      );
+                    },
                   );
                 }),
               ),
@@ -683,8 +699,15 @@ class _WeighInputPanel extends StatelessWidget {
   final String? message;
   final Weight? lastWeigh;
   final Map<int, BirdWithDetails> birdById;
+  final WeighInputMode inputMode;
+  final DialSide dialSide;
+  final double dialSensitivity;
+  final double speedThreshold;
+  final int windowSize;
+  final double fastStep;
   final ThemeData theme;
   final WeighGridNotifier notifier;
+  final VoidCallback onSwitchMode;
 
   const _WeighInputPanel({
     required this.selectedBirdId,
@@ -694,8 +717,15 @@ class _WeighInputPanel extends StatelessWidget {
     required this.message,
     required this.lastWeigh,
     required this.birdById,
+    required this.inputMode,
+    required this.dialSide,
+    required this.dialSensitivity,
+    required this.speedThreshold,
+    required this.windowSize,
+    required this.fastStep,
     required this.theme,
     required this.notifier,
+    required this.onSwitchMode,
   });
 
   @override
@@ -784,11 +814,13 @@ class _WeighInputPanel extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (weightText.isNotEmpty)
-                      TextButton(
-                        onPressed: notifier.clearWeight,
-                        child: const Text('清空'),
+                    // 模式切换
+                    TextButton(
+                      onPressed: onSwitchMode,
+                      child: Text(
+                        inputMode == WeighInputMode.dial ? '键盘' : '转盘',
                       ),
+                    ),
                     FilledButton(
                       onPressed: isSaving ? null : notifier.saveWeight,
                       style: FilledButton.styleFrom(
@@ -804,29 +836,48 @@ class _WeighInputPanel extends StatelessWidget {
                   ],
                 ),
               const SizedBox(height: 8),
-              // 体重显示
-              WeighDisplay(
-                weightText: weightText,
-                message: message,
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              // 快速调整
-              QuickAdjustBar(
-                isFasting: isFasting,
-                theme: theme,
-                onMinus1: () => notifier.adjustWeight(-1),
-                onMinus10: () => notifier.adjustWeight(-10),
-                onPlus1: () => notifier.adjustWeight(1),
-                onPlus10: () => notifier.adjustWeight(10),
-                onToggleFasting: () => notifier.setFasting(!isFasting),
-              ),
-              // 数字键盘
-              WeighNumPad(
-                onDigit: notifier.appendDigit,
-                onDelete: notifier.deleteDigit,
-                theme: theme,
-              ),
+              // 输入区域：按键模式显示体重+键盘+快速调整，转盘模式显示一体式转盘
+              if (inputMode == WeighInputMode.keypad) ...[
+                WeighDisplay(
+                  weightText: weightText,
+                  message: message,
+                  theme: theme,
+                  showUnit: false,
+                  onMinus1: () => notifier.adjustWeight(-1),
+                  onMinus10: () => notifier.adjustWeight(-10),
+                  onPlus1: () => notifier.adjustWeight(1),
+                  onPlus10: () => notifier.adjustWeight(10),
+                  isFasting: isFasting,
+                  onToggleFasting: () => notifier.setFasting(!isFasting),
+                ),
+                const SizedBox(height: 4),
+                WeighNumPad(
+                  onDigit: notifier.appendDigit,
+                  onDelete: notifier.deleteDigit,
+                  theme: theme,
+                ),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SizedBox(
+                    height: 260,
+                    child: WeighDial(
+                      side: dialSide,
+                      weightText: weightText,
+                      message: message,
+                      isFasting: isFasting,
+                      onToggleFasting: () => notifier.setFasting(!isFasting),
+                      lastWeightG: lastWeigh?.weightG,
+                      growthStage: birdById[selectedBirdId]?.growthStage ?? '成鸟',
+                      sensitivity: dialSensitivity,
+                      speedThreshold: speedThreshold,
+                      windowSize: windowSize,
+                      fastStep: fastStep,
+                      onDelta: (delta) => notifier.adjustWeight(delta),
+                      theme: theme,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

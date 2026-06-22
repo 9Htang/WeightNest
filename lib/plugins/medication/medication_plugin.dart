@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_clock.dart';
 import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
 import '../../core/event_bus.dart';
@@ -109,7 +110,7 @@ class MedicationPlugin extends FeaturePlugin {
   Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async {
     final descriptors = <PluginTaskDescriptor>[];
     try {
-      final today = DateTime.now();
+      final today = AppClock.now;
 
       var query = db.select(db.medications)
             ..where((t) => t.active.equals(true));
@@ -161,7 +162,7 @@ class MedicationPlugin extends FeaturePlugin {
   Future<List<PluginAlert>> detectAlerts(AppDatabase db, {int? birdId}) async {
     final alerts = <PluginAlert>[];
     try {
-      final now = DateTime.now();
+      final now = AppClock.now;
       final dayStart = DateTime(now.year, now.month, now.day);
 
       // 查询今日待完成但已超时的喂药任务

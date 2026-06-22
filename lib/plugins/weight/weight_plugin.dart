@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../core/app_clock.dart';
 import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
 import '../../database/database.dart';
@@ -140,7 +141,7 @@ AbnormalDirection isLatestAbnormalDirection(
 
   switch (bird.growthStage) {
     case '雏鸟':
-      final now = DateTime.now();
+      final now = AppClock.now;
       final cutoff48h = now.subtract(const Duration(hours: 48));
       final recent =
           weights.where((w) => w.recordedAt.isAfter(cutoff48h)).toList();
@@ -228,7 +229,7 @@ List<PluginAlert> _weaningAlerts(BirdWithDetails bird, List<Weight> weights) {
 List<PluginAlert> _chickGrowth(BirdWithDetails bird, List<Weight> weights) {
   if (weights.length < 2) return [];
 
-  final now = DateTime.now();
+  final now = AppClock.now;
   final cutoff = now.subtract(const Duration(hours: 48));
   final recent = weights
       .where(
@@ -386,7 +387,7 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
 
 List<PluginAlert> _overdue(BirdWithDetails bird, List<Weight> weights) {
   final latest = weights.last;
-  final daysSince = DateTime.now().difference(latest.recordedAt).inDays;
+  final daysSince = AppClock.now.difference(latest.recordedAt).inDays;
   final interval = _effectiveInterval(bird);
 
   if (interval <= 0) return [];
@@ -513,7 +514,7 @@ class WeightPlugin extends FeaturePlugin {
   Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async {
     final descriptors = <PluginTaskDescriptor>[];
     try {
-      final today = DateTime.now();
+      final today = AppClock.now;
 
       // 时间闸门：每日批量生成时，未到 taskReadyTime 不生成
       WorkHoursConfig? wh;
@@ -521,7 +522,7 @@ class WeightPlugin extends FeaturePlugin {
         wh = await WorkHoursConfig.load();
         final ready = wh.taskReadyTime;
         final todayReady = DateTime(today.year, today.month, today.day, ready.hour, ready.minute);
-        if (DateTime.now().isBefore(todayReady)) return [];
+        if (AppClock.now.isBefore(todayReady)) return [];
       }
 
       // Query birds — scoped to birdId if provided, otherwise all
@@ -599,7 +600,7 @@ class WeightPlugin extends FeaturePlugin {
     }
 
     // 对每只鸟执行体重检测（批量查询，避免 N+1）
-    final now = DateTime.now();
+    final now = AppClock.now;
     final cutoff = now.subtract(Duration(days: _analysisWindowDays));
     // 查询繁育中的鸟：繁育期间不催称重
     final activeBreedingIds = (pluginRegistry

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -58,6 +59,8 @@ extension SpeciesRepository on AppDatabase {
       nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
       juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
+      createdAt: Value(AppClock.now),
+      updatedAt: Value(AppClock.now),
     ));
     return (await getSpeciesById(id))!;
   }
@@ -68,7 +71,9 @@ extension SpeciesRepository on AppDatabase {
       int nestlingWeighIntervalDays = 1,
       int juvenileWeighIntervalDays = 3,
       int adultWeighIntervalDays = 7,
-      String? uuid}) async {
+      String? uuid,
+      DateTime? createdAt,
+      DateTime? updatedAt}) async {
     await into(species).insert(SpeciesCompanion.insert(
       uuid: uuid ?? genUuid(),
       name: name,
@@ -77,6 +82,8 @@ extension SpeciesRepository on AppDatabase {
       nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
       juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
+      createdAt: Value(createdAt ?? AppClock.now),
+      updatedAt: Value(updatedAt ?? AppClock.now),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
     return (await getSpeciesById(rows.first.read<int>('id')))!;
@@ -97,7 +104,7 @@ extension SpeciesRepository on AppDatabase {
       nestlingWeighIntervalDays: nestlingWeighIntervalDays != null ? Value(nestlingWeighIntervalDays) : const Value.absent(),
       juvenileWeighIntervalDays: juvenileWeighIntervalDays != null ? Value(juvenileWeighIntervalDays) : const Value.absent(),
       adultWeighIntervalDays: adultWeighIntervalDays != null ? Value(adultWeighIntervalDays) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }

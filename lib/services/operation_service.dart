@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import '../database/database.dart';
+import '../core/app_clock.dart';
 import '../core/event_bus.dart';
 import '../core/events.dart';
 import '../utils/uuid.dart';
@@ -43,7 +44,7 @@ class OperationService {
     int? operatedBy,
     DateTime? operatedAt,
   }) async {
-    final opAt = operatedAt ?? DateTime.now();
+    final opAt = operatedAt ?? AppClock.now;
 
     final log = await _db.transaction(() async {
       // 1. 写入统一操作日志
@@ -58,6 +59,7 @@ class OperationService {
           relatedTaskId: Value(relatedTaskId),
           operatedBy: Value(operatedBy),
           operatedAt: Value(opAt),
+          createdAt: Value(AppClock.now),
         ),
       );
 
@@ -66,9 +68,9 @@ class OperationService {
         await (_db.update(_db.tasks)..where((t) => t.id.equals(relatedTaskId)))
             .write(TasksCompanion(
           status: const Value('已完成'),
-          completedAt: Value(DateTime.now()),
+          completedAt: Value(AppClock.now),
           completedBy: Value(operatedBy),
-          updatedAt: Value(DateTime.now()),
+          updatedAt: Value(AppClock.now),
         ));
       }
 
@@ -118,7 +120,7 @@ class OperationService {
     int? operatedBy,
     DateTime? operatedAt,
   }) async {
-    final opAt = operatedAt ?? DateTime.now();
+    final opAt = operatedAt ?? AppClock.now;
 
     // 1. 写入统一操作日志（参与外层事务）
     final log = await _db.into(_db.activityLogs).insertReturning(
@@ -132,6 +134,7 @@ class OperationService {
         relatedTaskId: Value(relatedTaskId),
         operatedBy: Value(operatedBy),
         operatedAt: Value(opAt),
+        createdAt: Value(AppClock.now),
       ),
     );
 
@@ -140,9 +143,9 @@ class OperationService {
       await (_db.update(_db.tasks)..where((t) => t.id.equals(relatedTaskId)))
           .write(TasksCompanion(
         status: const Value('已完成'),
-        completedAt: Value(DateTime.now()),
+        completedAt: Value(AppClock.now),
         completedBy: Value(operatedBy),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(AppClock.now),
       ));
     }
 
@@ -184,7 +187,7 @@ class OperationService {
           status: const Value('待完成'),
           completedAt: const Value(null),
           completedBy: const Value(null),
-          updatedAt: Value(DateTime.now()),
+          updatedAt: Value(AppClock.now),
         ));
       }
 

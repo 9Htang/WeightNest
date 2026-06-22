@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -65,6 +66,8 @@ extension WeightRepository on AppDatabase {
     int? recordedBy,
     bool isFasting = false,
     String? notes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     // 同一分钟内的记录自动覆盖
     final minuteStart = DateTime(
@@ -87,7 +90,7 @@ extension WeightRepository on AppDatabase {
           recordedBy: recordedBy != null ? Value(recordedBy) : const Value.absent(),
           isFasting: Value(isFasting),
           notes: notes != null ? Value(notes) : const Value.absent(),
-          updatedAt: Value(DateTime.now()),
+          updatedAt: Value(updatedAt ?? AppClock.now),
         ),
       );
       return await (select(weights)..where((w) => w.id.equals(existing.id)))
@@ -101,6 +104,8 @@ extension WeightRepository on AppDatabase {
         isFasting: Value(isFasting),
         recordedBy: Value(recordedBy),
         notes: Value(notes),
+        createdAt: Value(createdAt ?? AppClock.now),
+        updatedAt: Value(updatedAt ?? AppClock.now),
       ));
       final rows = await customSelect('SELECT last_insert_rowid() as id').get();
       return await (select(weights)
@@ -183,7 +188,7 @@ extension WeightRepository on AppDatabase {
         isFasting: isFasting != null ? Value(isFasting) : const Value.absent(),
         recordedAt: recordedAt != null ? Value(recordedAt) : const Value.absent(),
         notes: notes != null ? Value(notes) : const Value.absent(),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(AppClock.now),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import '../../core/app_clock.dart';
 import '../../core/plugin_registry.dart';
 import '../../database/database.dart';
 import 'medication_repository.dart';
@@ -23,7 +24,7 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = widget.initialDay ?? DateTime.now();
+    _selectedDay = widget.initialDay ?? AppClock.now;
   }
 
   void _reload() => setState(() => _refreshKey++);
@@ -55,7 +56,7 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
   }
 
   Widget _buildDateBar(ThemeData theme) {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final selectedStr = _selectedDay == today
         ? '今天'
         : '${_selectedDay.month}月${_selectedDay.day}日';
@@ -73,7 +74,7 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
               context: context,
               initialDate: _selectedDay,
               firstDate: DateTime(2024),
-              lastDate: DateTime.now().add(const Duration(days: 30)),
+              lastDate: AppClock.now.add(const Duration(days: 30)),
               helpText: '选择日期',
               cancelText: '取消',
               confirmText: '确定',
@@ -194,7 +195,7 @@ class _MedicationDayView extends StatelessWidget {
                   ]),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: items.map((l) {
-                    final isLate = !l.isDone && !l.isSkipped && l.task.dueDate.isBefore(DateTime.now());
+                    final isLate = !l.isDone && !l.isSkipped && l.task.dueDate.isBefore(AppClock.now);
                     return InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: (l.isDone || l.isSkipped) ? null : () async {

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
@@ -20,7 +21,7 @@ class ExcelExportService {
     final sheet = excel['体重记录'];
 
     final daysInMonth = DateTime(year, month + 1, 0).day;
-    final now = DateTime.now();
+    final now = AppClock.now;
     final isCurrentMonth = (year == now.year && month == now.month);
 
     // 获取所有鹦鹉，按房间→容器分组排序

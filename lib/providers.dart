@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
+import 'core/app_clock.dart';
 import 'core/plugin_registry.dart';
 import 'database/database.dart';
 import 'repositories/bird_repository.dart';
@@ -159,7 +160,7 @@ final alertCountProvider = Provider<int>((ref) {
 final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
   ref.watch(alertConfirmedVersionProvider); // 确认后重新检查
   final db = ref.watch(databaseProvider);
-  final cutoff = DateTime.now().subtract(const Duration(days: 30));
+  final cutoff = AppClock.now.subtract(const Duration(days: 30));
   final rows = await (db.select(db.alertRecords)
     ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff)))
     .get();

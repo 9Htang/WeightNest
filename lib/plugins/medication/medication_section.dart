@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_clock.dart';
 import '../../core/plugin_registry.dart';
 import '../../database/database.dart';
 import 'medication_repository.dart';
@@ -175,7 +176,7 @@ class _MedicationCard extends StatelessWidget {
     final isLongTerm = medication.endDate == null;
     final startStr = '${medication.startDate.month}/${medication.startDate.day}';
     final endStr = isLongTerm ? '长期' : '${medication.endDate!.month}/${medication.endDate!.day}';
-    final remainDays = isLongTerm ? null : medication.endDate!.difference(DateTime.now()).inDays;
+    final remainDays = isLongTerm ? null : medication.endDate!.difference(AppClock.now).inDays;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -267,7 +268,7 @@ class _TodayLogItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLate = !data.isDone && !data.isSkipped && data.task.dueDate.isBefore(DateTime.now());
+    final isLate = !data.isDone && !data.isSkipped && data.task.dueDate.isBefore(AppClock.now);
 
     Color bgColor;
     if (data.isDone) {
@@ -321,6 +322,11 @@ class _TodayLogItem extends StatelessWidget {
                                   ? Colors.red
                                   : Colors.blue,
                     )),
+                Text(
+                  '发布 ${data.task.createdAt.month}/${data.task.createdAt.day} '
+                  '${data.task.createdAt.hour.toString().padLeft(2, '0')}:${data.task.createdAt.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                ),
               ],
             ),
           ),
@@ -628,7 +634,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
 
   Future<void> _doSave() async {
     final db = pluginRegistry.db!;
-    final endDate = _isLongTerm ? null : DateTime.now().add(Duration(days: _durationDays));
+    final endDate = _isLongTerm ? null : AppClock.now.add(Duration(days: _durationDays));
 
     await db.addMedication(
       birdId: widget.birdId,

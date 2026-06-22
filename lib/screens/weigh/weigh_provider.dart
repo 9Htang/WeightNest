@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../core/plugin_registry.dart';
 import '../../providers.dart';
@@ -353,6 +354,9 @@ class WeighNotifier extends StateNotifier<WeighState> {
   void appendDigit(String digit) {
     if (digit == '.' && state.weightText.contains('.')) return;
     if (state.weightText.length >= 6) return;
+    // 只允许一位小数
+    final dot = state.weightText.indexOf('.');
+    if (dot >= 0 && state.weightText.length - dot > 1) return;
     state = state.copyWith(
         weightText: state.weightText + digit, message: null);
   }
@@ -374,7 +378,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
 
   void adjustWeight(double delta) {
     final current = double.tryParse(state.weightText) ?? 0;
-    final newVal = (current + delta).toStringAsFixed(1);
+    final newVal = (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
     state = state.copyWith(weightText: newVal, message: null);
   }
 
@@ -393,7 +397,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
 
     state = state.copyWith(isSaving: true);
 
-    final now = DateTime.now();
+    final now = AppClock.now;
 
     // 查找今日待完成称重任务（事务外查询）
     final allTodayTasks = await _db.getTodayTasks(null);

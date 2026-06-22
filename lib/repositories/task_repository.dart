@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../database/database.dart';
+import '../core/app_clock.dart';
 import '../core/plugin_registry.dart';
+import '../services/notification_service.dart';
 import '../utils/uuid.dart';
 
 extension TaskRepository on AppDatabase {
   Future<List<TaskWithBird>> getTodayTasks(int? userId) {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -41,13 +43,13 @@ extension TaskRepository on AppDatabase {
   }
 
   Future<List<TaskWithBird>> getOverdueTasks() {
-    final now = DateTime.now();
+    final now = AppClock.now;
 
     return (select(tasks).join([
       innerJoin(birds, birds.id.equalsExp(tasks.birdId)),
     ])
       ..where(tasks.deadline.isSmallerThanValue(now) &
-          tasks.status.equals('待完成'))
+          (tasks.status.equals('待完成') | tasks.status.equals('逾期')))
       ..orderBy([OrderingTerm.asc(tasks.dueDate)]))
         .map((row) => TaskWithBird(
               task: row.readTable(tasks),
@@ -57,7 +59,7 @@ extension TaskRepository on AppDatabase {
   }
 
   Future<List<TaskWithBird>> getTodayTasksByRoom(int roomId) {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -79,9 +81,9 @@ extension TaskRepository on AppDatabase {
     await (update(tasks)..where((t) => t.id.equals(taskId))).write(
       TasksCompanion(
         status: const Value('已完成'),
-        completedAt: Value(DateTime.now()),
+        completedAt: Value(AppClock.now),
         completedBy: Value(completedBy),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(AppClock.now),
       ),
     );
   }
@@ -90,15 +92,51 @@ extension TaskRepository on AppDatabase {
   static DateTime? _lastRun;
 
   /// Mark all past-due pending tasks as 逾期.
-  /// Called on every [generateTodayTasks] invocation, before the throttle,
-  /// so overdue marking always runs regardless of whether generation is skipped.
-  Future<void> _markOverdueTasks() async {
-    final now = DateTime.now();
-    await (update(tasks)
+  /// Runs before the concurrency lock and throttle in [generateTodayTasks],
+  /// so overdue marking always executes even when generation is skipped.
+  ///
+  /// Returns the list of tasks that were just marked (for notification).
+  Future<List<Task>> _markOverdueTasks() async {
+    final now = AppClock.now;
+    // 先查询即将被标记的任务，用于后续发通知
+    final due = await (select(tasks)
           ..where((t) =>
               t.deadline.isSmallerThanValue(now) &
               t.status.equals('待完成')))
-        .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(DateTime.now())));
+        .get();
+    if (due.isNotEmpty) {
+      await (update(tasks)
+            ..where((t) =>
+                t.deadline.isSmallerThanValue(now) &
+                t.status.equals('待完成')))
+          .write(TasksCompanion(status: const Value('逾期'), updatedAt: Value(AppClock.now)));
+    }
+    return due;
+  }
+
+  /// 发送逾期任务本地通知（异步，不阻塞主流程）。
+  Future<void> _notifyOverdue(List<Task> tasks) async {
+    try {
+      final taskTypeLabel = <String, String>{
+        'weigh': '称重',
+        'medication': '喂药',
+      };
+      final birdIds = tasks.map((t) => t.birdId).toSet().toList();
+      final birds = await (select(this.birds)
+            ..where((b) => b.id.isIn(birdIds)))
+          .get();
+      final birdMap = {for (final b in birds) b.id: b};
+      final items = [
+        for (final t in tasks)
+          (
+            birdName: birdMap[t.birdId]?.name ?? '未知 #${t.birdId}',
+            taskType: taskTypeLabel[t.taskType] ?? t.taskType,
+          ),
+      ];
+      await NotificationService.instance.showOverdueTasks(items);
+    } catch (_) {
+      // 通知失败不影响主流程
+    }
   }
 
   /// Remove duplicate tasks (same bird + same taskType + same dueDate) keeping only the first.
@@ -138,19 +176,22 @@ extension TaskRepository on AppDatabase {
     }
     _generating = true;
     try {
-    final today = DateTime.now();
+    // 逾期标记：_markOverdueTasks 幂等，多次并发执行无副作用。
+    final justOverdue = await _markOverdueTasks();
+    if (justOverdue.isNotEmpty) {
+      _notifyOverdue(justOverdue);
+    }
+
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     debugPrint('[TaskGen] start — ${today.toIso8601String().substring(0, 10)} force=$force');
 
-    // 逾期标记始终执行，不受节流影响
-    await _markOverdueTasks();
-
     // 60 秒节流：避免冷启动/切前台/定时器短时间内重复跑生成逻辑
-    if (!force && _lastRun != null && DateTime.now().difference(_lastRun!).inSeconds < 60) {
+    if (!force && _lastRun != null && AppClock.now.difference(_lastRun!).inSeconds < 60) {
       debugPrint('[TaskGen] throttle, skip (lastRun=$_lastRun)');
       return 0;
     }
-    _lastRun = DateTime.now();
+    _lastRun = AppClock.now;
 
     // 包裹事务：cleanup + 修补/生成原子执行，防止崩溃导致任务丢失
     final result = await transaction(() async {
@@ -193,7 +234,7 @@ extension TaskRepository on AppDatabase {
               final room = await (select(rooms)..where((r) => r.id.equals(bird.roomId!))).getSingleOrNull();
               if (room?.assignedUserId != null) {
                 await (update(tasks)..where((t) => t.id.equals(task.id)))
-                    .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(DateTime.now())));
+                    .write(TasksCompanion(assignedUserId: Value(room!.assignedUserId), updatedAt: Value(AppClock.now)));
                 patched++;
               }
             }
@@ -213,7 +254,7 @@ extension TaskRepository on AppDatabase {
                 status: const Value('已完成'),
                 completedAt: Value(lastWeigh.recordedAt),
                 completedBy: Value(lastWeigh.recordedBy),
-                updatedAt: Value(DateTime.now()),
+                updatedAt: Value(AppClock.now),
               ));
               upgraded++;
             }
@@ -262,6 +303,8 @@ extension TaskRepository on AppDatabase {
               deadline: Value(d.deadline),
               status: const Value('待完成'),
               metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
+              createdAt: Value(AppClock.now),
+              updatedAt: Value(AppClock.now),
             ));
             existingTodayKeys.add(key);
             weighIncompleteBirdIds.add(d.birdId); // prevent intra-run weigh duplicates
@@ -288,7 +331,7 @@ extension TaskRepository on AppDatabase {
   ///
   /// Returns the number of newly generated tasks.
   Future<int> generateTasksForBird(int birdId) async {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -334,6 +377,8 @@ extension TaskRepository on AppDatabase {
             deadline: Value(d.deadline),
             status: const Value('待完成'),
             metadata: Value(d.metadata != null ? jsonEncode(d.metadata) : null),
+            createdAt: Value(AppClock.now),
+            updatedAt: Value(AppClock.now),
           ));
           existingKeys.add(key);
           generated++;

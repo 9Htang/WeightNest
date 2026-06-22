@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../utils/uuid.dart';
 
@@ -18,8 +19,10 @@ extension MedicationRepository on AppDatabase {
     DateTime? endDate,
     String? notes,
     List<TimeOfDay>? customTimes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
-    final start = startDate ?? DateTime.now();
+    final start = startDate ?? AppClock.now;
     final med = await into(medications).insertReturning(
       MedicationsCompanion.insert(
         uuid: genUuid(),
@@ -31,6 +34,8 @@ extension MedicationRepository on AppDatabase {
         startDate: start,
         endDate: Value(endDate),
         notes: Value(notes),
+        createdAt: Value(createdAt ?? AppClock.now),
+        updatedAt: Value(updatedAt ?? AppClock.now),
       ),
     );
     // 方案创建后触发任务生成（由 generateTodayTasks 统一调度）
@@ -45,14 +50,14 @@ extension MedicationRepository on AppDatabase {
 
   Future<void> deactivateMedication(int id) async {
     await (update(medications)..where((t) => t.id.equals(id)))
-        .write(MedicationsCompanion(active: const Value(false), updatedAt: Value(DateTime.now())));
+        .write(MedicationsCompanion(active: const Value(false), updatedAt: Value(AppClock.now)));
   }
 
   // ── 今日喂药任务（从 tasks 表统一查询） ──
 
   /// 获取今天某只鸟的喂药任务（按时间排序）
   Future<List<MedTaskInfo>> getTodayMedTasks(int birdId) async {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -72,7 +77,7 @@ extension MedicationRepository on AppDatabase {
 
   /// 获取今天所有的喂药任务（跨所有鸟）
   Future<List<MedTaskInfo>> getAllTodayMedTasks() async {
-    final today = DateTime.now();
+    final today = AppClock.now;
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -101,9 +106,9 @@ extension MedicationRepository on AppDatabase {
     await (update(tasks)..where((t) => t.id.equals(taskId)))
         .write(TasksCompanion(
       status: const Value('已完成'),
-      completedAt: Value(DateTime.now()),
+      completedAt: Value(AppClock.now),
       completedBy: Value(userId),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
   }
 
@@ -112,7 +117,7 @@ extension MedicationRepository on AppDatabase {
     await (update(tasks)..where((t) => t.id.equals(taskId)))
         .write(TasksCompanion(
       status: const Value('已跳过'),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(AppClock.now),
     ));
   }
 }
@@ -202,7 +207,7 @@ class MedTaskInfo {
   String get statusLabel {
     if (isDone) return '已喂';
     if (isSkipped) return '已跳过';
-    if (task.dueDate.isBefore(DateTime.now())) return '逾期';
+    if (task.dueDate.isBefore(AppClock.now)) return '逾期';
     return '待喂';
   }
 }
