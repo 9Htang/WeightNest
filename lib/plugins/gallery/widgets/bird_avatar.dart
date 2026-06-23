@@ -32,6 +32,7 @@ class BirdAvatarWidget extends StatefulWidget {
 class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
   String? _avatarPath;
   bool _loaded = false;
+  int _version = 0;
 
   @override
   void initState() {
@@ -65,6 +66,7 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
       setState(() {
         _avatarPath = path as String?;
         _loaded = true;
+        _version++;
       });
     }
   }
@@ -84,6 +86,7 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
               : widget.size / 7),
           child: Image.file(
             file,
+            key: ValueKey('avatar_${widget.birdId}_$_version'),
             width: widget.size,
             height: widget.size,
             fit: BoxFit.cover,

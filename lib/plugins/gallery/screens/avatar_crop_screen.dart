@@ -60,8 +60,8 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
                     children: [
                       InteractiveViewer(
                         transformationController: _transformCtrl,
-                        minScale: 0.5,
-                        maxScale: 4.0,
+                        minScale: 1.0,
+                        maxScale: 8.0,
                         child: Image.file(
                           File(widget.pickedFile.path),
                           width: cropSize,

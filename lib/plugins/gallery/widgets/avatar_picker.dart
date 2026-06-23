@@ -117,6 +117,12 @@ Future<bool> _pickAndCrop(
         ),
       );
 
+  // Evict cached image so the new avatar shows immediately
+  try {
+    final avatarFile = File(storage.resolve(relPath));
+    PaintingBinding.instance.imageCache.evict(FileImage(avatarFile));
+  } catch (_) {}
+
   // Clean up temp crop file
   try {
     await File(croppedPath).delete();
