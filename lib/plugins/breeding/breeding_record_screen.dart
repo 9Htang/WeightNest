@@ -235,9 +235,7 @@ class _BreedingRecordDetailScreenState
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.skip_next, size: 18),
                         label: const Text('推进阶段'),
-                        onPressed: _record!.stage == '育雏'
-                            ? null
-                            : () => _advanceStage(),
+                        onPressed: () => _advanceStage(),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -461,7 +459,7 @@ class _BreedingRecordDetailScreenState
     DateTime? hatchDate = egg.hatchDate;
     bool showHatchPicker = selectedStatus == '已出壳';
 
-    await showDialog(
+    final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
@@ -512,14 +510,13 @@ class _BreedingRecordDetailScreenState
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('取消')),
             FilledButton(
               onPressed: () async {
                 await _db!.updateEggStatus(egg.id, selectedStatus,
                     hatchDate: hatchDate);
-                if (ctx.mounted) Navigator.pop(ctx);
-                _load();
+                Navigator.pop(ctx, true);
               },
               child: const Text('保存'),
             ),
@@ -527,6 +524,62 @@ class _BreedingRecordDetailScreenState
         ),
       ),
     );
+
+    if (result != true || !mounted) {
+      _load();
+      return;
+    }
+
+    // If the egg has hatched and no chick is linked yet, offer to add one
+    if (selectedStatus == '已出壳' && egg.chickBirdId == null) {
+      final addChick = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('蛋已出壳'),
+          content: const Text('是否添加雏鸟记录？'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('稍后')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('添加雏鸟'),
+            ),
+          ],
+        ),
+      );
+
+      if (addChick == true && mounted) {
+        await _addChickBird(egg, hatchDate);
+      }
+    }
+
+    _load();
+  }
+
+  /// Open an add-bird dialog for a hatched egg, then link the chick to the egg.
+  Future<void> _addChickBird(Egg egg, DateTime? hatchDate) async {
+    final db = _db;
+    if (db == null) return;
+
+    final speciesList = await (db.select(db.species).get());
+    final roomList = await (db.select(db.rooms).get());
+
+    if (!mounted) return;
+
+    final birdId = await showDialog<int>(
+      context: context,
+      builder: (ctx) => _AddChickDialog(
+        speciesList: speciesList,
+        roomList: roomList,
+        defaultBirthDate: hatchDate ?? egg.laidDate,
+      ),
+    );
+
+    if (birdId != null && mounted) {
+      await db.updateEggStatus(egg.id, '已出壳',
+          hatchDate: hatchDate, chickBirdId: birdId);
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -813,6 +866,157 @@ class _MatingEventTile extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 蛋出壳后添加雏鸟弹窗
+// ═══════════════════════════════════════════════
+
+class _AddChickDialog extends StatefulWidget {
+  final List<Specy> speciesList;
+  final List<Room> roomList;
+  final DateTime defaultBirthDate;
+
+  const _AddChickDialog({
+    required this.speciesList,
+    required this.roomList,
+    required this.defaultBirthDate,
+  });
+
+  @override
+  State<_AddChickDialog> createState() => _AddChickDialogState();
+}
+
+class _AddChickDialogState extends State<_AddChickDialog> {
+  final _nameCtrl = TextEditingController();
+  int? _selectedSpeciesId;
+  int? _selectedRoomId;
+  String _gender = '未知';
+  late DateTime _birthDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _birthDate = widget.defaultBirthDate;
+    // Auto-select the first species if available
+    if (widget.speciesList.isNotEmpty) {
+      _selectedSpeciesId = widget.speciesList.first.id;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加雏鸟'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: '名称',
+                hintText: '例如: 小小绿',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            // 品种选择
+            DropdownButtonFormField<int>(
+              value: _selectedSpeciesId,
+              decoration: const InputDecoration(labelText: '品种'),
+              items: widget.speciesList
+                  .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedSpeciesId = v),
+            ),
+            const SizedBox(height: 12),
+            // 房间选择
+            DropdownButtonFormField<int?>(
+              value: _selectedRoomId,
+              decoration: const InputDecoration(labelText: '房间 (选填)'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('不分配')),
+                ...widget.roomList.map(
+                    (r) => DropdownMenuItem(value: r.id, child: Text(r.name))),
+              ],
+              onChanged: (v) => setState(() => _selectedRoomId = v),
+            ),
+            const SizedBox(height: 12),
+            // 性别
+            Row(
+              children: ['公', '母', '未知'].map((g) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
+                  child: ChoiceChip(
+                    label: Text(g),
+                    selected: _gender == g,
+                    onSelected: (v) => setState(() => _gender = g),
+                  ),
+                ),
+              )).toList(),
+            ),
+            const SizedBox(height: 12),
+            // 出生日期
+            InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _birthDate,
+                  firstDate: DateTime(2020),
+                  lastDate: AppClock.now,
+                );
+                if (d != null && mounted) setState(() => _birthDate = d);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: '出生日期（出壳日）'),
+                child: Text(DateFormat('yyyy-MM-dd').format(_birthDate)),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          onPressed: () async {
+            final name = _nameCtrl.text.trim();
+            if (name.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请输入名称'), behavior: SnackBarBehavior.floating),
+              );
+              return;
+            }
+            if (_selectedSpeciesId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请选择品种'), behavior: SnackBarBehavior.floating),
+              );
+              return;
+            }
+            final db = pluginRegistry.db;
+            if (db == null) return;
+            final bird = await db.createBird(
+              name: name,
+              speciesId: _selectedSpeciesId!,
+              birthDate: _birthDate,
+              roomId: _selectedRoomId,
+              gender: _gender,
+            );
+            if (mounted) Navigator.pop(context, bird.id);
+          },
+          child: const Text('创建'),
+        ),
+      ],
     );
   }
 }

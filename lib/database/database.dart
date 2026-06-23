@@ -2,11 +2,12 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'tables.dart';
+import '../plugins/gallery/gallery_tables.dart';
 
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Species, Users, Rooms, Enclosures, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, BreedingPairs, BreedingRecords, Eggs, MatingEvents, ActivityLogs],
+  tables: [Species, Users, Rooms, Enclosures, Birds, Weights, Tasks, AlertRecords, SyncQueue, Medications, BreedingPairs, BreedingRecords, Eggs, MatingEvents, ActivityLogs, BirdPhotos, BirdAvatars],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -15,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +86,13 @@ class AppDatabase extends _$AppDatabase {
             // 存量未完成任务用 dueDate 回填 deadline，防止永久卡在"待完成"
             await customStatement(
               "UPDATE tasks SET deadline = due_date WHERE deadline IS NULL AND status IN ('待完成', '逾期')");
+          }
+          if (from < 14) {
+            // v13 → v14: gallery plugin — bird photos & avatars
+            await m.createTable(birdPhotos);
+            await m.createTable(birdAvatars);
+            await m.createIndex(Index('bird_photos',
+                'CREATE INDEX IF NOT EXISTS idx_bird_photos_bird ON bird_photos(bird_id, sort_order ASC)'));
           }
         },
       );

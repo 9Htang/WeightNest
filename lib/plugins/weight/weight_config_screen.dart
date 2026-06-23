@@ -860,6 +860,129 @@ class _InputPrefsCard extends ConsumerWidget {
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ),
+            const SizedBox(height: 16),
+
+            // ── 转盘宽度 ──
+            Row(
+              children: [
+                const Text('转盘宽度', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${(cfg.dialWidthPercent * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('窄', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.dialWidthPercent,
+                    min: WeighInputConfig.dialWidthPercentMin,
+                    max: WeighInputConfig.dialWidthPercentMax,
+                    divisions: 40,
+                    label: '${(cfg.dialWidthPercent * 100).round()}%',
+                    onChanged: (v) => notifier.setDialWidthPercent(v),
+                  ),
+                ),
+                const Text('宽', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '转盘占屏幕宽度的百分比，影响图表可用空间',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── 弧线半径 ──
+            Row(
+              children: [
+                const Text('弧线半径', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${(cfg.arcRadiusPercent * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('弯', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.arcRadiusPercent,
+                    min: WeighInputConfig.arcRadiusPercentMin,
+                    max: WeighInputConfig.arcRadiusPercentMax,
+                    divisions: 35,
+                    label: '${(cfg.arcRadiusPercent * 100).round()}%',
+                    onChanged: (v) => notifier.setArcRadiusPercent(v),
+                  ),
+                ),
+                const Text('直', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '大圆半径占屏幕高度的百分比，越大弧线越平直',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── 弧线粗细 ──
+            Row(
+              children: [
+                const Text('弧线粗细', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  '${cfg.strokeWidth.round()}px',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: cfg.strokeWidth,
+                    min: WeighInputConfig.strokeWidthMin,
+                    max: WeighInputConfig.strokeWidthMax,
+                    divisions: 12,
+                    label: '${cfg.strokeWidth.round()}px',
+                    onChanged: (v) => notifier.setStrokeWidth(v),
+                  ),
+                ),
+                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '弧线轨道的描边宽度',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
           ],
         ),
       ),

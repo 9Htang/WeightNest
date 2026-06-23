@@ -18,14 +18,24 @@ class BreedingDetailSection extends StatelessWidget {
     final db = pluginRegistry.db;
     if (db == null) return const SizedBox.shrink();
 
-    return FutureBuilder<({BreedingPair? pair, (BreedingRecord, BreedingPair, Bird male, Bird female)? record})>(
+    return FutureBuilder<_BreedingDetailData>(
       future: () async {
         final pair = await db.getActivePairForBird(birdId);
         (BreedingRecord, BreedingPair, Bird male, Bird female)? record;
         if (pair != null) {
           record = await db.getActiveRecordForBird(birdId);
         }
-        return (pair: pair, record: record);
+        // Query lineage data
+        final parents = await db.getBirdParents(birdId);
+        final offspring = await db.getBirdOffspring(birdId);
+        final siblings = await db.getBirdSiblings(birdId);
+        return _BreedingDetailData(
+          pair: pair,
+          record: record,
+          parents: parents,
+          offspring: offspring,
+          siblings: siblings,
+        );
       }(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -36,14 +46,26 @@ class BreedingDetailSection extends StatelessWidget {
         }
 
         final data = snapshot.data;
-        final pair = data?.pair;
-        final record = data?.record;
+        if (data == null) return const SizedBox.shrink();
 
-        if (pair == null) {
+        final hasBreedingInfo = data.pair != null;
+        final hasLineage = data.parents != null ||
+            data.offspring.isNotEmpty ||
+            data.siblings.isNotEmpty;
+
+        if (!hasBreedingInfo && !hasLineage) {
           return _buildEmpty(context);
         }
 
-        return _buildBreedingInfo(context, pair, record);
+        return Column(
+          children: [
+            if (hasBreedingInfo)
+              _buildBreedingInfo(context, data.pair!, data.record),
+            if (hasBreedingInfo && hasLineage) const SizedBox(height: 8),
+            if (hasLineage)
+              _buildLineageCard(context, data.parents, data.offspring, data.siblings),
+          ],
+        );
       },
     );
   }
@@ -64,6 +86,139 @@ class BreedingDetailSection extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// Lineage card showing parents, offspring, and siblings.
+  Widget _buildLineageCard(
+    BuildContext context,
+    ({Bird father, Bird mother})? parents,
+    List<({Bird chick, Bird father, Bird mother})> offspring,
+    List<Bird> siblings,
+  ) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_tree, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('族谱',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ── 父母 ──
+            if (parents != null) ...[
+              _lineageRow(
+                context,
+                icon: Icons.arrow_upward,
+                color: Colors.blue,
+                label: '亲鸟',
+                children: [
+                  _LineageBirdChip(
+                    bird: parents.father,
+                    relation: '父',
+                    color: Colors.blue,
+                    onTap: () => _navigateToBird(context, parents.father.id),
+                  ),
+                  const SizedBox(width: 8),
+                  _LineageBirdChip(
+                    bird: parents.mother,
+                    relation: '母',
+                    color: Colors.pink,
+                    onTap: () => _navigateToBird(context, parents.mother.id),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // ── 后代 ──
+            if (offspring.isNotEmpty) ...[
+              _lineageRow(
+                context,
+                icon: Icons.arrow_downward,
+                color: Colors.green,
+                label: '后代 (${offspring.length})',
+                children: offspring
+                    .map((o) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _LineageBirdChip(
+                            bird: o.chick,
+                            relation: '后代',
+                            color: Colors.green,
+                            onTap: () =>
+                                _navigateToBird(context, o.chick.id),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // ── 兄弟姐妹 ──
+            if (siblings.isNotEmpty) ...[
+              _lineageRow(
+                context,
+                icon: Icons.people_outline,
+                color: Colors.orange,
+                label: '同胞 (${siblings.length})',
+                children: siblings
+                    .map((s) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _LineageBirdChip(
+                            bird: s,
+                            relation: '同胞',
+                            color: Colors.orange,
+                            onTap: () =>
+                                _navigateToBird(context, s.id),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _lineageRow(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String label,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: children,
+        ),
+      ],
     );
   }
 
@@ -241,5 +396,76 @@ class BreedingDetailSection extends StatelessWidget {
         initialPluginId: 'breeding',
       ),
     ));
+  }
+}
+
+/// Data holder for breeding detail async queries.
+class _BreedingDetailData {
+  final BreedingPair? pair;
+  final (BreedingRecord, BreedingPair, Bird male, Bird female)? record;
+  final ({Bird father, Bird mother})? parents;
+  final List<({Bird chick, Bird father, Bird mother})> offspring;
+  final List<Bird> siblings;
+
+  _BreedingDetailData({
+    this.pair,
+    this.record,
+    this.parents,
+    this.offspring = const [],
+    this.siblings = const [],
+  });
+}
+
+/// A chip displaying a bird's name and relation, used in lineage display.
+class _LineageBirdChip extends StatelessWidget {
+  final Bird bird;
+  final String relation;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _LineageBirdChip({
+    required this.bird,
+    required this.relation,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: color.withAlpha(20),
+          border: Border.all(color: color.withAlpha(60)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.pets, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              bird.name,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: color),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                color: color.withAlpha(40),
+              ),
+              child: Text(
+                relation,
+                style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,6 +1,6 @@
 name: weight_nest
 description: 鹦鹉体重记录系统 - 离线单机版 MVP
-version: 1.9.7+55
+version: 1.9.8+56
 publish_to: none
 
 environment:
@@ -26,6 +26,7 @@ dependencies:
   flutter_local_notifications: ^18.0.0
   share_plus: ^10.0.0
   shared_preferences: ^2.3.4
+  image_picker: ^1.1.2
   sqlite3_flutter_libs: ^0.5.26
 
 dev_dependencies:

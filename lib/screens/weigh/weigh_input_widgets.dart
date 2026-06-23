@@ -83,7 +83,7 @@ class WeighDisplay extends StatelessWidget {
                   size: 16,
                   color: isFasting! ? Colors.white : null,
                 ),
-                label: const Text('空腹', style: TextStyle(fontSize: 12)),
+                label: Text(isFasting! ? '空腹' : '非空腹', style: const TextStyle(fontSize: 12)),
                 backgroundColor: isFasting! ? scheme.primary : null,
                 onPressed: onToggleFasting!,
                 padding: EdgeInsets.zero,
@@ -94,11 +94,27 @@ class WeighDisplay extends StatelessWidget {
         ),
         if (showUnit) ...[
           const SizedBox(height: 2),
-          Text(
-            '克 (g)',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurface.withAlpha(120),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '克',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurface.withAlpha(120),
+                ),
+              ),
+              if (isFasting != null) ...[
+                const SizedBox(width: 2),
+                Text(
+                  isFasting! ? ' (空腹)' : ' (非空腹)',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isFasting!
+                        ? const Color(0xFF639922)
+                        : const Color(0xFFE24B4A),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
         if (message != null) ...[
@@ -160,10 +176,15 @@ class _QuickBtn extends StatelessWidget {
 // 转盘输入控件 — 仪表盘式半圆弧
 // ═══════════════════════════════════════════════
 
-/// 仪表盘转盘：半圆弧 + 指针（当前体重固定3点钟）+ 绿点（上次体重）+ 空腹按钮
+/// 仪表盘转盘：大圆裁切圆弧 + 固定绿点 + 空腹按钮 + 旋转刻度
 ///
-/// 盘面刻度以当前体重为中心，量程按生长阶段自适应。
-/// 旋转手势移动绿点在弧上的位置，体重随盘面偏移变化。
+/// 几何模型（右手）：
+///   W = p × SW               转盘横向宽度
+///   R = k × W                大圆半径
+///   cx = SW + R - W          圆心 x
+///   cy = y_bottom - √(W(2R-W))  圆心 y
+///   绿点固定在角度 π，位置 (SW - W, cy)
+/// 左手模式为水平镜像，绿点固定在角度 0。
 class WeighDial extends StatefulWidget {
   final DialSide side;
   final String weightText;
@@ -176,12 +197,19 @@ class WeighDial extends StatefulWidget {
   final double speedThreshold;
   final int windowSize;
   final double fastStep;
+  final double screenWidth;
+  final double screenHeight;
+  final double dialWidthPercent;
+  final double arcRadiusPercent;
+  final double strokeWidth;
   final ValueChanged<double> onDelta;
   final ThemeData theme;
 
   const WeighDial({
     super.key,
     required this.side,
+    required this.screenWidth,
+    required this.screenHeight,
     this.weightText = '',
     this.message,
     this.isFasting = false,
@@ -192,6 +220,9 @@ class WeighDial extends StatefulWidget {
     this.speedThreshold = 170.0,
     this.windowSize = 8,
     this.fastStep = 0.5,
+    this.dialWidthPercent = 0.25,
+    this.arcRadiusPercent = 0.25,
+    this.strokeWidth = 30,
     required this.onDelta,
     required this.theme,
   });
@@ -229,42 +260,69 @@ class _WeighDialState extends State<WeighDial> {
     return avgSpeed < widget.speedThreshold ? _kSlowStep : widget.fastStep;
   }
 
-  double _halfRange(double currentWeight) {
-    final w = currentWeight.clamp(1.0, double.infinity);
-    return switch (widget.growthStage) {
-      '雏鸟' => max(5.0, w * 0.30),
-      '幼鸟' => max(3.0, w * 0.15),
-      _      => max(2.0, w * 0.03),
-    };
+  // ── 大圆裁切几何 ──
+  // W = p × SW,  R = k × W
+  // cx = rightEdge + R - W (右手), cy 已改为垂直居中 (size.height / 2)
+
+  static double _sweep(double w, double r) {
+    if (r <= 0 || w >= 2 * r) return pi;       // 半圆兜底
+    final ratio = 1 - w / r;
+    return 2 * acos(ratio.clamp(-1.0, 1.0));
   }
 
-  static double _arcRadius(Size size) =>
-      (size.shortestSide * 0.38).clamp(100.0, 180.0);
+  // 缓存几何值，避免每次 build/手势回调重算 sqrt/乘法
+  double _cachedW = 0;
+  double _cachedR = 0;
+  double _lastSW = 0;
+  double _lastSH = 0;
 
-  Offset _center(Size size) => Offset(
-    widget.side == DialSide.left ? 0 : size.width,
-    size.height / 2,
-  );
-
-  bool _inFastingZone(Offset pos, Size size) {
-    final radius = _arcRadius(size);
-    final btnRadius = (radius - 28.0).clamp(28.0, double.infinity);
-    final btnCenter = _center(size);
-    return (pos - btnCenter).distance < btnRadius + 2;
+  double get _w {
+    if (_lastSW != widget.screenWidth || _lastSH != widget.screenHeight) {
+      _updateGeometry();
+    }
+    return _cachedW;
   }
 
-  bool _onArc(Offset pos, Size size) {
-    final c = _center(size);
-    final dist = (pos - c).distance;
-    return (dist - _arcRadius(size)).abs() < 56;
+  double get _r {
+    if (_lastSW != widget.screenWidth || _lastSH != widget.screenHeight) {
+      _updateGeometry();
+    }
+    return _cachedR;
+  }
+
+  void _updateGeometry() {
+    _lastSW = widget.screenWidth;
+    _lastSH = widget.screenHeight;
+    _cachedW = widget.screenWidth * widget.dialWidthPercent;
+    final r = widget.screenHeight * widget.arcRadiusPercent;
+    _cachedR = r >= _cachedW ? r : _cachedW; // R 必须 ≥ W，否则几何不成立
+  }
+
+  bool _onArc(Offset pos, Size size, Offset arcCenter, double radius, double startA, double sweep) {
+    final dist = (pos - arcCenter).distance;
+    if ((dist - radius).abs() > 56) return false;
+    // 判断角度是否在可见弧段内
+    final angle = atan2(pos.dy - arcCenter.dy, pos.dx - arcCenter.dx);
+    // 归一化角度差（用 mod 正确处理任意大小的角度偏移）
+    var d = (angle - startA) % (2 * pi);
+    if (d < 0) d += 2 * pi;
+    return d <= sweep + 0.2; // 留一些容差
   }
 
   void _onPanStart(DragStartDetails d, Size size) {
     final pos = d.localPosition;
-    if (_inFastingZone(pos, size)) return;
-    if (_onArc(pos, size)) {
+    final w = _w;
+    final r = _r;
+    final isRight = widget.side == DialSide.right;
+    final cy = size.height / 2; // 弧线垂直居中
+    final cx = isRight ? size.width + r - w : w - r;
+    final arcCenter = Offset(cx, cy);
+    final sweep = _sweep(w, r);
+    final startAngle = isRight ? pi - sweep / 2 : -sweep / 2;
+
+    if (_onArc(pos, size, arcCenter, r, startAngle, sweep)) {
       _isTracking = true;
-      _lastAngle = atan2(pos.dy - _center(size).dy, pos.dx - _center(size).dx);
+      _lastAngle = atan2(pos.dy - cy, pos.dx - cx);
       _lastUpdateTime = DateTime.now();
     }
   }
@@ -272,12 +330,16 @@ class _WeighDialState extends State<WeighDial> {
   void _onPanUpdate(DragUpdateDetails d, Size size) {
     if (!_isTracking) return;
     final pos = d.localPosition;
-    final center = _center(size);
+    final w = _w;
+    final r = _r;
+    final isRight = widget.side == DialSide.right;
+    final cy = size.height / 2; // 弧线垂直居中
+    final cx = isRight ? size.width + r - w : w - r;
     final now = DateTime.now();
     final dt = now.difference(_lastUpdateTime!).inMicroseconds / 1e6;
     if (dt <= 0) return;
 
-    final angle = atan2(pos.dy - center.dy, pos.dx - center.dx);
+    final angle = atan2(pos.dy - cy, pos.dx - cx);
     var delta = angle - _lastAngle;
     if (delta > pi) delta -= 2 * pi;
     if (delta < -pi) delta += 2 * pi;
@@ -286,12 +348,9 @@ class _WeighDialState extends State<WeighDial> {
     _lastAngle = angle;
     _lastUpdateTime = now;
 
-    // 顺时针手势 → deltaDeg > 0(右弧)/< 0(左弧) → dialOffset 减少 → 绿点相对往上 → 体重相对上次增加
+    // 顺时针手势 → 右手增重 / 左手减重（几何镜像，左侧需取反）
     final clockwise = widget.side == DialSide.right ? deltaDeg : -deltaDeg;
 
-    // 方向反转检测：本帧方向与上一帧不同时，先清空速度窗口——
-    // 避免反转前残留的速度样本（哪怕本身是噪声造成的）继续影响反转后的快慢判定，
-    // 让反转后的判定尽快只反映新方向上的真实速度。
     final sign = clockwise > 0 ? 1.0 : (clockwise < 0 ? -1.0 : 0.0);
     if (sign != 0 && _lastClockwiseSign != 0 && sign != _lastClockwiseSign) {
       _velocityWindow.clear();
@@ -300,7 +359,9 @@ class _WeighDialState extends State<WeighDial> {
 
     _velocityWindow.add((deg: deltaDeg.abs(), dt: dt));
     if (_velocityWindow.length > widget.windowSize) _velocityWindow.removeAt(0);
-    setState(() => _dialOffset -= clockwise * pi / 180);
+    setState(() {
+      _dialOffset = (_dialOffset - clockwise * pi / 180) % (2 * pi);
+    });
 
     // 步进触发
     _accumRaw += clockwise;
@@ -308,43 +369,52 @@ class _WeighDialState extends State<WeighDial> {
     while (_accumRaw.abs() >= stepDeg) {
       final dir = _accumRaw > 0 ? 1.0 : -1.0;
       final step = _stepSize;
-      final currentW = double.tryParse(widget.weightText) ?? 0;
-      final halfRange = _halfRange(currentW.clamp(1, double.infinity));
 
       widget.onDelta(dir * step);
       HapticFeedback.selectionClick();
       _accumRaw -= dir * stepDeg;
 
-      // 体重变化了 step，等效角度变化 = step/halfRange*(π/2)
-      // 同步 _dialOffset，避免和 lastWeightAngle 重复计算
-      setState(() => _dialOffset += dir * step / halfRange * (pi / 2));
+      // 每步回退一个刻度位
+      setState(() {
+        _dialOffset = (_dialOffset - dir * stepDeg * pi / 180) % (2 * pi);
+      });
     }
   }
 
   void _onPanEnd(DragEndDetails d) {
-    _isTracking = false;
-    _lastUpdateTime = null;
-    _accumRaw = 0;
-    _lastClockwiseSign = 0;
-    _velocityWindow.clear();
+    setState(() {
+      _isTracking = false;
+      _lastUpdateTime = null;
+      _accumRaw = 0;
+      _lastClockwiseSign = 0;
+      _velocityWindow.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = widget.theme.colorScheme;
+    final isRight = widget.side == DialSide.right;
 
     return LayoutBuilder(builder: (context, constraints) {
       final size = Size(constraints.maxWidth, constraints.maxHeight);
-      final radius = _arcRadius(size);
-      final center = _center(size);
-      final isLeft = widget.side == DialSide.left;
+      final w = _w;
+      final r = _r;
+      final cy = size.height / 2; // 弧线垂直居中
+      final cx = isRight ? size.width + r - w : w - r;
+      final sweepRad = _sweep(w, r);
+      final dotAngle = isRight ? pi : 0.0;
+      final arcCenter = Offset(cx, cy);
 
-      // 指针位置（canvas 角度）：左弧 → 0 (3点钟/右侧)，右弧 → π (9点钟/左侧)
-      final tickCenter = isLeft ? 0.0 : pi;
-
-      // 空腹按钮 — 与弧共圆心，半径缩进 28px 不重叠弧线
-      final btnRadius = (radius - 28.0).clamp(28.0, double.infinity);
-      final btnCenter = center; // 与弧共圆心
+      // 体重文字区域（用于点击切换空腹）
+      final dotX = cx + cos(dotAngle) * r;
+      final dotY = cy + sin(dotAngle) * r;
+      const textW = 80.0;
+      const textH = 44.0;
+      final textLeft = isRight
+          ? (dotX - textW - 10).clamp(0.0, size.width - textW)
+          : (dotX + 12).clamp(0.0, size.width - textW);
+      final textTop = dotY - textH / 2;
 
       return GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -359,65 +429,32 @@ class _WeighDialState extends State<WeighDial> {
             CustomPaint(
               size: size,
               painter: _DialArcPainter(
-                side: widget.side,
-                arcRadius: radius,
-                center: center,
+                arcRadius: r,
+                center: arcCenter,
                 isTracking: _isTracking,
-                tickCenter: tickCenter,
+                dialOffset: _dialOffset,
+                dotAngle: dotAngle,
+                sweepAngleRad: sweepRad,
+                strokeWidth: widget.strokeWidth,
                 weightText: widget.weightText,
+                isFasting: widget.isFasting,
                 sensitivity: widget.sensitivity,
                 color: scheme.primary,
                 trackColor: scheme.outlineVariant.withAlpha(60),
                 pointerColor: scheme.primary,
+                fastingGreen: const Color(0xFF639922),
+                fastingRed: const Color(0xFFE24B4A),
               ),
             ),
-            // 空腹按钮
+            // 体重数字区域 — 点击切换空腹
             Positioned(
-              left: btnCenter.dx - btnRadius,
-              top: btnCenter.dy - btnRadius,
+              left: textLeft,
+              top: textTop,
+              width: textW,
+              height: textH,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: widget.onToggleFasting,
-                child: Container(
-                  width: btnRadius * 2,
-                  height: btnRadius * 2,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.isFasting
-                        ? const Color(0xFFEAF3DE)
-                        : const Color(0xFFFCEBEB),
-                    border: Border.all(
-                      color: widget.isFasting
-                          ? const Color(0xFF639922)
-                          : const Color(0xFFE24B4A),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        widget.isFasting
-                            ? Icons.restaurant
-                            : Icons.restaurant_menu,
-                        size: 22,
-                        color: widget.isFasting
-                            ? const Color(0xFF3B6D11)
-                            : const Color(0xFFA32D2D),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.isFasting ? '空腹' : '非空腹',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: widget.isFasting
-                              ? const Color(0xFF3B6D11)
-                              : const Color(0xFFA32D2D),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ],
@@ -430,77 +467,116 @@ class _WeighDialState extends State<WeighDial> {
 // ── 弧线绘制器 ─────────────────────────────────
 
 class _DialArcPainter extends CustomPainter {
-  final DialSide side;
   final double arcRadius;
   final Offset center;
   final bool isTracking;
-  final double tickCenter;
+  final double dialOffset;
+  final double dotAngle;
+  final double sweepAngleRad;
+  final double strokeWidth;
   final String weightText;
+  final bool isFasting;
   final double sensitivity;
   final Color color;
   final Color trackColor;
   final Color pointerColor;
+  final Color fastingGreen;
+  final Color fastingRed;
 
   _DialArcPainter({
-    required this.side,
     required this.arcRadius,
     required this.center,
     required this.isTracking,
-    required this.tickCenter,
+    required this.dialOffset,
+    required this.dotAngle,
+    required this.sweepAngleRad,
+    required this.strokeWidth,
     this.weightText = '',
+    this.isFasting = false,
     required this.sensitivity,
     required this.color,
     required this.trackColor,
     required this.pointerColor,
+    this.fastingGreen = const Color(0xFF639922),
+    this.fastingRed = const Color(0xFFE24B4A),
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final isLeft = side == DialSide.left;
     final arcRect = Rect.fromCircle(center: center, radius: arcRadius);
 
-    // 右弧：底→左→顶 (pi/2 → pi → 3*pi/2)，画在屏幕左侧
-    // 左弧：顶→右→底 (3*pi/2 → 0 → pi/2)，画在屏幕右侧
-    final startAngle = isLeft ? 3 * pi / 2 : pi / 2;
-    const sweepAngle = pi;
+    // 弧线固定在 dotAngle 不动，只有刻度随 dialOffset 旋转
+    final startAngle = dotAngle - sweepAngleRad / 2;
 
-    // ── 弧线轨道 ──
-    canvas.drawArc(arcRect, startAngle, sweepAngle, false,
+    // ── 弧线轨道（统一颜色，不随 tracking 状态变化） ──
+    canvas.drawArc(arcRect, startAngle, sweepAngleRad, false,
       Paint()
-        ..color = isTracking ? color.withAlpha(100) : trackColor
+        ..color = trackColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 8.0
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round);
 
-    // ── 刻度线（以 tickCenter 为基准展开） ──
-    final tickCount = (90 / sensitivity).round();
-    for (var i = -tickCount; i <= tickCount; i++) {
-      final angleDeg = i * sensitivity;
-      final tickAngle = tickCenter + angleDeg * pi / 180;
+    // ── 车轮纹理：密集小刻度随 dialOffset 旋转，转动时有明显视觉反馈 ──
+    final halfSweepDeg = sweepAngleRad * 180 / pi / 2;
+    const textureInterval = 3.0; // 每 3° 一条纹理线（比 sensitivity 15° 密 5 倍）
+    final textureCount = (halfSweepDeg / textureInterval).round();
+    final landmarkStep = sensitivity; // 地标刻度间距（由 sensitivity 决定）
+    final landmarkDegs = <double>{};
+    for (var d = -halfSweepDeg; d <= halfSweepDeg; d += landmarkStep) {
+      landmarkDegs.add((d / landmarkStep).round() * landmarkStep);
+    }
+
+    // 先画密集纹理小刻度
+    for (var i = -textureCount; i <= textureCount; i++) {
+      final angleDeg = i * textureInterval;
+      // 跳过地标刻度位置（后面用更长刻度重画）
+      if ((angleDeg / landmarkStep).abs() % 1.0 < 1e-9) continue;
+      final tickAngle = dotAngle + dialOffset + angleDeg * pi / 180;
+      final tickLen = 3.0; // 短纹理线
+      final outerR = arcRadius + tickLen / 2;
+      final innerR = arcRadius - tickLen / 2;
+      final dx = cos(tickAngle);
+      final dy = sin(tickAngle);
+      canvas.drawLine(
+        Offset(center.dx + dx * outerR, center.dy + dy * outerR),
+        Offset(center.dx + dx * innerR, center.dy + dy * innerR),
+        Paint()
+          ..color = trackColor.withAlpha(100)
+          ..strokeWidth = 0.8,
+      );
+    }
+
+    // 再画地标大刻度（每 sensitivity° 一条）
+    final landmarkCount = (halfSweepDeg / landmarkStep).round();
+    for (var i = -landmarkCount; i <= landmarkCount; i++) {
+      final angleDeg = i * landmarkStep;
+      final tickAngle = dotAngle + dialOffset + angleDeg * pi / 180;
       final isCenter = i == 0;
       final tickLen = isCenter ? 14.0 : (i % 3 == 0 ? 9.0 : 6.0);
       final outerR = arcRadius + tickLen / 2;
       final innerR = arcRadius - tickLen / 2;
       final dx = cos(tickAngle);
       final dy = sin(tickAngle);
-
       canvas.drawLine(
         Offset(center.dx + dx * outerR, center.dy + dy * outerR),
         Offset(center.dx + dx * innerR, center.dy + dy * innerR),
         Paint()
           ..color = isCenter
               ? color.withAlpha(200)
-              : trackColor.withAlpha(isTracking ? 180 : 120)
+              : trackColor.withAlpha(150)
           ..strokeWidth = isCenter ? 2.0 : 1.0,
       );
     }
 
-    // ── 指针点 + 体重数字 ──
-    final px = center.dx + cos(tickCenter) * arcRadius;
-    final py = center.dy + sin(tickCenter) * arcRadius;
-    canvas.drawCircle(Offset(px, py), 5.0,
+    // ── 绿点：永远固定在 dotAngle ──
+    final dotRadius = 5.0;
+    final px = center.dx + cos(dotAngle) * arcRadius;
+    final py = center.dy + sin(dotAngle) * arcRadius;
+    canvas.drawCircle(Offset(px, py), dotRadius,
       Paint()..color = pointerColor..style = PaintingStyle.fill);
 
+    // ── 体重数字：颜色根据空腹状态（绿=空腹，红=非空腹） ──
+    final textColor = isFasting ? fastingGreen : fastingRed;
     final displayText = weightText.isEmpty ? '0.0' : weightText;
     final tp = TextPainter(
       text: TextSpan(
@@ -508,39 +584,375 @@ class _DialArcPainter extends CustomPainter {
         style: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          color: pointerColor,
+          color: textColor,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    final textX = isLeft ? px + 10 : px - tp.width - 10;
+    // 文字靠绿点左侧
+    final isLeftSide = dotAngle == 0.0;
+    final textX = isLeftSide
+        ? (px + 12).clamp(0.0, size.width - tp.width)
+        : (px - tp.width - 10).clamp(0.0, double.infinity);
     tp.paint(canvas, Offset(textX, py - tp.height / 2));
 
     final tpUnit = TextPainter(
       text: TextSpan(
         text: '克',
-        style: TextStyle(fontSize: 11, color: pointerColor.withAlpha(160)),
+        style: TextStyle(fontSize: 11, color: textColor.withAlpha(160)),
       ),
       textDirection: TextDirection.ltr,
     );
     tpUnit.layout();
     tpUnit.paint(canvas, Offset(textX, py + tp.height / 2 - 2));
+
+    // 空腹/非空腹标签 — 紧接"克"右侧
+    final tpFasting = TextPainter(
+      text: TextSpan(
+        text: isFasting ? ' (空腹)' : ' (非空腹)',
+        style: TextStyle(fontSize: 11, color: textColor.withAlpha(160)),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tpFasting.layout();
+    tpFasting.paint(canvas, Offset(textX + tpUnit.width, py + tp.height / 2 - 2));
   }
 
   @override
   bool shouldRepaint(covariant _DialArcPainter old) =>
-      side != old.side ||
       arcRadius != old.arcRadius ||
       center != old.center ||
       isTracking != old.isTracking ||
-      tickCenter != old.tickCenter ||
+      dialOffset != old.dialOffset ||
+      dotAngle != old.dotAngle ||
+      sweepAngleRad != old.sweepAngleRad ||
+      strokeWidth != old.strokeWidth ||
       weightText != old.weightText ||
+      isFasting != old.isFasting ||
       sensitivity != old.sensitivity ||
       color != old.color ||
       trackColor != old.trackColor ||
       pointerColor != old.pointerColor;
+}
+
+// ═══════════════════════════════════════════════
+// 滑动条输入控件 — 横向刻度条替代转盘
+// ═══════════════════════════════════════════════
+
+/// 横向滑动条：可拖拽的刻度条 + 体重数字 + 空腹按钮
+///
+/// 手势向左滑减小体重，向右滑增大体重。
+/// 速度阈值以上触发快速步进。
+class WeighSlider extends StatefulWidget {
+  final String weightText;
+  final String? message;
+  final bool isFasting;
+  final VoidCallback onToggleFasting;
+  final double? lastWeightG;
+  final String growthStage;
+  final double sensitivity;
+  final double speedThreshold;
+  final int windowSize;
+  final double fastStep;
+  final ValueChanged<double> onDelta;
+  final ThemeData theme;
+
+  const WeighSlider({
+    super.key,
+    this.weightText = '',
+    this.message,
+    this.isFasting = false,
+    required this.onToggleFasting,
+    this.lastWeightG,
+    this.growthStage = '成鸟',
+    this.sensitivity = 15.0,
+    this.speedThreshold = 170.0,
+    this.windowSize = 8,
+    this.fastStep = 0.5,
+    required this.onDelta,
+    required this.theme,
+  });
+
+  @override
+  State<WeighSlider> createState() => _WeighSliderState();
+}
+
+class _WeighSliderState extends State<WeighSlider> {
+  double _trackOffset = 0;
+  double _lastDx = 0;
+  bool _isTracking = false;
+  double _accumRaw = 0;
+  double _lastSign = 0;
+  final List<({double deg, double dt})> _velocityWindow = [];
+
+  static const double _kSlowStep = 0.1;
+
+  double get _stepSize {
+    if (_velocityWindow.isEmpty) return _kSlowStep;
+    var totalDeg = 0.0;
+    var totalDt = 0.0;
+    for (final sample in _velocityWindow) {
+      totalDeg += sample.deg;
+      totalDt += sample.dt;
+    }
+    if (totalDt <= 0) return _kSlowStep;
+    final avgSpeed = totalDeg / totalDt;
+    return avgSpeed < widget.speedThreshold ? _kSlowStep : widget.fastStep;
+  }
+
+  double _halfRange(double currentWeight) {
+    final w = currentWeight.clamp(1.0, double.infinity);
+    return switch (widget.growthStage) {
+      '雏鸟' => max(5.0, w * 0.30),
+      '幼鸟' => max(3.0, w * 0.15),
+      _      => max(2.0, w * 0.03),
+    };
+  }
+
+  void _onPanStart(DragStartDetails d) {
+    _isTracking = true;
+    _lastDx = d.localPosition.dx;
+  }
+
+  void _onPanUpdate(DragUpdateDetails d, double trackWidth) {
+    if (!_isTracking || trackWidth <= 0) return;
+    final dx = d.localPosition.dx;
+    final delta = dx - _lastDx;
+    _lastDx = dx;
+    if (delta == 0) return;
+
+    // Map pixel delta to "dial degree" equivalent:
+    // full track width = 180° of dial range
+    final degPerPixel = 180.0 / trackWidth;
+    final deltaDeg = delta * degPerPixel;
+    final absDeg = deltaDeg.abs();
+
+    // Direction sign
+    final sign = deltaDeg > 0 ? 1.0 : -1.0;
+    if (_lastSign != 0 && sign != _lastSign) _velocityWindow.clear();
+    _lastSign = sign;
+
+    _velocityWindow.add((deg: absDeg, dt: 1 / 60)); // assume ~60fps
+    if (_velocityWindow.length > widget.windowSize) _velocityWindow.removeAt(0);
+
+    setState(() => _trackOffset += delta);
+
+    // Step trigger
+    final stepDeg = widget.sensitivity;
+    _accumRaw += deltaDeg;
+    while (_accumRaw.abs() >= stepDeg) {
+      final dir = _accumRaw > 0 ? 1.0 : -1.0;
+      final step = _stepSize;
+      widget.onDelta(dir * step);
+      HapticFeedback.selectionClick();
+      _accumRaw -= dir * stepDeg;
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    _isTracking = false;
+    _accumRaw = 0;
+    _lastSign = 0;
+    _velocityWindow.clear();
+    setState(() => _trackOffset = 0); // snap back to center
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.theme.colorScheme;
+    final displayText = widget.weightText.isEmpty ? '0.0' : widget.weightText;
+    final currentW = double.tryParse(widget.weightText) ?? 0;
+    final halfRange = _halfRange(currentW.clamp(1, double.infinity));
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final trackWidth = constraints.maxWidth;
+      final tickCount = (180 / widget.sensitivity).round();
+
+      return GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanStart: _onPanStart,
+        onPanUpdate: (d) => _onPanUpdate(d, trackWidth),
+        onPanEnd: _onPanEnd,
+        onHorizontalDragStart: _onPanStart,
+        onHorizontalDragUpdate: (d) => _onPanUpdate(d, trackWidth),
+        onHorizontalDragEnd: _onPanEnd,
+        child: SizedBox(
+          height: 80,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // ── 体重数字 + 范围 ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    (currentW - halfRange).toStringAsFixed(1),
+                    style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100)),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$displayText g',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    (currentW + halfRange).toStringAsFixed(1),
+                    style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // ── 刻度条 ──
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomPaint(
+                      size: Size(trackWidth, 18),
+                      painter: _SliderTrackPainter(
+                        tickCount: tickCount,
+                        sensitivity: widget.sensitivity,
+                        isTracking: _isTracking,
+                        trackOffset: _trackOffset,
+                        color: scheme.primary,
+                        trackColor: scheme.outlineVariant.withAlpha(60),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 空腹按钮
+                  GestureDetector(
+                    onTap: widget.onToggleFasting,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: widget.isFasting
+                            ? const Color(0xFFEAF3DE)
+                            : const Color(0xFFFCEBEB),
+                        border: Border.all(
+                          color: widget.isFasting
+                              ? const Color(0xFF639922)
+                              : const Color(0xFFE24B4A),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.isFasting ? Icons.restaurant : Icons.restaurant_menu,
+                            size: 16,
+                            color: widget.isFasting
+                                ? const Color(0xFF3B6D11)
+                                : const Color(0xFFA32D2D),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.isFasting ? '空腹' : '非空腹',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: widget.isFasting
+                                  ? const Color(0xFF3B6D11)
+                                  : const Color(0xFFA32D2D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _SliderTrackPainter extends CustomPainter {
+  final int tickCount;
+  final double sensitivity;
+  final bool isTracking;
+  final double trackOffset;
+  final Color color;
+  final Color trackColor;
+
+  _SliderTrackPainter({
+    required this.tickCount,
+    required this.sensitivity,
+    required this.isTracking,
+    required this.trackOffset,
+    required this.color,
+    required this.trackColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final midY = size.height / 2;
+    final trackPaint = Paint()
+      ..color = isTracking ? color.withAlpha(100) : trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.0
+      ..strokeCap = StrokeCap.round;
+
+    // Horizontal track
+    canvas.drawLine(
+      Offset(4, midY),
+      Offset(size.width - 4, midY),
+      trackPaint,
+    );
+
+    // Center indicator (thumb)
+    final cx = size.width / 2 + trackOffset;
+    canvas.drawCircle(
+      Offset(cx.clamp(8.0, size.width - 8), midY),
+      8.0,
+      Paint()..color = color..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      Offset(cx.clamp(8.0, size.width - 8), midY),
+      8.0,
+      Paint()..color = color.withAlpha(60)..style = PaintingStyle.stroke..strokeWidth = 3.0,
+    );
+
+    // Tick marks
+    final spacing = (size.width - 16) / (tickCount * 2 + 1).clamp(1, 999);
+    for (var i = -tickCount; i <= tickCount; i++) {
+      final tx = cx + i * spacing * widgetSensitivityFactor();
+      if (tx < 4 || tx > size.width - 4) continue;
+      final isCenter = i == 0;
+      final tickH = isCenter ? 14.0 : (i % 3 == 0 ? 9.0 : 6.0);
+      canvas.drawLine(
+        Offset(tx, midY - tickH / 2),
+        Offset(tx, midY + tickH / 2),
+        Paint()
+          ..color = isCenter
+              ? color.withAlpha(200)
+              : trackColor.withAlpha(isTracking ? 180 : 120)
+          ..strokeWidth = isCenter ? 2.0 : 1.0,
+      );
+    }
+  }
+
+  double widgetSensitivityFactor() => 1.0;
+
+  @override
+  bool shouldRepaint(covariant _SliderTrackPainter old) =>
+      tickCount != old.tickCount ||
+      isTracking != old.isTracking ||
+      trackOffset != old.trackOffset ||
+      color != old.color ||
+      trackColor != old.trackColor;
 }
 
 // ═══════════════════════════════════════════════

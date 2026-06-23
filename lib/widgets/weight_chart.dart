@@ -12,11 +12,13 @@ class _TrendSegment {
 class WeightChartWidget extends StatefulWidget {
   final List<Weight> weights;
   final double chartHeight;
+  final bool compact;
 
   const WeightChartWidget({
     super.key,
     required this.weights,
     this.chartHeight = 300,
+    this.compact = false,
   });
 
   @override
@@ -73,6 +75,10 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     final minWeight = sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 2;
     final maxWeight = sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 2;
     final segments = _splitTrendSegments(sorted);
+
+    if (widget.compact) {
+      return _buildChart(sorted, minWeight, maxWeight, segments, theme);
+    }
 
     return Card(
       child: Padding(
@@ -158,14 +164,48 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     );
   }
 
+  Widget _buildYAxisPanel(double minWeight, double maxWeight, double interval) {
+    // Ticks start from the first multiple of interval >= minWeight,
+    // matching fl_chart's horizontal grid line positions.
+    final ticks = <double>[];
+    final first = (minWeight / interval).ceilToDouble() * interval;
+    for (double v = first; v <= maxWeight + interval / 2; v += interval) {
+      ticks.add(v);
+    }
+
+    // Chart drawing area: top=0 to bottom = chartHeight - 28 (bottom title reserve)
+    const bottomReserved = 28.0;
+    final drawHeight = widget.chartHeight - bottomReserved;
+
+    return SizedBox(
+      width: 44,
+      height: widget.chartHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: ticks.map((v) {
+          final ratio = (v - minWeight) / (maxWeight - minWeight);
+          final yFromTop = (1 - ratio) * drawHeight;
+          final top = (yFromTop - 7).clamp(0.0, widget.chartHeight - 14);
+          return Positioned(
+            top: top,
+            right: 4,
+            child: Text('${v.toInt()}g', style: const TextStyle(fontSize: 10)),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildChart(List<Weight> sorted, double minWeight, double maxWeight,
       List<_TrendSegment> segments, ThemeData theme) {
     return LayoutBuilder(builder: (_, constraints) {
-      final baseWidth = constraints.maxWidth - 56;
-      final chartWidth = _zoomLevel <= 0
-          ? baseWidth
-          : (sorted.length * 12.0 * _zoomLevel).clamp(baseWidth, 8000.0);
+      const yAxisWidth = 44.0;
+      final chartContentWidth = constraints.maxWidth - yAxisWidth;
+      final zoomedWidth = _zoomLevel <= 0
+          ? chartContentWidth
+          : (sorted.length * 12.0 * _zoomLevel).clamp(chartContentWidth, 8000.0);
       final showDots = _zoomLevel >= 4 || sorted.length <= 30;
+      final interval = ((maxWeight - minWeight) / 5).clamp(1, 50).ceilToDouble();
 
       return SizedBox(
         height: widget.chartHeight,
@@ -177,93 +217,99 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
               );
             }
           },
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            controller: _scrollController,
-            child: SizedBox(
-              width: chartWidth,
-              height: widget.chartHeight,
-              child: LineChart(
-                duration: const Duration(milliseconds: 250),
-                LineChartData(
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: ((maxWeight - minWeight) / 5).clamp(1, 50).ceilToDouble(),
-                  ),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 44,
-                        getTitlesWidget: (v, _) => Text('${v.toInt()}g', style: const TextStyle(fontSize: 10)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Fixed Y-axis labels — stays visible when chart scrolls right
+              _buildYAxisPanel(minWeight, maxWeight, interval),
+              // Scrollable chart area
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _scrollController,
+                  child: SizedBox(
+                    width: zoomedWidth,
+                    height: widget.chartHeight,
+                    child: LineChart(
+                      duration: Duration.zero,
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: interval,
+                        ),
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 28,
+                              interval: 1,
+                              getTitlesWidget: (v, _) {
+                                final i = v.toInt();
+                                if (i < 0 || i >= sorted.length) return const SizedBox.shrink();
+                                final step = (sorted.length / 10).ceil().clamp(1, 50);
+                                if (i % step != 0 && i != sorted.length - 1) return const SizedBox.shrink();
+                                return Transform.rotate(
+                                  angle: -0.5,
+                                  child: Text(sorted[i].recordedAt.toString().substring(5, 10), style: const TextStyle(fontSize: 9)),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minY: minWeight,
+                        maxY: maxWeight,
+                        lineBarsData: segments.map((seg) => LineChartBarData(
+                          spots: seg.spots,
+                          isCurved: true,
+                          curveSmoothness: 0.3,
+                          color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary,
+                          barWidth: _zoomLevel >= 4 ? 2.5 : 1.8,
+                          dotData: FlDotData(
+                            show: showDots,
+                            getDotPainter: (spot, _, __, ___) {
+                              final i = spot.x.toInt();
+                              if (i < 0 || i >= sorted.length) {
+                                return FlDotCirclePainter(radius: 2, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
+                              }
+                              final w = sorted[i];
+                              if (!w.isFasting) {
+                                return FlDotCirclePainter(radius: 3.5, color: Colors.white, strokeWidth: 1.5, strokeColor: Colors.orange.shade600);
+                              }
+                              return FlDotCirclePainter(radius: 2.5, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
+                            },
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: (seg.isDown ? Colors.red : theme.colorScheme.primary).withAlpha(20),
+                          ),
+                        )).toList(),
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipItems: (spots) => spots.map((s) {
+                              final i = s.x.toInt();
+                              final w = sorted[i];
+                              final prevW = i > 0 ? sorted[i - 1].weightG : w.weightG;
+                              final isDown = w.weightG < prevW;
+                              return LineTooltipItem(
+                                '${w.weightG.toStringAsFixed(1)}g${isDown ? " ↓" : ""}${w.isFasting ? "" : " (非空腹)"}  ${w.recordedAt.toString().substring(0, 16).replaceAll('T', ' ')}',
+                                TextStyle(color: Colors.white, fontSize: 11, fontWeight: isDown ? FontWeight.bold : FontWeight.normal),
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 28,
-                        interval: 1,
-                        getTitlesWidget: (v, _) {
-                          final i = v.toInt();
-                          if (i < 0 || i >= sorted.length) return const SizedBox.shrink();
-                          final step = (sorted.length / 10).ceil().clamp(1, 50);
-                          if (i % step != 0 && i != sorted.length - 1) return const SizedBox.shrink();
-                          return Transform.rotate(
-                            angle: -0.5,
-                            child: Text(sorted[i].recordedAt.toString().substring(5, 10), style: const TextStyle(fontSize: 9)),
-                          );
-                        },
-                      ),
-                    ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  minY: minWeight,
-                  maxY: maxWeight,
-                  lineBarsData: segments.map((seg) => LineChartBarData(
-                    spots: seg.spots,
-                    isCurved: true,
-                    curveSmoothness: 0.3,
-                    color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary,
-                    barWidth: _zoomLevel >= 4 ? 2.5 : 1.8,
-                    dotData: FlDotData(
-                      show: showDots,
-                      getDotPainter: (spot, _, __, ___) {
-                        final i = spot.x.toInt();
-                        if (i < 0 || i >= sorted.length) {
-                          return FlDotCirclePainter(radius: 2, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                        }
-                        final w = sorted[i];
-                        if (!w.isFasting) {
-                          return FlDotCirclePainter(radius: 3.5, color: Colors.white, strokeWidth: 1.5, strokeColor: Colors.orange.shade600);
-                        }
-                        return FlDotCirclePainter(radius: 2.5, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: (seg.isDown ? Colors.red : theme.colorScheme.primary).withAlpha(20),
-                    ),
-                  )).toList(),
-                  lineTouchData: LineTouchData(
-                    touchTooltipData: LineTouchTooltipData(
-                      getTooltipItems: (spots) => spots.map((s) {
-                        final i = s.x.toInt();
-                        final w = sorted[i];
-                        final prevW = i > 0 ? sorted[i - 1].weightG : w.weightG;
-                        final isDown = w.weightG < prevW;
-                        return LineTooltipItem(
-                          '${w.weightG.toStringAsFixed(1)}g${isDown ? " ↓" : ""}${w.isFasting ? "" : " (非空腹)"}  ${w.recordedAt.toString().substring(0, 16).replaceAll('T', ' ')}',
-                          TextStyle(color: Colors.white, fontSize: 11, fontWeight: isDown ? FontWeight.bold : FontWeight.normal),
-                        );
-                      }).toList(),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       );

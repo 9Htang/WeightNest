@@ -4,7 +4,7 @@ import '../../core/plugin.dart';
 import '../../services/work_hours_config.dart';
 import '../../providers.dart';
 import '../../plugins/plugins.dart';
-import '../species/species_screen.dart';
+
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -38,12 +38,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          // ── 主题设置 ──
+          // ── 通用设置 ──
+          _SectionHeader(icon: Icons.tune, title: '通用设置'),
+          Text('应用外观与工作时段配置',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(height: 12),
+
+          // 主题设置
           const _ThemeCard(),
 
           const SizedBox(height: 16),
 
-          // ── 工作时间 ──
+          // 工作时间
           workHoursAsync.when(
             loading: () => const Card(
               child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
@@ -55,10 +61,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onEndPick: () => _pickWorkTime(wh, false),
             ),
           ),
-          const SizedBox(height: 16),
-
-          // ── 品种管理 ──
-          _SpeciesManagementCard(),
           const SizedBox(height: 16),
 
           // ── 插件管理 ──
@@ -87,29 +89,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 }
 
-/// 主题设置卡片
+/// 主题设置卡片（与插件卡片宽度一致）
 class _ThemeCard extends ConsumerWidget {
   const _ThemeCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final themeMode = ref.watch(themeModeProvider);
 
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(children: [
-              Icon(Icons.palette_outlined, size: 22),
-              SizedBox(width: 8),
-              Text('主题设置', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ]),
-            const SizedBox(height: 4),
-            Text('切换应用外观，即时生效并自动保存',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: theme.colorScheme.primaryContainer.withAlpha(120),
+                  ),
+                  child: Icon(Icons.palette_outlined, size: 22, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('主题设置', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text('切换应用外观，即时生效并自动保存',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             SegmentedButton<ThemeMode>(
               segments: const [
                 ButtonSegment(
@@ -145,7 +166,7 @@ class _ThemeCard extends ConsumerWidget {
   }
 }
 
-/// 工作时间卡片
+/// 工作时间卡片（与插件卡片宽度一致）
 class _WorkHoursCard extends StatelessWidget {
   final WorkHoursConfig config;
   final VoidCallback onStartPick;
@@ -159,21 +180,41 @@ class _WorkHoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(children: [
-              Icon(Icons.schedule, size: 22),
-              SizedBox(width: 8),
-              Text('工作时间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ]),
-            const SizedBox(height: 4),
-            Text('设定每日工作时段，各插件将基于此安排任务',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: theme.colorScheme.primaryContainer.withAlpha(120),
+                  ),
+                  child: Icon(Icons.schedule, size: 22, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('工作时间', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text('设定每日工作时段，各插件将基于此安排任务',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             // 时间选择器
             Row(
               children: [
@@ -274,59 +315,6 @@ class _TimeCard extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 品种管理入口卡片
-class _SpeciesManagementCard extends ConsumerWidget {
-  const _SpeciesManagementCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final spAsync = ref.watch(allSpeciesProvider);
-    final count = spAsync.valueOrNull?.length ?? 0;
-
-    return Card(
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SpeciesScreen()),
-        ),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: theme.colorScheme.primaryContainer.withAlpha(120),
-                ),
-                child: Icon(Icons.pets, size: 22, color: theme.colorScheme.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('品种管理', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(
-                      count > 0 ? '已添加 $count 个品种，点击管理' : '添加鹦鹉品种，设置生长阶段参数',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
-            ],
-          ),
         ),
       ),
     );
@@ -544,5 +532,22 @@ class _FeatureChip extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 通用 section 标题，与插件管理标题风格一致
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  const _SectionHeader({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(children: [
+      Icon(icon, size: 22, color: theme.colorScheme.primary),
+      const SizedBox(width: 8),
+      Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+    ]);
   }
 }

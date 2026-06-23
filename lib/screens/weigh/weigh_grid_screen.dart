@@ -1,10 +1,16 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../database/database.dart';
 import '../../repositories/bird_repository.dart';
+import '../../repositories/weight_repository.dart';
 import '../../plugins/weight/weight_plugin.dart';
 import '../../plugins/weight/grid_color_config.dart';
+
+import '../../core/plugin_registry.dart';
+import '../../widgets/weight_chart.dart';
 
 import '../worker/worker_screen.dart';
 import 'weigh_grid_provider.dart';
@@ -28,7 +34,7 @@ class WeighGridScreen extends ConsumerStatefulWidget {
   ConsumerState<WeighGridScreen> createState() => _WeighGridScreenState();
 }
 
-const _headerHeight = 36.0;
+const _headerHeight = 30.0;
 
 class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
   final _scrollController = ScrollController();
@@ -206,6 +212,11 @@ class _WeighGridScreenState extends ConsumerState<WeighGridScreen> {
                     speedThreshold: inputConfig.speedThreshold,
                     windowSize: inputConfig.windowSize,
                     fastStep: inputConfig.fastStep,
+                    dialWidthPercent: inputConfig.dialWidthPercent,
+                    arcRadiusPercent: inputConfig.arcRadiusPercent,
+                    strokeWidth: inputConfig.strokeWidth,
+                    screenWidth: MediaQuery.of(context).size.width,
+                    screenHeight: MediaQuery.of(context).size.height,
                     theme: theme,
                     notifier: ref.read(weighGridProvider.notifier),
                     onSwitchMode: () {
@@ -609,7 +620,7 @@ class _BirdCell extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
             decoration: BoxDecoration(
               color: bgColor,
               border: Border(
@@ -705,6 +716,11 @@ class _WeighInputPanel extends StatelessWidget {
   final double speedThreshold;
   final int windowSize;
   final double fastStep;
+  final double dialWidthPercent;
+  final double arcRadiusPercent;
+  final double strokeWidth;
+  final double screenWidth;
+  final double screenHeight;
   final ThemeData theme;
   final WeighGridNotifier notifier;
   final VoidCallback onSwitchMode;
@@ -723,6 +739,11 @@ class _WeighInputPanel extends StatelessWidget {
     required this.speedThreshold,
     required this.windowSize,
     required this.fastStep,
+    required this.dialWidthPercent,
+    required this.arcRadiusPercent,
+    required this.strokeWidth,
+    required this.screenWidth,
+    required this.screenHeight,
     required this.theme,
     required this.notifier,
     required this.onSwitchMode,
@@ -836,48 +857,114 @@ class _WeighInputPanel extends StatelessWidget {
                   ],
                 ),
               const SizedBox(height: 8),
-              // 输入区域：按键模式显示体重+键盘+快速调整，转盘模式显示一体式转盘
-              if (inputMode == WeighInputMode.keypad) ...[
-                WeighDisplay(
-                  weightText: weightText,
-                  message: message,
-                  theme: theme,
-                  showUnit: false,
-                  onMinus1: () => notifier.adjustWeight(-1),
-                  onMinus10: () => notifier.adjustWeight(-10),
-                  onPlus1: () => notifier.adjustWeight(1),
-                  onPlus10: () => notifier.adjustWeight(10),
-                  isFasting: isFasting,
-                  onToggleFasting: () => notifier.setFasting(!isFasting),
-                ),
-                const SizedBox(height: 4),
-                WeighNumPad(
-                  onDigit: notifier.appendDigit,
-                  onDelete: notifier.deleteDigit,
-                  theme: theme,
-                ),
-              ] else
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: SizedBox(
-                    height: 260,
-                    child: WeighDial(
-                      side: dialSide,
-                      weightText: weightText,
-                      message: message,
-                      isFasting: isFasting,
-                      onToggleFasting: () => notifier.setFasting(!isFasting),
-                      lastWeightG: lastWeigh?.weightG,
-                      growthStage: birdById[selectedBirdId]?.growthStage ?? '成鸟',
-                      sensitivity: dialSensitivity,
-                      speedThreshold: speedThreshold,
-                      windowSize: windowSize,
-                      fastStep: fastStep,
-                      onDelta: (delta) => notifier.adjustWeight(delta),
-                      theme: theme,
+              // ── 输入区域：Stack+Offstage 双分支保活，切换零卡顿 ──
+              Builder(builder: (ctx) {
+                final wPx = screenWidth * dialWidthPercent;
+                final rPx = (screenHeight * arcRadiusPercent).clamp(wPx, double.infinity);
+                final disc = wPx * (2 * rPx - wPx);
+                final arcH = disc > 0 ? 2 * sqrt(disc) : 2 * wPx;
+                final dialHeight = (arcH + strokeWidth + 32).clamp(180.0, 600.0);
+                final dialWidth = (wPx + 70).clamp(120.0, 300.0);
+
+                return Stack(
+                  children: [
+                    // 键盘模式 — 始终保活
+                    Offstage(
+                      offstage: inputMode != WeighInputMode.keypad,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          WeighDisplay(
+                            weightText: weightText,
+                            message: message,
+                            theme: theme,
+                            showUnit: true,
+                            onMinus1: () => notifier.adjustWeight(-1),
+                            onMinus10: () => notifier.adjustWeight(-10),
+                            onPlus1: () => notifier.adjustWeight(1),
+                            onPlus10: () => notifier.adjustWeight(10),
+                            isFasting: isFasting,
+                            onToggleFasting: () => notifier.setFasting(!isFasting),
+                          ),
+                          const SizedBox(height: 4),
+                          WeighNumPad(
+                            onDigit: notifier.appendDigit,
+                            onDelete: notifier.deleteDigit,
+                            theme: theme,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
+                    // 转盘模式 — 始终保活
+                    Offstage(
+                      offstage: inputMode != WeighInputMode.dial,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: dialSide == DialSide.left
+                              ? [
+                                  SizedBox(
+                                    width: dialWidth,
+                                    height: dialHeight,
+                                    child: WeighDial(
+                                      side: dialSide,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      weightText: weightText,
+                                      message: message,
+                                      isFasting: isFasting,
+                                      onToggleFasting: () => notifier.setFasting(!isFasting),
+                                      lastWeightG: lastWeigh?.weightG,
+                                      growthStage: birdById[selectedBirdId]?.growthStage ?? '成鸟',
+                                      sensitivity: dialSensitivity,
+                                      speedThreshold: speedThreshold,
+                                      windowSize: windowSize,
+                                      fastStep: fastStep,
+                                      dialWidthPercent: dialWidthPercent,
+                                      arcRadiusPercent: arcRadiusPercent,
+                                      strokeWidth: strokeWidth,
+                                      onDelta: (delta) => notifier.adjustWeight(delta),
+                                      theme: theme,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(child: _WeightTrendInline(birdId: birdId, chartHeight: dialHeight)),
+                                ]
+                              : [
+                                  Expanded(child: _WeightTrendInline(birdId: birdId, chartHeight: dialHeight)),
+                                  const SizedBox(width: 4),
+                                  SizedBox(
+                                    width: dialWidth,
+                                    height: dialHeight,
+                                    child: WeighDial(
+                                      side: dialSide,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      weightText: weightText,
+                                      message: message,
+                                      isFasting: isFasting,
+                                      onToggleFasting: () => notifier.setFasting(!isFasting),
+                                      lastWeightG: lastWeigh?.weightG,
+                                      growthStage: birdById[selectedBirdId]?.growthStage ?? '成鸟',
+                                      sensitivity: dialSensitivity,
+                                      speedThreshold: speedThreshold,
+                                      windowSize: windowSize,
+                                      fastStep: fastStep,
+                                      dialWidthPercent: dialWidthPercent,
+                                      arcRadiusPercent: arcRadiusPercent,
+                                      strokeWidth: strokeWidth,
+                                      onDelta: (delta) => notifier.adjustWeight(delta),
+                                      theme: theme,
+                                    ),
+                                  ),
+                                ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ],
           ),
         ),
@@ -887,5 +974,32 @@ class _WeighInputPanel extends StatelessWidget {
 
   String _fmtDate(DateTime dt) {
     return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// 选中鸟的体重趋势内联图表，复用 [WeightChartWidget]
+class _WeightTrendInline extends StatelessWidget {
+  final int birdId;
+  final double chartHeight;
+  const _WeightTrendInline({required this.birdId, this.chartHeight = 160});
+
+  @override
+  Widget build(BuildContext context) {
+    final db = pluginRegistry.db;
+    if (db == null) return const SizedBox.shrink();
+    return FutureBuilder<List<Weight>>(
+      future: db.getByBird(birdId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return WeightChartWidget(
+          key: ValueKey(birdId),
+          weights: snapshot.data!,
+          chartHeight: chartHeight,
+          compact: true,
+        );
+      },
+    );
   }
 }

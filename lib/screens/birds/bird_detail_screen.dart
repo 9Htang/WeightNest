@@ -12,6 +12,7 @@ import '../../repositories/enclosure_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../core/plugin.dart';
 import '../../core/plugin_registry.dart';
+import '../../plugins/gallery/widgets/avatar_picker.dart' show showAvatarPickerSheet;
 
 class BirdDetailScreen extends ConsumerStatefulWidget {
   final BirdWithDetails bird;
@@ -129,7 +130,7 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
       ),
 
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -533,7 +534,6 @@ class _EditableHeader extends StatefulWidget {
 class _EditableHeaderState extends State<_EditableHeader> {
   bool _editingName = false;
   late TextEditingController _nameCtrl;
-  bool _showGender = false;
 
   @override
   void initState() {
@@ -563,15 +563,9 @@ class _EditableHeaderState extends State<_EditableHeader> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 56, height: 56,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(child: Text('🦜', style: TextStyle(fontSize: 28))),
-            ),
+            _buildAvatar(context, theme),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -601,47 +595,43 @@ class _EditableHeaderState extends State<_EditableHeader> {
                         style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     ),
                   const SizedBox(height: 4),
-                  // 物种 + 性别 + 阶段
-                  GestureDetector(
-                    onTap: () => _pickSpecies(context),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${widget.bird.species.name} · ${widget.bird.bird.gender} · ${widget.bird.growthStage}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withAlpha(150)),
+                  // 物种 + 性别 + 阶段（物种/性别点击弹出 sheet 选择）
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _pickSpecies(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(widget.bird.species.name,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withAlpha(150))),
+                            Icon(Icons.arrow_drop_down, size: 16,
+                              color: theme.colorScheme.onSurface.withAlpha(100)),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.arrow_drop_down, size: 16, color: theme.colorScheme.onSurface.withAlpha(100)),
-                      ],
-                    ),
+                      ),
+                      Text(' · ', style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withAlpha(100))),
+                      GestureDetector(
+                        onTap: () => _pickGender(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(widget.bird.bird.gender,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withAlpha(150))),
+                            Icon(Icons.arrow_drop_down, size: 16,
+                              color: theme.colorScheme.onSurface.withAlpha(100)),
+                          ],
+                        ),
+                      ),
+                      Text(' · ${widget.bird.growthStage}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withAlpha(150))),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  // 性别切换
-                  if (_showGender) ...[
-                    const SizedBox(height: 4),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: '公', label: Text('公')),
-                        ButtonSegment(value: '母', label: Text('母')),
-                        ButtonSegment(value: '未知', label: Text('未知')),
-                      ],
-                      selected: {widget.bird.bird.gender},
-                      onSelectionChanged: (v) {
-                        widget.onGenderChanged(v.first);
-                        setState(() => _showGender = false);
-                      },
-                      showSelectedIcon: false,
-                      style: ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    ),
-                  ] else
-                    TextButton.icon(
-                      onPressed: () => setState(() => _showGender = true),
-                      icon: const Icon(Icons.edit, size: 14),
-                      label: const Text('修改性别', style: TextStyle(fontSize: 12)),
-                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                    ),
                 ],
               ),
             ),
@@ -649,6 +639,38 @@ class _EditableHeaderState extends State<_EditableHeader> {
         ),
       ],
     );
+  }
+
+  Widget _buildAvatar(BuildContext context, ThemeData theme) {
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      final avatar = plugin.buildAvatar(
+        widget.bird.bird.id,
+        size: 56,
+        onTap: _showAvatarPicker,
+      );
+      if (avatar != null) return avatar;
+    }
+    // Fallback to original emoji
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(child: Text('🦜', style: TextStyle(fontSize: 28))),
+    );
+  }
+
+  Future<void> _showAvatarPicker() async {
+    final changed =
+        await showAvatarPickerSheet(context, widget.bird.bird.id);
+    if (!changed || !mounted) return;
+    setState(() {});
+    // Bump providers so the bird list refreshes its avatar on return.
+    final container = ProviderScope.containerOf(context);
+    container.read(weightSavedProvider.notifier).state++;
+    container.invalidate(allBirdsProvider);
   }
 
   void _confirmName() {
@@ -680,6 +702,27 @@ class _EditableHeaderState extends State<_EditableHeader> {
       ),
     );
   }
+
+  void _pickGender(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('选择性别', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ...['公', '母', '未知'].map((g) => ListTile(
+              title: Text(g),
+              selected: widget.bird.bird.gender == g,
+              onTap: () { Navigator.pop(ctx); widget.onGenderChanged(g); },
+            )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -698,7 +741,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final child = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           SizedBox(width: 60, child: Text(label,

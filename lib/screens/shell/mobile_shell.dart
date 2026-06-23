@@ -12,6 +12,7 @@ import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
 import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
+import '../species/species_screen.dart';
 import '../alerts/alerts_screen.dart';
 import '../enclosures/enclosure_management_screen.dart';
 
@@ -236,6 +237,14 @@ class HomeScreenContent extends ConsumerWidget {
                     MaterialPageRoute(
                         builder: (_) => const AlertsScreen(mode: AlertsMode.all))),
               ),
+              _QuickChip(
+                icon: Icons.pets,
+                label: '品种管理',
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SpeciesScreen())),
+              ),
               // 插件贡献的快捷操作
               ...pluginRegistry.enabledPlugins.expand((p) => p.quickActions).map(
                 (a) => _QuickChip(
@@ -352,7 +361,7 @@ class _StatsCardWarm extends ConsumerWidget {
               children: [
                 _StatItemWarm(
                     icon: Icons.scale,
-                    label: '待称重',
+                    label: '待完成',
                     value: '$pending',
                     color: scheme.secondary),
                 _StatItemWarm(
@@ -373,7 +382,7 @@ class _StatsCardWarm extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: total > 0 ? done / total : 0,
                 minHeight: 10,
-                backgroundColor: scheme.surfaceContainerHighest,
+                backgroundColor: scheme.primary.withAlpha(30),
                 color: scheme.primary,
               ),
             ),

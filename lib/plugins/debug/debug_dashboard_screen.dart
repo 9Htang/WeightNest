@@ -316,7 +316,7 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
     '胡椒', '可可', '布丁', '松饼', '泡芙', '拿铁', '抹茶', '焦糖',
     '雪球', '墨墨', '橘子', '柚子', '汤圆', '栗子', '南瓜', '冬瓜',
   ];
-  static const _genders = ['雄', '雌', '未知'];
+  static const _genders = ['公', '母', '未知'];
   static const _drugNames = ['阿莫西林', '恩诺沙星', '甲硝唑', '维生素B', '益生菌'];
 
   static const _speciesSeed = [

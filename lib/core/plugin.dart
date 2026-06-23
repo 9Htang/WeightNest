@@ -105,6 +105,15 @@ abstract class FeaturePlugin {
   /// Return a widget to navigate to (typically [BirdDetailScreen]), or null
   /// to prevent navigation. Default returns null (no navigation).
   Widget? onTaskCardTap(BuildContext context, int birdId) => null;
+
+  // ── Slot I: 鹦鹉头像 ──
+
+  /// Avatar widget contributed by this plugin for bird detail header and list.
+  /// Return null to fall back to the default emoji logic.
+  /// [size] is the desired dimension (56 for detail header, 40 for list tile).
+  /// [onTap] is set only when the avatar should respond to taps (detail header).
+  Widget? buildAvatar(int birdId, {double size = 56, VoidCallback? onTap}) =>
+      null;
 }
 
 // ── Page types ──

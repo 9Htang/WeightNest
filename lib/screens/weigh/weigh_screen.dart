@@ -131,53 +131,71 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                     _BirdInfoHeader(
                         bird: bird, state: state, theme: theme),
 
-                  // ── 输入区域：按键模式显示键盘+快速调整，转盘模式仅显示半圆弧 ──
-                  if (inputConfig.mode == WeighInputMode.keypad) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      child: WeighDisplay(
-                        weightText: state.weightText,
-                        message: state.message,
-                        theme: theme,
-                        showUnit: false,
-                        onMinus1: () => notifier.adjustWeight(-1),
-                        onMinus10: () => notifier.adjustWeight(-10),
-                        onPlus1: () => notifier.adjustWeight(1),
-                        onPlus10: () => notifier.adjustWeight(10),
-                        isFasting: state.isFasting,
-                        onToggleFasting: () =>
-                            notifier.setFasting(!state.isFasting),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    WeighNumPad(
-                      onDigit: notifier.appendDigit,
-                      onDelete: notifier.deleteDigit,
-                      theme: theme,
-                    ),
-                  ] else
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SizedBox(
-                        height: 260,
-                        child: WeighDial(
-                          side: inputConfig.dialSide,
-                          weightText: state.weightText,
-                          message: state.message,
-                          isFasting: state.isFasting,
-                          onToggleFasting: () => notifier.setFasting(!state.isFasting),
-                          lastWeightG: state.latestWeights[state.currentBird?.bird.id]?.weightG,
-                          growthStage: state.currentBird?.growthStage ?? '成鸟',
-                          sensitivity: inputConfig.sensitivity,
-                          speedThreshold: inputConfig.speedThreshold,
-                          windowSize: inputConfig.windowSize,
-                          fastStep: inputConfig.fastStep,
-                          onDelta: (delta) => notifier.adjustWeight(delta),
-                          theme: theme,
+                  // ── 输入区域：Stack+Offstage 双分支保活，切换零卡顿 ──
+                  Stack(
+                    children: [
+                      // 键盘模式 — 始终保活
+                      Offstage(
+                        offstage: inputConfig.mode != WeighInputMode.keypad,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              child: WeighDisplay(
+                                weightText: state.weightText,
+                                message: state.message,
+                                theme: theme,
+                                showUnit: true,
+                                onMinus1: () => notifier.adjustWeight(-1),
+                                onMinus10: () => notifier.adjustWeight(-10),
+                                onPlus1: () => notifier.adjustWeight(1),
+                                onPlus10: () => notifier.adjustWeight(10),
+                                isFasting: state.isFasting,
+                                onToggleFasting: () => notifier.setFasting(!state.isFasting),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            WeighNumPad(
+                              onDigit: notifier.appendDigit,
+                              onDelete: notifier.deleteDigit,
+                              theme: theme,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                      // 转盘模式 — 始终保活
+                      Offstage(
+                        offstage: inputConfig.mode != WeighInputMode.dial,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: SizedBox(
+                            height: 260,
+                            child: WeighDial(
+                              side: inputConfig.dialSide,
+                              weightText: state.weightText,
+                              message: state.message,
+                              isFasting: state.isFasting,
+                              onToggleFasting: () => notifier.setFasting(!state.isFasting),
+                              lastWeightG: state.latestWeights[state.currentBird?.bird.id]?.weightG,
+                              growthStage: state.currentBird?.growthStage ?? '成鸟',
+                              sensitivity: inputConfig.sensitivity,
+                              speedThreshold: inputConfig.speedThreshold,
+                              windowSize: inputConfig.windowSize,
+                              fastStep: inputConfig.fastStep,
+                              screenWidth: MediaQuery.of(context).size.width,
+                              screenHeight: MediaQuery.of(context).size.height,
+                              dialWidthPercent: inputConfig.dialWidthPercent,
+                              arcRadiusPercent: inputConfig.arcRadiusPercent,
+                              strokeWidth: inputConfig.strokeWidth,
+                              onDelta: (delta) => notifier.adjustWeight(delta),
+                              theme: theme,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

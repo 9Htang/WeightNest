@@ -49,6 +49,9 @@ class WeighInputConfig {
   final double speedThreshold; // 慢/快分界线 (°/s)，默认 70
   final int windowSize;        // 滑动平均帧数，默认 3
   final double fastStep;       // 快速滑动步长 (g)，默认 0.5
+  final double dialWidthPercent; // 转盘宽度占屏幕宽度比例 p，默认 0.25
+  final double arcRadiusPercent; // 弧线半径占屏幕高度比例，默认 0.25（独立于转盘宽度）
+  final double strokeWidth;      // 弧线描边宽度（px），默认 30
 
   static const double sensitivityMin = 10.0;
   static const double sensitivityMax = 30.0;
@@ -56,15 +59,27 @@ class WeighInputConfig {
 
   static const double speedThresholdMin = 150.0;
   static const double speedThresholdMax = 250.0;
-  static const double speedThresholdDefault = 170.0;
+  static const double speedThresholdDefault = 190.0;
 
   static const int windowSizeMin = 6;
   static const int windowSizeMax = 15;
-  static const int windowSizeDefault = 8;
+  static const int windowSizeDefault = 10;
 
   static const double fastStepMin = 0.3;
   static const double fastStepMax = 1.0;
   static const double fastStepDefault = 0.5;
+
+  static const double dialWidthPercentMin = 0.10;
+  static const double dialWidthPercentMax = 0.50;
+  static const double dialWidthPercentDefault = 0.18;
+
+  static const double arcRadiusPercentMin = 0.10;
+  static const double arcRadiusPercentMax = 0.80;
+  static const double arcRadiusPercentDefault = 0.26;
+
+  static const double strokeWidthMin = 16.0;
+  static const double strokeWidthMax = 40.0;
+  static const double strokeWidthDefault = 30.0;
 
   const WeighInputConfig({
     this.mode = WeighInputMode.keypad,
@@ -73,6 +88,9 @@ class WeighInputConfig {
     this.speedThreshold = speedThresholdDefault,
     this.windowSize = windowSizeDefault,
     this.fastStep = fastStepDefault,
+    this.dialWidthPercent = dialWidthPercentDefault,
+    this.arcRadiusPercent = arcRadiusPercentDefault,
+    this.strokeWidth = strokeWidthDefault,
   });
 
   WeighInputConfig copyWith({
@@ -82,6 +100,9 @@ class WeighInputConfig {
     double? speedThreshold,
     int? windowSize,
     double? fastStep,
+    double? dialWidthPercent,
+    double? arcRadiusPercent,
+    double? strokeWidth,
   }) =>
       WeighInputConfig(
         mode: mode ?? this.mode,
@@ -90,6 +111,9 @@ class WeighInputConfig {
         speedThreshold: speedThreshold ?? this.speedThreshold,
         windowSize: windowSize ?? this.windowSize,
         fastStep: fastStep ?? this.fastStep,
+        dialWidthPercent: dialWidthPercent ?? this.dialWidthPercent,
+        arcRadiusPercent: arcRadiusPercent ?? this.arcRadiusPercent,
+        strokeWidth: strokeWidth ?? this.strokeWidth,
       );
 
   // ── 序列化 ──
@@ -100,6 +124,9 @@ class WeighInputConfig {
   static const _speedThresholdKey = 'wic_speed_thr';
   static const _windowSizeKey = 'wic_win_size';
   static const _fastStepKey = 'wic_fast_step';
+  static const _dialWidthKey = 'wic_dial_width';
+  static const _arcRadiusPctKey = 'wic_arc_r_pct';
+  static const _strokeWidthKey = 'wic_stroke';
 
   Future<void> save() async {
     final p = await SharedPreferences.getInstance();
@@ -109,6 +136,9 @@ class WeighInputConfig {
     await p.setDouble(_speedThresholdKey, speedThreshold);
     await p.setInt(_windowSizeKey, windowSize);
     await p.setDouble(_fastStepKey, fastStep);
+    await p.setDouble(_dialWidthKey, dialWidthPercent);
+    await p.setDouble(_arcRadiusPctKey, arcRadiusPercent);
+    await p.setDouble(_strokeWidthKey, strokeWidth);
   }
 
   static Future<WeighInputConfig> load() async {
@@ -130,6 +160,9 @@ class WeighInputConfig {
     final speedThr = p.getDouble(_speedThresholdKey) ?? speedThresholdDefault;
     final winSize = p.getInt(_windowSizeKey) ?? windowSizeDefault;
     final fastStep = p.getDouble(_fastStepKey) ?? fastStepDefault;
+    final dialWidth = p.getDouble(_dialWidthKey) ?? dialWidthPercentDefault;
+    final arcRPct = p.getDouble(_arcRadiusPctKey) ?? arcRadiusPercentDefault;
+    final strokeW = p.getDouble(_strokeWidthKey) ?? strokeWidthDefault;
 
     return WeighInputConfig(
       mode: mode,
@@ -138,6 +171,9 @@ class WeighInputConfig {
       speedThreshold: speedThr.clamp(speedThresholdMin, speedThresholdMax),
       windowSize: winSize.clamp(windowSizeMin, windowSizeMax),
       fastStep: fastStep.clamp(fastStepMin, fastStepMax),
+      dialWidthPercent: dialWidth.clamp(dialWidthPercentMin, dialWidthPercentMax),
+      arcRadiusPercent: arcRPct.clamp(arcRadiusPercentMin, arcRadiusPercentMax),
+      strokeWidth: strokeW.clamp(strokeWidthMin, strokeWidthMax),
     );
   }
 }
@@ -200,6 +236,36 @@ class WeighInputConfigNotifier extends StateNotifier<WeighInputConfig> {
       fastStep: value.clamp(
         WeighInputConfig.fastStepMin,
         WeighInputConfig.fastStepMax,
+      ),
+    );
+    await state.save();
+  }
+
+  Future<void> setDialWidthPercent(double value) async {
+    state = state.copyWith(
+      dialWidthPercent: value.clamp(
+        WeighInputConfig.dialWidthPercentMin,
+        WeighInputConfig.dialWidthPercentMax,
+      ),
+    );
+    await state.save();
+  }
+
+  Future<void> setArcRadiusPercent(double value) async {
+    state = state.copyWith(
+      arcRadiusPercent: value.clamp(
+        WeighInputConfig.arcRadiusPercentMin,
+        WeighInputConfig.arcRadiusPercentMax,
+      ),
+    );
+    await state.save();
+  }
+
+  Future<void> setStrokeWidth(double value) async {
+    state = state.copyWith(
+      strokeWidth: value.clamp(
+        WeighInputConfig.strokeWidthMin,
+        WeighInputConfig.strokeWidthMax,
       ),
     );
     await state.save();

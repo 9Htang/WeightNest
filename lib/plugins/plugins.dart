@@ -3,6 +3,7 @@ import '../core/plugin_registry.dart';
 export '../core/plugin_registry.dart' show pluginRegistry;
 import 'breeding/breeding_plugin.dart';
 import 'debug/debug_plugin.dart';
+import 'gallery/gallery_plugin.dart';
 import 'medication/medication_plugin.dart';
 import 'weight/weight_plugin.dart';
 
@@ -12,7 +13,8 @@ void registerPlugins() {
   pluginRegistry
     ..register(WeightPlugin())
     ..register(MedicationPlugin())
-    ..register(BreedingPlugin());
+    ..register(BreedingPlugin())
+    ..register(GalleryPlugin());
 
   if (kDebugMode) {
     pluginRegistry.register(DebugPlugin());

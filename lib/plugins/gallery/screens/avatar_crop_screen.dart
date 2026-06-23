@@ -1,0 +1,129 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:image_picker/image_picker.dart';
+
+/// A full-screen 1:1 ratio image crop screen.
+///
+/// Shows the picked image inside an [InteractiveViewer] with a fixed square
+/// crop overlay. On confirm, captures the square region to a file and returns
+/// the path via [Navigator.pop].
+class AvatarCropScreen extends StatefulWidget {
+  final XFile pickedFile;
+  const AvatarCropScreen({super.key, required this.pickedFile});
+
+  @override
+  State<AvatarCropScreen> createState() => _AvatarCropScreenState();
+}
+
+class _AvatarCropScreenState extends State<AvatarCropScreen> {
+  final _repaintKey = GlobalKey();
+  final TransformationController _transformCtrl = TransformationController();
+
+  @override
+  void dispose() {
+    _transformCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final cropSize = size.width; // square = full width
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('裁剪头像', style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: _confirmCrop,
+            child: const Text('确定', style: TextStyle(color: Colors.tealAccent)),
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Crop area
+            RepaintBoundary(
+              key: _repaintKey,
+              child: ClipRRect(
+                child: SizedBox(
+                  width: cropSize,
+                  height: cropSize,
+                  child: Stack(
+                    children: [
+                      InteractiveViewer(
+                        transformationController: _transformCtrl,
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: Image.file(
+                          File(widget.pickedFile.path),
+                          width: cropSize,
+                          height: cropSize,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      // Crop frame border
+                      IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '缩放并拖动图片，使主体位于框内',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmCrop() async {
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final pngBytes = byteData.buffer.asUint8List();
+
+      // Write to a temp file
+      final tempDir = Directory.systemTemp;
+      final outputFile = File(
+          '${tempDir.path}/avatar_crop_${DateTime.now().millisecondsSinceEpoch}.png');
+      await outputFile.writeAsBytes(pngBytes);
+
+      if (mounted) {
+        Navigator.of(context).pop(outputFile.path);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('裁剪失败: $e')),
+        );
+      }
+    }
+  }
+}

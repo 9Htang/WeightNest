@@ -573,20 +573,7 @@ class _BirdListTile extends ConsumerWidget {
                   child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
                 ),
               ),
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: _stageColor(bird.growthStage, theme),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    bird.growthStage == '雏鸟' ? '🐣' :
-                    bird.growthStage == '幼鸟' ? '🐤' : '🦜',
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ),
-              ),
+              _buildAvatar(theme),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -638,6 +625,28 @@ class _BirdListTile extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(ThemeData theme) {
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      final avatar = plugin.buildAvatar(bird.bird.id, size: 40);
+      if (avatar != null) return avatar;
+    }
+    // Fallback to original emoji
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: _stageColor(bird.growthStage, theme),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Text(
+          bird.growthStage == '雏鸟' ? '🐣' : bird.growthStage == '幼鸟' ? '🐤' : '🦜',
+          style: const TextStyle(fontSize: 20),
         ),
       ),
     );
