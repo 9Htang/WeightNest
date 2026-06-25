@@ -195,7 +195,8 @@ class _MedicationDayView extends StatelessWidget {
                   ]),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: items.map((l) {
-                    final isLate = !l.isDone && !l.isSkipped && l.task.dueDate.isBefore(AppClock.now);
+                    final threshold = l.task.deadline ?? l.task.dueDate;
+                    final isLate = !l.isDone && !l.isSkipped && threshold.isBefore(AppClock.now);
                     return InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: (l.isDone || l.isSkipped) ? null : () async {

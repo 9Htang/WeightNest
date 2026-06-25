@@ -128,14 +128,10 @@ class MedicationPlugin extends FeaturePlugin {
         final dueDates = slots
             .map((s) => DateTime(today.year, today.month, today.day, s.hour, s.minute))
             .toList();
-        final tomorrow = today.add(const Duration(days: 1));
         for (int i = 0; i < slots.length; i++) {
           final dueDate = dueDates[i];
-          // deadline = 下一剂时间（最后一剂 = 次日第一剂）
-          final deadline = i + 1 < dueDates.length
-              ? dueDates[i + 1]
-              : DateTime(tomorrow.year, tomorrow.month, tomorrow.day,
-                  slots[0].hour, slots[0].minute);
+          // deadline = 当前剂次时间 + 30分钟缓冲
+          final deadline = dueDate.add(const Duration(minutes: 30));
           descriptors.add(PluginTaskDescriptor(
             birdId: med.birdId,
             taskType: 'medication',

@@ -1,5 +1,9 @@
 import 'dart:io';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:video_compress/video_compress.dart';
 
 /// Singleton file-storage service for the gallery plugin.
 /// Photos and avatars are stored under the app documents directory
@@ -67,18 +71,37 @@ class GalleryStorageService {
     await ensureInitialized();
     final dir = Directory(resolve(_birdDir(birdId)));
     if (!await dir.exists()) await dir.create(recursive: true);
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final filename = 'photo_$ts.jpg';
+    final ts = DateTime.now().microsecondsSinceEpoch;
+    final r = Random().nextInt(9000) + 1000;
+    final filename = 'photo_${ts}_$r.jpg';
     final dest = resolve(_photoRelPath(birdId, filename));
     await File(sourceFile).copy(dest);
     return _photoRelPath(birdId, filename);
   }
 
-  /// Delete a single photo file.
-  Future<void> deletePhoto(String relativePath) async {
+  /// Copy a motion photo video into the bird's gallery directory.
+  /// Returns the relative path for DB storage.
+  Future<String> saveVideo(int birdId, String sourceFile) async {
+    await ensureInitialized();
+    final dir = Directory(resolve(_birdDir(birdId)));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final ts = DateTime.now().microsecondsSinceEpoch;
+    final r = Random().nextInt(9000) + 1000;
+    final filename = 'video_${ts}_$r.mp4';
+    final dest = resolve(_photoRelPath(birdId, filename));
+    await File(sourceFile).copy(dest);
+    return _photoRelPath(birdId, filename);
+  }
+
+  /// Delete a single photo file and its paired video if present.
+  Future<void> deletePhoto(String relativePath, {String? videoPath}) async {
     await ensureInitialized();
     final file = File(resolve(relativePath));
     if (await file.exists()) await file.delete();
+    if (videoPath != null) {
+      final videoFile = File(resolve(videoPath));
+      if (await videoFile.exists()) await videoFile.delete();
+    }
   }
 
   /// Remove all gallery files for a bird (photos + avatar).
@@ -86,5 +109,75 @@ class GalleryStorageService {
     await ensureInitialized();
     final dir = Directory(resolve(_birdDir(birdId)));
     if (await dir.exists()) await dir.delete(recursive: true);
+  }
+
+  // ── compression ──
+
+  /// Compress a JPEG photo in-place: max 1920px long edge, quality 85.
+  /// Keeps the original if compression fails.
+  Future<void> compressPhoto(String absolutePath) async {
+    try {
+      final tmpPath = '$absolutePath.tmp';
+      final result = await FlutterImageCompress.compressAndGetFile(
+        absolutePath,
+        tmpPath,
+        quality: 85,
+        minWidth: 1920,
+        minHeight: 1920,
+        format: CompressFormat.jpeg,
+      );
+      if (result != null) {
+        final tmpFile = File(result.path);
+        if (await tmpFile.exists()) {
+          await tmpFile.rename(absolutePath);
+        }
+      }
+    } catch (e) {
+      // Silently keep original on failure
+      debugPrint('compressPhoto failed: $e');
+    }
+  }
+
+  /// Compress a JPEG to a specific max dimension (for avatars).
+  Future<void> compressToSize(String absolutePath, {int maxSize = 512, int quality = 85}) async {
+    try {
+      final tmpPath = '$absolutePath.tmp';
+      final result = await FlutterImageCompress.compressAndGetFile(
+        absolutePath,
+        tmpPath,
+        quality: quality,
+        minWidth: maxSize,
+        minHeight: maxSize,
+        format: CompressFormat.jpeg,
+      );
+      if (result != null) {
+        final tmpFile = File(result.path);
+        if (await tmpFile.exists()) {
+          await tmpFile.rename(absolutePath);
+        }
+      }
+    } catch (e) {
+      debugPrint('compressToSize failed: $e');
+    }
+  }
+
+  /// Compress a motion photo video to 480p in-place.
+  Future<void> compressVideo(String absolutePath) async {
+    try {
+      final info = await VideoCompress.compressVideo(
+        absolutePath,
+        quality: VideoQuality.MediumQuality,
+        includeAudio: false,
+      );
+      final videoPath = info?.file?.path;
+      if (videoPath != null) {
+        final compressed = File(videoPath);
+        if (await compressed.exists()) {
+          await compressed.rename(absolutePath);
+        }
+      }
+    } catch (e) {
+      debugPrint('compressVideo failed: $e');
+    }
   }
 }

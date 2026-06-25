@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart'; // ignore: unnecessary_import
 
 /// A full-screen 1:1 ratio image crop screen.
 ///
@@ -103,17 +105,27 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
           as RenderRepaintBoundary?;
       if (boundary == null) return;
 
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      // Use pixelRatio 2.0 — enough for sharp avatar, half the bytes
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
       if (byteData == null) return;
 
-      final pngBytes = byteData.buffer.asUint8List();
+      // Encode as JPEG (not PNG) for much smaller file size
+      final rawBytes = byteData.buffer.asUint8List();
+      final jpgBytes = await FlutterImageCompress.compressWithList(
+        rawBytes,
+        quality: 85,
+        minWidth: 512,
+        minHeight: 512,
+        format: CompressFormat.jpeg,
+        inSampleSize: 1,
+      );
 
       // Write to a temp file
       final tempDir = Directory.systemTemp;
       final outputFile = File(
-          '${tempDir.path}/avatar_crop_${DateTime.now().millisecondsSinceEpoch}.png');
-      await outputFile.writeAsBytes(pngBytes);
+          '${tempDir.path}/avatar_crop_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await outputFile.writeAsBytes(Uint8List.fromList(jpgBytes));
 
       if (mounted) {
         Navigator.of(context).pop(outputFile.path);

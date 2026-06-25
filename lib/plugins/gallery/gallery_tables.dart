@@ -8,6 +8,8 @@ class BirdPhotos extends Table {
       integer().references(Birds, #id, onDelete: KeyAction.cascade)();
   TextColumn get filePath => text()(); // relative path: gallery/{birdId}/photo_ts.jpg
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  TextColumn get mediaType => text().withDefault(const Constant('photo'))(); // 'photo' or 'motion_photo'
+  TextColumn get videoFilePath => text().nullable()(); // relative path to extracted .mp4 for motion photos
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 }

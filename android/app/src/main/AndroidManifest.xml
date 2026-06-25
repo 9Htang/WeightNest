@@ -4,7 +4,8 @@
     <application
         android:label="weight_nest"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:largeHeap="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,6 +27,30 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- 关联 .wnbak 备份文件：file:// URI（按扩展名匹配） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.wnbak"/>
+            </intent-filter>
+            <!-- 关联 .wnbak 备份文件：content:// URI（按 MIME 匹配） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content" android:mimeType="application/octet-stream"/>
+            </intent-filter>
+            <!-- 关联 .wnbirds 鹦鹉导出文件：file:// URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.wnbirds"/>
+            </intent-filter>
+            <!-- 关联 .wnbirds 鹦鹉导出文件：content:// URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content" android:mimeType="application/octet-stream"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

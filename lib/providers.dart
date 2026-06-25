@@ -17,6 +17,8 @@ import 'plugins/medication/medication_repository.dart';
 import 'screens/worker/worker_screen.dart';
 import 'theme/theme_notifier.dart';
 
+export 'providers/premium_provider.dart';
+
 /// 数据库单例
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();

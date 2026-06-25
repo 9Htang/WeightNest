@@ -1041,6 +1041,8 @@ class _ActivityLogTile extends StatelessWidget {
         return (Icons.medication_outlined, Colors.orange);
       case 'breeding':
         return (Icons.pets, Colors.purple);
+      case 'gallery':
+        return (Icons.photo_library_outlined, Colors.teal);
       default:
         return (Icons.history, Colors.grey);
     }

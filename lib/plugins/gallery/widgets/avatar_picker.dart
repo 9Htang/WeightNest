@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/plugin_registry.dart';
 import '../../../database/database.dart';
 import '../../../providers.dart';
 import '../gallery_storage_service.dart';
@@ -105,6 +106,9 @@ Future<bool> _pickAndCrop(
   final storage = GalleryStorageService();
   final relPath = await storage.saveAvatar(birdId, croppedPath);
 
+  // Compress avatar to max 512px
+  await storage.compressToSize(storage.resolve(relPath), maxSize: 512, quality: 85);
+
   // 4. Upsert database record — delete existing, then insert
   await (db.delete(db.birdAvatars)
         ..where((t) => t.birdId.equals(birdId)))
@@ -116,6 +120,14 @@ Future<bool> _pickAndCrop(
           updatedAt: Value(DateTime.now()),
         ),
       );
+
+  // 5. 记录操作日志
+  await pluginRegistry.operationService.record(
+    pluginId: 'gallery',
+    actionType: 'avatar_updated',
+    birdId: birdId,
+    summary: '更新了头像',
+  );
 
   // Evict cached image so the new avatar shows immediately
   try {
@@ -137,6 +149,15 @@ Future<bool> _removeAvatar(int birdId, AppDatabase db) async {
   await (db.delete(db.birdAvatars)
         ..where((t) => t.birdId.equals(birdId)))
       .go();
+
+  // 记录操作日志
+  await pluginRegistry.operationService.record(
+    pluginId: 'gallery',
+    actionType: 'avatar_removed',
+    birdId: birdId,
+    summary: '移除了头像',
+  );
+
   return true;
 }
 

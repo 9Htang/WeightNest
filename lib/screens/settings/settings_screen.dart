@@ -1,9 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/plugin.dart';
 import '../../services/work_hours_config.dart';
+import '../../services/backup_service.dart';
 import '../../providers.dart';
 import '../../plugins/plugins.dart';
+
+import 'bird_import_preview_dialog.dart';
 
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -61,6 +67,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onEndPick: () => _pickWorkTime(wh, false),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── Pro 备份恢复 ──
+          const _PremiumCard(),
           const SizedBox(height: 16),
 
           // ── 插件管理 ──
@@ -533,6 +543,365 @@ class _FeatureChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Pro 备份恢复卡片
+class _PremiumCard extends ConsumerWidget {
+  const _PremiumCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final status = ref.watch(premiumStatusProvider);
+    final isPro = status == PremiumStatus.pro;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 头部行 ──
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: isPro
+                        ? Colors.amber.shade100
+                        : scheme.primaryContainer.withAlpha(120),
+                  ),
+                  child: Icon(
+                    isPro ? Icons.verified : Icons.lock_outline,
+                    size: 22,
+                    color: isPro ? Colors.amber.shade700 : scheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isPro ? 'Pro 版' : '免费版',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isPro ? Colors.amber.shade700 : null,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isPro ? '数据备份与恢复已解锁' : '升级 Pro 解锁数据备份与恢复',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (isPro) ...[
+              // Pro 功能按钮 — 备份恢复
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _createBackup(context, ref),
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text('备份数据'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _restoreBackup(context, ref),
+                      icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                      label: const Text('恢复数据'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 导入鹦鹉数据
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _importBirds(context, ref),
+                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                      label: const Text('导入鹦鹉数据'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ]
+            else
+              // 升级按钮
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _showActivateDialog(context, ref),
+                  icon: const Icon(Icons.workspace_premium, size: 18),
+                  label: const Text('升级到 Pro'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.amber.shade600,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
+    // 显示进度
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final backupFile = await BackupService().createBackup();
+
+    // 关闭进度
+    if (context.mounted) Navigator.of(context).pop();
+
+    if (backupFile != null && context.mounted) {
+      // 通过 share_plus 分享
+      await Share.shareXFiles(
+        [XFile(backupFile.path)],
+        subject: 'WeightNest 数据备份',
+      );
+      // 分享后删除临时文件
+      try { await backupFile.delete(); } catch (_) {}
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('备份失败，请重试')),
+      );
+    }
+  }
+
+  Future<void> _restoreBackup(BuildContext context, WidgetRef ref) async {
+    // 确认对话框
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('恢复数据'),
+        content: const Text(
+          '即将覆盖当前所有数据（包括体重记录、鹦鹉信息、照片等），此操作不可撤销。\n\n请确认已选择正确的备份文件。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('确认恢复'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    // 选择文件
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any, // .wnbak 不是已知类型
+    );
+    if (result == null || result.files.isEmpty || !context.mounted) return;
+
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    // 执行恢复
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final ok = await BackupService().restoreFrom(File(filePath));
+
+    if (context.mounted) Navigator.of(context).pop();
+
+    if (ok) {
+      // 强制刷新数据库连接，无需重启
+      ref.invalidate(databaseProvider);
+    }
+
+    if (ok && context.mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('恢复成功'),
+          content: const Text('数据已恢复。'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('恢复失败，请检查备份文件是否有效')),
+      );
+    }
+  }
+
+
+  Future<void> _importBirds(BuildContext context, WidgetRef ref) async {
+    // 确认对话框
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('导入鹦鹉数据'),
+        content: const Text(
+          '将创建文件中新的鹦鹉及其全部数据（体重、喂药、照片等）。\n'
+          '已存在的鹦鹉（UUID 匹配）将被跳过。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('选择文件'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    // 选择文件
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (result == null || result.files.isEmpty || !context.mounted) return;
+
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    // 显示预览
+    if (!context.mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => BirdImportPreviewDialog(file: File(filePath)),
+    );
+  }
+}
+
+/// 激活码输入对话框
+Future<void> _showActivateDialog(BuildContext context, WidgetRef ref) async {
+  final controller = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('升级到 Pro'),
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '请输入激活码（格式：WNPRO-XXXX-XXXX-XXXX）',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                hintText: 'WNPRO-XXXX-XXXX-XXXX',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '请输入激活码';
+                if (!v.trim().toUpperCase().startsWith('WNPRO-')) {
+                  return '激活码格式不正确';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() == true) {
+              Navigator.pop(ctx, true);
+            }
+          },
+          child: const Text('激活'),
+        ),
+      ],
+    ),
+  );
+
+  if (ok == true && context.mounted) {
+    final code = controller.text.trim().toUpperCase();
+    // 显示进度
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final success = await ref.read(premiumStatusProvider.notifier).activate(code);
+
+      if (context.mounted) Navigator.of(context).pop();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? '激活成功！Pro 功能已解锁' : '激活码无效'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('激活出错：$e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  controller.dispose();
 }
 
 /// 通用 section 标题，与插件管理标题风格一致

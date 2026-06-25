@@ -90,7 +90,8 @@ class _MedicationScreenState extends State<MedicationScreen> {
   }
 
   Widget _logCard(MedTaskInfo d, ThemeData theme) {
-    final isLate = !d.isDone && !d.isSkipped && d.task.dueDate.isBefore(AppClock.now);
+    final threshold = d.task.deadline ?? d.task.dueDate;
+    final isLate = !d.isDone && !d.isSkipped && threshold.isBefore(AppClock.now);
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: d.isDone ? Colors.green.shade50

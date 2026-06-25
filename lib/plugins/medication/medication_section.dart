@@ -268,7 +268,8 @@ class _TodayLogItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLate = !data.isDone && !data.isSkipped && data.task.dueDate.isBefore(AppClock.now);
+    final threshold = data.task.deadline ?? data.task.dueDate;
+    final isLate = !data.isDone && !data.isSkipped && threshold.isBefore(AppClock.now);
 
     Color bgColor;
     if (data.isDone) {

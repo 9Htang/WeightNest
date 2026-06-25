@@ -45,6 +45,10 @@ extension BirdRepository on AppDatabase {
   Future<Bird?> getBirdByUuid(String uuid) =>
       (select(birds)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
 
+  /// Batch lookup by UUIDs for preview/dedup.
+  Future<List<Bird>> getBirdsByUuids(List<String> uuids) =>
+      (select(birds)..where((t) => t.uuid.isIn(uuids))).get();
+
   /// 按名字 + 出生日期查重（用于同步去重）
   Future<Bird?> getBirdByNameAndBirth(String name, DateTime birthDate) {
     final start = DateTime(birthDate.year, birthDate.month, birthDate.day);

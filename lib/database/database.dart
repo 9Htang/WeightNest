@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +93,11 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(birdAvatars);
             await m.createIndex(Index('bird_photos',
                 'CREATE INDEX IF NOT EXISTS idx_bird_photos_bird ON bird_photos(bird_id, sort_order ASC)'));
+          }
+          if (from < 15) {
+            // v14 → v15: motion photo support — mediaType + video path
+            await m.addColumn(birdPhotos, birdPhotos.mediaType);
+            await m.addColumn(birdPhotos, birdPhotos.videoFilePath);
           }
         },
       );

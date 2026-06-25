@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/app_clock.dart';
 import '../../providers.dart';
 import '../../core/plugin_registry.dart';
@@ -7,6 +8,7 @@ import '../../repositories/bird_repository.dart';
 import '../../repositories/enclosure_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../database/database.dart';
+import '../../services/bird_export_service.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_grid_screen.dart';
 
@@ -22,6 +24,8 @@ class BirdsScreen extends ConsumerStatefulWidget {
 class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   String _searchText = '';
   int? _filterRoomId;
+  bool _selecting = false;
+  final _selectedIds = <int>{};
 
   @override
   void initState() {
@@ -32,21 +36,71 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   @override
   Widget build(BuildContext context) {
     final birdsAsync = ref.watch(allBirdsProvider);
+    final isPro = ref.watch(premiumStatusProvider) == PremiumStatus.pro;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('鹦鹉列表'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showRoomFilter(context),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddBirdDialog(context),
-        child: const Icon(Icons.add),
-      ),
+      appBar: _selecting
+          ? AppBar(
+              leading: TextButton(
+                onPressed: () => setState(() { _selecting = false; _selectedIds.clear(); }),
+                child: const Text('取消'),
+              ),
+              title: Text('已选择 ${_selectedIds.length} 只'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showRoomFilter(context),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      birdsAsync.whenData((birds) {
+                        final filtered = _filterBirds(birds);
+                        final allSelected = filtered.every((b) => _selectedIds.contains(b.bird.id));
+                        if (allSelected) {
+                          for (final b in filtered) { _selectedIds.remove(b.bird.id); }
+                        } else {
+                          for (final b in filtered) { _selectedIds.add(b.bird.id); }
+                        }
+                      });
+                    });
+                  },
+                  child: const Text('全选'),
+                ),
+              ],
+            )
+          : AppBar(
+              title: const Text('鹦鹉列表'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showRoomFilter(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.file_upload_outlined),
+                  tooltip: '导出',
+                  onPressed: () => _onExportTap(isPro),
+                ),
+              ],
+            ),
+      floatingActionButton: _selecting
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showAddBirdDialog(context),
+              child: const Icon(Icons.add),
+            ),
+      bottomNavigationBar: _selecting
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: FilledButton.icon(
+                  onPressed: _selectedIds.isEmpty ? null : () => _doExport(),
+                  icon: const Icon(Icons.file_upload_outlined, size: 18),
+                  label: Text('导出选中 (${_selectedIds.length})'),
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           // 搜索栏
@@ -105,6 +159,35 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   Widget _buildBirdList(BuildContext context, List<BirdWithDetails> birds, WidgetRef ref) {
     final weightsAsync = ref.watch(allLatestWeightsProvider);
 
+    if (_selecting) {
+      return ListView.builder(
+        itemCount: birds.length,
+        itemBuilder: (context, index) {
+          final b = birds[index];
+          return _BirdListTile(
+            key: ValueKey(b.bird.id),
+            bird: b,
+            weight: weightsAsync.when(
+              data: (map) => map[b.bird.id],
+              loading: () => null,
+              error: (_, __) => null,
+            ),
+            selecting: true,
+            selected: _selectedIds.contains(b.bird.id),
+            onToggle: () {
+              setState(() {
+                if (_selectedIds.contains(b.bird.id)) {
+                  _selectedIds.remove(b.bird.id);
+                } else {
+                  _selectedIds.add(b.bird.id);
+                }
+              });
+            },
+          );
+        },
+      );
+    }
+
     return ReorderableListView.builder(
       itemCount: birds.length,
       onReorder: (oldIndex, newIndex) async {
@@ -149,6 +232,76 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       context,
       MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)),
     );
+  }
+
+  void _onExportTap(bool isPro) {
+    if (!isPro) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pro 功能'),
+          content: const Text('导出鹦鹉数据是 Pro 功能，请先激活。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                // 跳转到设置页
+                Navigator.pushNamed(context, '/settings');
+              },
+              child: const Text('激活 Pro'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _selecting = true;
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _doExport() async {
+    if (_selectedIds.isEmpty) return;
+
+    // 显示进度
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final db = ref.read(databaseProvider);
+      final file = await BirdExportService().exportBirds(_selectedIds.toList(), db);
+
+      if (mounted) Navigator.pop(context); // 关闭进度
+
+      if (file != null && mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          subject: 'WeightNest 鹦鹉数据',
+        );
+        // 分享后删除临时文件
+        try { await file.delete(); } catch (_) {}
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+
+    setState(() {
+      _selecting = false;
+      _selectedIds.clear();
+    });
   }
 
   void _showRoomFilter(BuildContext context) {
@@ -540,15 +693,21 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
 class _BirdListTile extends ConsumerWidget {
   final BirdWithDetails bird;
   final Weight? weight;
-  final VoidCallback onTap;
-  final VoidCallback onWeigh;
+  final VoidCallback? onTap;
+  final VoidCallback? onWeigh;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback? onToggle;
 
   const _BirdListTile({
     super.key,
     required this.bird,
     required this.weight,
-    required this.onTap,
-    required this.onWeigh,
+    this.onTap,
+    this.onWeigh,
+    this.selecting = false,
+    this.selected = false,
+    this.onToggle,
   });
 
   @override
@@ -561,18 +720,25 @@ class _BirdListTile extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+        onTap: selecting ? onToggle : onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(
             children: [
-              ReorderableDragStartListener(
-                index: 0,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+              if (selecting)
+                Checkbox(
+                  value: selected,
+                  onChanged: (_) => onToggle?.call(),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                )
+              else
+                ReorderableDragStartListener(
+                  index: 0,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+                  ),
                 ),
-              ),
               _buildAvatar(theme),
               const SizedBox(width: 10),
               Expanded(

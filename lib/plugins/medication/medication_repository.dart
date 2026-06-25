@@ -207,7 +207,8 @@ class MedTaskInfo {
   String get statusLabel {
     if (isDone) return '已喂';
     if (isSkipped) return '已跳过';
-    if (task.dueDate.isBefore(AppClock.now)) return '逾期';
+    final threshold = task.deadline ?? task.dueDate;
+    if (threshold.isBefore(AppClock.now)) return '逾期';
     return '待喂';
   }
 }

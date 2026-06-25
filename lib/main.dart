@@ -6,6 +6,7 @@ import 'app.dart';
 import 'core/app_clock.dart';
 import 'core/debug_log_sink.dart';
 import 'plugins/plugins.dart';
+import 'services/license_service.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -15,6 +16,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppClock.restore();
   registerPlugins();
+  await LicenseService().init();
   await NotificationService.instance.init();
 
   await SystemChrome.setPreferredOrientations([
