@@ -574,7 +574,8 @@ class _GallerySectionState extends State<GallerySection> {
     for (final id in _selectedIds) {
       final photo = _photos.firstWhere((p) => p.id == id);
       await _storage.deletePhoto(photo.filePath,
-          videoPath: photo.videoFilePath);
+          videoPath: photo.videoFilePath,
+          thumbnailPath: photo.thumbnailPath);
       await (db.delete(db.birdPhotos)..where((t) => t.id.equals(id))).go();
     }
 

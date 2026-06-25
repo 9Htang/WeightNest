@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test() : super(DatabaseConnection(NativeDatabase.memory()));
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -98,6 +98,10 @@ class AppDatabase extends _$AppDatabase {
             // v14 → v15: motion photo support — mediaType + video path
             await m.addColumn(birdPhotos, birdPhotos.mediaType);
             await m.addColumn(birdPhotos, birdPhotos.videoFilePath);
+          }
+          if (from < 16) {
+            // v15 → v16: animated WebP thumbnail path for motion photos
+            await m.addColumn(birdPhotos, birdPhotos.thumbnailPath);
           }
         },
       );

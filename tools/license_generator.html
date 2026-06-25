@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeightNest Pro 激活码生成器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  .controls label {
+    font-size: 14px;
+    color: #555;
+  }
+  .controls select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+  }
+  button {
+    padding: 10px 24px;
+    background: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover { background: #1557b0; }
+  button:active { background: #0d47a1; }
+  .warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #856404;
+    margin-bottom: 16px;
+  }
+  .code-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .code-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12.5px;
+    color: #333;
+    word-break: break-all;
+  }
+  .code-row .num {
+    color: #aaa;
+    font-size: 12px;
+    min-width: 20px;
+    flex-shrink: 0;
+  }
+  .code-row .code {
+    flex: 1;
+  }
+  .copy-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    background: #e8e8e8;
+    color: #555;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { background: #ddd; }
+  .copy-btn.copied { background: #d4edda; color: #155724; }
+  .footer {
+    margin-top: 20px;
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🦜 WeightNest Pro 激活码生成器</h1>
+  <p class="subtitle">纯离线 · HMAC-SHA256 签名 · 10 分钟有效</p>
+
+  <div class="warning">
+    生成的激活码在 <strong>10 分钟</strong> 内有效，过期无法激活新设备。
+  </div>
+
+  <div class="controls">
+    <label for="count">生成数量：</label>
+    <select id="count">
+      <option value="1">1</option>
+      <option value="3" selected>3</option>
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="20">20</option>
+    </select>
+    <button onclick="generate()">生成激活码</button>
+  </div>
+
+  <div class="code-list" id="list">
+    <div class="code-row" style="color:#aaa;">点击「生成激活码」开始</div>
+  </div>
+
+  <div class="footer">
+    与 Dart 端 <code>tools/generate_license.dart</code> 使用相同密钥
+  </div>
+</div>
+
+<script>
+// ── XOR-obfuscated key (same as license_service.dart) ──
+const STORED = new Uint8Array([
+  0x8a,0x1d,0x36,0x23,0xff,0x28,0x21,0x66,
+  0x57,0xe0,0xf5,0x9b,0xca,0xc2,0x21,0xac,
+  0xd4,0x76,0xad,0xa1,0x78,0xca,0x3b,0x15,
+  0x0f,0x3a,0xa1,0x2f,0x44,0x6e,0x58,0x76,
+]);
+const MASK = new Uint8Array([
+  0x5e,0x61,0x19,0xb2,0x7c,0x42,0x3f,0xd3,
+  0x15,0x6f,0xc8,0xed,0x0b,0x58,0x2e,0xf4,
+  0x37,0x51,0xe6,0xcc,0x6d,0x4a,0x09,0xbb,
+  0x70,0x23,0xfd,0xa7,0x49,0xdc,0x1e,0x85,
+]);
+
+function getKey() {
+  const key = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    key[i] = STORED[i] ^ MASK[i];
+  }
+  return key;
+}
+
+// ── Hex / bytes helpers ──
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function uint32ToBytes(v) {
+  const b = new Uint8Array(4);
+  b[0] = (v >> 24) & 0xff;
+  b[1] = (v >> 16) & 0xff;
+  b[2] = (v >> 8) & 0xff;
+  b[3] = v & 0xff;
+  return b;
+}
+
+async function hmacSha256(keyBytes, data) {
+  const key = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, data);
+  return new Uint8Array(sig);
+}
+
+// ── Generate one code ──
+async function generateOne() {
+  const now = Math.floor(Date.now() / 1000);
+  const tsBytes = uint32ToBytes(now);
+  const random = crypto.getRandomValues(new Uint8Array(8));
+
+  const payload = new Uint8Array([...tsBytes, ...random]);
+  const key = getKey();
+  const digest = await hmacSha256(key, payload);
+  const sigHex = bytesToHex(digest.slice(0, 4));
+
+  return `WNPRO-${bytesToHex(tsBytes)}-${bytesToHex(random)}-${sigHex}`;
+}
+
+// ── UI ──
+async function generate() {
+  const count = parseInt(document.getElementById('count').value);
+  const list = document.getElementById('list');
+  list.innerHTML = '<div style="color:#aaa; text-align:center; padding:20px;">生成中...</div>';
+
+  const codes = [];
+  for (let i = 0; i < count; i++) {
+    codes.push(await generateOne());
+  }
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+
+  list.innerHTML = codes.map((code, i) => `
+    <div class="code-row">
+      <span class="num">${i + 1}.</span>
+      <span class="code">${code}</span>
+      <button class="copy-btn" onclick="copyCode(this, '${code}')">复制</button>
+    </div>
+  `).join('');
+
+  // Show generation time
+  const timeDiv = document.createElement('div');
+  timeDiv.style.cssText = 'font-size:12px;color:#aaa;text-align:center;margin-top:8px;';
+  timeDiv.textContent = `生成时间：${timeStr}（10 分钟内有效）`;
+  list.appendChild(timeDiv);
+}
+
+function copyCode(btn, code) {
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 1500);
+  });
+}
+</script>
+</body>
+</html>

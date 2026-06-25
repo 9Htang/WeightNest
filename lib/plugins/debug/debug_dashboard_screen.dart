@@ -143,6 +143,12 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
                   onTap: () => _showAppInfo(context),
                 ),
                 _ToolCard(
+                  icon: Icons.workspace_premium,
+                  label: '清应用内 Pro',
+                  color: Colors.orange,
+                  onTap: () => _onRemoveProTap(context),
+                ),
+                _ToolCard(
                   icon: Icons.delete_forever,
                   label: '清空数据库',
                   color: Colors.red,
@@ -215,6 +221,18 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _onRemoveProTap(BuildContext context) async {
+    await ref.read(premiumStatusProvider.notifier).clearAppOnly();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('已清除应用内 Pro 状态，外部凭证保留'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _onClearDatabaseTap(BuildContext context) async {

@@ -10,6 +10,7 @@ class BirdPhotos extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   TextColumn get mediaType => text().withDefault(const Constant('photo'))(); // 'photo' or 'motion_photo'
   TextColumn get videoFilePath => text().nullable()(); // relative path to extracted .mp4 for motion photos
+  TextColumn get thumbnailPath => text().nullable()(); // relative path to animated WebP thumbnail (generated from video)
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 }

@@ -16,7 +16,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppClock.restore();
   registerPlugins();
-  await LicenseService().init();
+  try {
+    await LicenseService().init();
+  } catch (_) {}
   await NotificationService.instance.init();
 
   await SystemChrome.setPreferredOrientations([

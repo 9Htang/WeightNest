@@ -2,8 +2,12 @@
 ///
 /// 用法：dart run tools/generate_license.dart [数量]
 ///
-/// 生成格式：WNPRO-<16hex>-<8hex>
-/// 原理：随机码 + HMAC-SHA256(密钥, 随机码) 签名
+/// 生成格式：WNPRO-<8hex_gen_timestamp>-<16hex_random>-<8hex_sig>
+/// - gen_timestamp: 生成时的 Unix 时间戳（4 字节 hex）
+/// - random: 8 字节随机数
+/// - sig: HMAC-SHA256(密钥, timestamp + random) 前 4 字节
+///
+/// 码生成后 10 分钟内有效，过期无法激活新设备。
 
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -17,20 +21,32 @@ const _key = <int>[
 ];
 
 String _bytesToHex(List<int> bytes) =>
-    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join('').toUpperCase();
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+
+/// 4 字节大端 int → bytes
+List<int> _uint32ToBytes(int v) {
+  return [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
+}
 
 String generateCode() {
+  final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  final tsBytes = _uint32ToBytes(now);
   final random = List<int>.generate(8, (_) => Random().nextInt(256));
+
+  final payload = [...tsBytes, ...random];
   final hmac = Hmac(sha256, _key);
-  final digest = hmac.convert(random).bytes;
+  final digest = hmac.convert(payload).bytes;
   final sig = _bytesToHex(digest.sublist(0, 4));
-  final code = _bytesToHex(random);
-  return 'WNPRO-$code-$sig';
+
+  final tsHex = _bytesToHex(tsBytes);
+  final randomHex = _bytesToHex(random);
+
+  return 'WNPRO-$tsHex-$randomHex-$sig';
 }
 
 void main(List<String> args) {
   final count = args.isNotEmpty ? int.tryParse(args[0]) ?? 5 : 5;
-  print('生成 $count 个激活码：\n');
+  print('生成 $count 个激活码（10 分钟内有效）：\n');
   for (var i = 0; i < count; i++) {
     print('  ${generateCode()}');
   }

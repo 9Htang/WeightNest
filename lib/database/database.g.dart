@@ -8287,6 +8287,12 @@ class $BirdPhotosTable extends BirdPhotos
   late final GeneratedColumn<String> videoFilePath = GeneratedColumn<String>(
       'video_file_path', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _thumbnailPathMeta =
+      const VerificationMeta('thumbnailPath');
+  @override
+  late final GeneratedColumn<String> thumbnailPath = GeneratedColumn<String>(
+      'thumbnail_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -8296,8 +8302,16 @@ class $BirdPhotosTable extends BirdPhotos
       requiredDuringInsert: false,
       defaultValue: currentDateAndTime);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, birdId, filePath, sortOrder, mediaType, videoFilePath, createdAt];
+  List<GeneratedColumn> get $columns => [
+        id,
+        birdId,
+        filePath,
+        sortOrder,
+        mediaType,
+        videoFilePath,
+        thumbnailPath,
+        createdAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -8337,6 +8351,12 @@ class $BirdPhotosTable extends BirdPhotos
           videoFilePath.isAcceptableOrUnknown(
               data['video_file_path']!, _videoFilePathMeta));
     }
+    if (data.containsKey('thumbnail_path')) {
+      context.handle(
+          _thumbnailPathMeta,
+          thumbnailPath.isAcceptableOrUnknown(
+              data['thumbnail_path']!, _thumbnailPathMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -8362,6 +8382,8 @@ class $BirdPhotosTable extends BirdPhotos
           .read(DriftSqlType.string, data['${effectivePrefix}media_type'])!,
       videoFilePath: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}video_file_path']),
+      thumbnailPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}thumbnail_path']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
     );
@@ -8380,6 +8402,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
   final int sortOrder;
   final String mediaType;
   final String? videoFilePath;
+  final String? thumbnailPath;
   final DateTime createdAt;
   const BirdPhoto(
       {required this.id,
@@ -8388,6 +8411,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
       required this.sortOrder,
       required this.mediaType,
       this.videoFilePath,
+      this.thumbnailPath,
       required this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8399,6 +8423,9 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
     map['media_type'] = Variable<String>(mediaType);
     if (!nullToAbsent || videoFilePath != null) {
       map['video_file_path'] = Variable<String>(videoFilePath);
+    }
+    if (!nullToAbsent || thumbnailPath != null) {
+      map['thumbnail_path'] = Variable<String>(thumbnailPath);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -8414,6 +8441,9 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
       videoFilePath: videoFilePath == null && nullToAbsent
           ? const Value.absent()
           : Value(videoFilePath),
+      thumbnailPath: thumbnailPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbnailPath),
       createdAt: Value(createdAt),
     );
   }
@@ -8428,6 +8458,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       mediaType: serializer.fromJson<String>(json['mediaType']),
       videoFilePath: serializer.fromJson<String?>(json['videoFilePath']),
+      thumbnailPath: serializer.fromJson<String?>(json['thumbnailPath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -8441,6 +8472,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
       'sortOrder': serializer.toJson<int>(sortOrder),
       'mediaType': serializer.toJson<String>(mediaType),
       'videoFilePath': serializer.toJson<String?>(videoFilePath),
+      'thumbnailPath': serializer.toJson<String?>(thumbnailPath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -8452,6 +8484,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
           int? sortOrder,
           String? mediaType,
           Value<String?> videoFilePath = const Value.absent(),
+          Value<String?> thumbnailPath = const Value.absent(),
           DateTime? createdAt}) =>
       BirdPhoto(
         id: id ?? this.id,
@@ -8461,6 +8494,8 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
         mediaType: mediaType ?? this.mediaType,
         videoFilePath:
             videoFilePath.present ? videoFilePath.value : this.videoFilePath,
+        thumbnailPath:
+            thumbnailPath.present ? thumbnailPath.value : this.thumbnailPath,
         createdAt: createdAt ?? this.createdAt,
       );
   BirdPhoto copyWithCompanion(BirdPhotosCompanion data) {
@@ -8473,6 +8508,9 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
       videoFilePath: data.videoFilePath.present
           ? data.videoFilePath.value
           : this.videoFilePath,
+      thumbnailPath: data.thumbnailPath.present
+          ? data.thumbnailPath.value
+          : this.thumbnailPath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -8486,14 +8524,15 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
           ..write('sortOrder: $sortOrder, ')
           ..write('mediaType: $mediaType, ')
           ..write('videoFilePath: $videoFilePath, ')
+          ..write('thumbnailPath: $thumbnailPath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-      id, birdId, filePath, sortOrder, mediaType, videoFilePath, createdAt);
+  int get hashCode => Object.hash(id, birdId, filePath, sortOrder, mediaType,
+      videoFilePath, thumbnailPath, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8504,6 +8543,7 @@ class BirdPhoto extends DataClass implements Insertable<BirdPhoto> {
           other.sortOrder == this.sortOrder &&
           other.mediaType == this.mediaType &&
           other.videoFilePath == this.videoFilePath &&
+          other.thumbnailPath == this.thumbnailPath &&
           other.createdAt == this.createdAt);
 }
 
@@ -8514,6 +8554,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
   final Value<int> sortOrder;
   final Value<String> mediaType;
   final Value<String?> videoFilePath;
+  final Value<String?> thumbnailPath;
   final Value<DateTime> createdAt;
   const BirdPhotosCompanion({
     this.id = const Value.absent(),
@@ -8522,6 +8563,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
     this.sortOrder = const Value.absent(),
     this.mediaType = const Value.absent(),
     this.videoFilePath = const Value.absent(),
+    this.thumbnailPath = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   BirdPhotosCompanion.insert({
@@ -8531,6 +8573,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
     this.sortOrder = const Value.absent(),
     this.mediaType = const Value.absent(),
     this.videoFilePath = const Value.absent(),
+    this.thumbnailPath = const Value.absent(),
     this.createdAt = const Value.absent(),
   })  : birdId = Value(birdId),
         filePath = Value(filePath);
@@ -8541,6 +8584,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
     Expression<int>? sortOrder,
     Expression<String>? mediaType,
     Expression<String>? videoFilePath,
+    Expression<String>? thumbnailPath,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -8550,6 +8594,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
       if (sortOrder != null) 'sort_order': sortOrder,
       if (mediaType != null) 'media_type': mediaType,
       if (videoFilePath != null) 'video_file_path': videoFilePath,
+      if (thumbnailPath != null) 'thumbnail_path': thumbnailPath,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -8561,6 +8606,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
       Value<int>? sortOrder,
       Value<String>? mediaType,
       Value<String?>? videoFilePath,
+      Value<String?>? thumbnailPath,
       Value<DateTime>? createdAt}) {
     return BirdPhotosCompanion(
       id: id ?? this.id,
@@ -8569,6 +8615,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
       sortOrder: sortOrder ?? this.sortOrder,
       mediaType: mediaType ?? this.mediaType,
       videoFilePath: videoFilePath ?? this.videoFilePath,
+      thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -8594,6 +8641,9 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
     if (videoFilePath.present) {
       map['video_file_path'] = Variable<String>(videoFilePath.value);
     }
+    if (thumbnailPath.present) {
+      map['thumbnail_path'] = Variable<String>(thumbnailPath.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -8609,6 +8659,7 @@ class BirdPhotosCompanion extends UpdateCompanion<BirdPhoto> {
           ..write('sortOrder: $sortOrder, ')
           ..write('mediaType: $mediaType, ')
           ..write('videoFilePath: $videoFilePath, ')
+          ..write('thumbnailPath: $thumbnailPath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -16272,6 +16323,7 @@ typedef $$BirdPhotosTableCreateCompanionBuilder = BirdPhotosCompanion Function({
   Value<int> sortOrder,
   Value<String> mediaType,
   Value<String?> videoFilePath,
+  Value<String?> thumbnailPath,
   Value<DateTime> createdAt,
 });
 typedef $$BirdPhotosTableUpdateCompanionBuilder = BirdPhotosCompanion Function({
@@ -16281,6 +16333,7 @@ typedef $$BirdPhotosTableUpdateCompanionBuilder = BirdPhotosCompanion Function({
   Value<int> sortOrder,
   Value<String> mediaType,
   Value<String?> videoFilePath,
+  Value<String?> thumbnailPath,
   Value<DateTime> createdAt,
 });
 
@@ -16326,6 +16379,9 @@ class $$BirdPhotosTableFilterComposer
 
   ColumnFilters<String> get videoFilePath => $composableBuilder(
       column: $table.videoFilePath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get thumbnailPath => $composableBuilder(
+      column: $table.thumbnailPath, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -16376,6 +16432,10 @@ class $$BirdPhotosTableOrderingComposer
       column: $table.videoFilePath,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get thumbnailPath => $composableBuilder(
+      column: $table.thumbnailPath,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -16423,6 +16483,9 @@ class $$BirdPhotosTableAnnotationComposer
 
   GeneratedColumn<String> get videoFilePath => $composableBuilder(
       column: $table.videoFilePath, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbnailPath => $composableBuilder(
+      column: $table.thumbnailPath, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -16477,6 +16540,7 @@ class $$BirdPhotosTableTableManager extends RootTableManager<
             Value<int> sortOrder = const Value.absent(),
             Value<String> mediaType = const Value.absent(),
             Value<String?> videoFilePath = const Value.absent(),
+            Value<String?> thumbnailPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
               BirdPhotosCompanion(
@@ -16486,6 +16550,7 @@ class $$BirdPhotosTableTableManager extends RootTableManager<
             sortOrder: sortOrder,
             mediaType: mediaType,
             videoFilePath: videoFilePath,
+            thumbnailPath: thumbnailPath,
             createdAt: createdAt,
           ),
           createCompanionCallback: ({
@@ -16495,6 +16560,7 @@ class $$BirdPhotosTableTableManager extends RootTableManager<
             Value<int> sortOrder = const Value.absent(),
             Value<String> mediaType = const Value.absent(),
             Value<String?> videoFilePath = const Value.absent(),
+            Value<String?> thumbnailPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
               BirdPhotosCompanion.insert(
@@ -16504,6 +16570,7 @@ class $$BirdPhotosTableTableManager extends RootTableManager<
             sortOrder: sortOrder,
             mediaType: mediaType,
             videoFilePath: videoFilePath,
+            thumbnailPath: thumbnailPath,
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0

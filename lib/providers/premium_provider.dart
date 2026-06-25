@@ -13,16 +13,25 @@ class PremiumNotifier extends StateNotifier<PremiumStatus> {
 
   bool get isPro => state == PremiumStatus.pro;
 
-  /// 激活 Pro
+  /// 验证激活码并持久化（不改变 state，由 UI 层在安全时机调用 [setPro]）
   Future<bool> activate(String code) async {
-    final ok = await _license.activate(code);
-    if (ok) state = PremiumStatus.pro;
-    return ok;
+    return _license.activate(code);
   }
 
-  /// 取消激活（调试用）
+  /// UI 层确认动画已完成、widget tree 稳定后调用此方法改 state
+  void setPro() {
+    if (mounted) state = PremiumStatus.pro;
+  }
+
+  /// 取消激活（调试用，清理全部）
   Future<void> deactivate() async {
     await _license.deactivate();
+    state = PremiumStatus.free;
+  }
+
+  /// 清除应用内 Pro 状态（调试用）
+  Future<void> clearAppOnly() async {
+    await _license.clearAppOnly();
     state = PremiumStatus.free;
   }
 }

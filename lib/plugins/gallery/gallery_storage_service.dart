@@ -93,14 +93,18 @@ class GalleryStorageService {
     return _photoRelPath(birdId, filename);
   }
 
-  /// Delete a single photo file and its paired video if present.
-  Future<void> deletePhoto(String relativePath, {String? videoPath}) async {
+  /// Delete a single photo file and its paired video + thumbnail if present.
+  Future<void> deletePhoto(String relativePath, {String? videoPath, String? thumbnailPath}) async {
     await ensureInitialized();
     final file = File(resolve(relativePath));
     if (await file.exists()) await file.delete();
     if (videoPath != null) {
       final videoFile = File(resolve(videoPath));
       if (await videoFile.exists()) await videoFile.delete();
+    }
+    if (thumbnailPath != null) {
+      final thumbFile = File(resolve(thumbnailPath));
+      if (await thumbFile.exists()) await thumbFile.delete();
     }
   }
 

@@ -811,63 +811,12 @@ class _PremiumCard extends ConsumerWidget {
 
 /// 激活码输入对话框
 Future<void> _showActivateDialog(BuildContext context, WidgetRef ref) async {
-  final controller = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-
-  final ok = await showDialog<bool>(
+  final code = await showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('升级到 Pro'),
-      content: Form(
-        key: formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '请输入激活码（格式：WNPRO-XXXX-XXXX-XXXX）',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                hintText: 'WNPRO-XXXX-XXXX-XXXX',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return '请输入激活码';
-                if (!v.trim().toUpperCase().startsWith('WNPRO-')) {
-                  return '激活码格式不正确';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() == true) {
-              Navigator.pop(ctx, true);
-            }
-          },
-          child: const Text('激活'),
-        ),
-      ],
-    ),
+    builder: (_) => const _ActivateDialog(),
   );
 
-  if (ok == true && context.mounted) {
-    final code = controller.text.trim().toUpperCase();
+  if (code != null && context.mounted) {
     // 显示进度
     showDialog(
       context: context,
@@ -878,7 +827,17 @@ Future<void> _showActivateDialog(BuildContext context, WidgetRef ref) async {
     try {
       final success = await ref.read(premiumStatusProvider.notifier).activate(code);
 
+      // 关闭进度对话框
       if (context.mounted) Navigator.of(context).pop();
+
+      // Dialog 关闭动画约 200ms，等待动画彻底完成后 widget tree 稳定，
+      // 再调 setPro() 触发 notifyListeners
+      if (success) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (context.mounted) {
+          ref.read(premiumStatusProvider.notifier).setPro();
+        }
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -900,8 +859,78 @@ Future<void> _showActivateDialog(BuildContext context, WidgetRef ref) async {
       }
     }
   }
+}
 
-  controller.dispose();
+/// 激活码输入对话框（自管理 TextEditingController 生命周期）
+class _ActivateDialog extends StatefulWidget {
+  const _ActivateDialog();
+
+  @override
+  State<_ActivateDialog> createState() => _ActivateDialogState();
+}
+
+class _ActivateDialogState extends State<_ActivateDialog> {
+  final _controller = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('升级到 Pro'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '请输入激活码（格式：WNPRO-XXXX-XXXX-XXXX）',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                hintText: 'WNPRO-XXXX-XXXX-XXXX',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '请输入激活码';
+                if (!v.trim().toUpperCase().startsWith('WNPRO-')) {
+                  return '激活码格式不正确';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (_formKey.currentState?.validate() == true) {
+              final code = _controller.text.trim().toUpperCase();
+              Navigator.pop(context, code);
+            }
+          },
+          child: const Text('激活'),
+        ),
+      ],
+    );
+  }
 }
 
 /// 通用 section 标题，与插件管理标题风格一致

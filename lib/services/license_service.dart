@@ -1,15 +1,25 @@
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// SharedPreferences key for Pro activation state
+import '../core/app_clock.dart';
+
+/// SharedPreferences keys
 const _kPremiumActive = 'premium_active';
 const _kPremiumCode = 'premium_code';
+const _kPremiumActivatedAt = 'premium_activated_at';
 
-/// 激活码格式：WNPRO-<16hex>-<8hex>
-/// 前 16 位 hex = 8 字节随机码
-/// 后 8 位 hex = HMAC-SHA256(密钥, 随机码) 的前 4 字节
+/// Activation code validity window (minutes from generation)
+const _kValidityMinutes = 10;
+
+/// 激活码格式：WNPRO-<8hex_gen_timestamp>-<16hex_random>-<8hex_sig>
 ///
-/// 通过 HMAC 签名验证，无需后端服务器，无需存储有效码列表。
+/// - gen_timestamp: 4 字节 Unix 时间戳，标记码的生成时间
+/// - random: 8 字节随机数
+/// - sig: HMAC-SHA256(密钥, gen_timestamp + random) 前 4 字节
+///
+/// 码生成后 10 分钟内可激活，过期作废。
+/// Pro 状态存储在 SharedPreferences，由 Android Auto Backup 自动备份，
+/// 卸载重装后由系统恢复。
 class LicenseService {
   static final LicenseService _instance = LicenseService._();
   factory LicenseService() => _instance;
@@ -20,63 +30,97 @@ class LicenseService {
   /// 同步获取 Pro 状态（需先调用 [init]）
   bool get isPro => _cachedPro ?? false;
 
-  /// 应用启动时调用，从 SharedPreferences 恢复状态
+  /// 应用启动时调用，从 SharedPreferences 恢复状态。
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _cachedPro = prefs.getBool(_kPremiumActive) ?? false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _cachedPro = prefs.getBool(_kPremiumActive) ?? false;
+    } catch (_) {
+      _cachedPro = false;
+    }
   }
 
-  /// 验证并激活
-  ///
-  /// 返回 true 表示激活成功
+  /// 验证并激活。
+  /// 返回 true 表示激活成功。
   Future<bool> activate(String code) async {
-    if (!_verifyCode(code)) return false;
+    try {
+      final genTimestamp = _verifyCode(code);
+      if (genTimestamp == null) return false;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kPremiumActive, true);
-    await prefs.setString(_kPremiumCode, code);
-    _cachedPro = true;
-    return true;
+      // 检查 10 分钟时间窗口
+      final now = AppClock.now.millisecondsSinceEpoch ~/ 1000;
+      if (now - genTimestamp > _kValidityMinutes * 60) return false;
+
+      // 写入本地存储
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kPremiumActive, true);
+      await prefs.setString(_kPremiumCode, code);
+      await prefs.setInt(_kPremiumActivatedAt, now);
+      _cachedPro = true;
+
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 取消激活（调试用）
   Future<void> deactivate() async {
+    await clearAppOnly();
+  }
+
+  /// 清除应用内 Pro 状态
+  Future<void> clearAppOnly() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kPremiumActive, false);
     await prefs.remove(_kPremiumCode);
+    await prefs.remove(_kPremiumActivatedAt);
     _cachedPro = false;
   }
 
-  /// 获取已保存的激活码（用于显示）
+  /// 获取已保存的激活码
   Future<String?> getSavedCode() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_kPremiumCode);
   }
 
-  /// 验证激活码格式和 HMAC 签名
-  bool _verifyCode(String code) {
-    // 1. 格式校验
+  // ── 验证 ──
+
+  /// 验证激活码格式和 HMAC 签名。
+  /// 返回生成时间戳（Unix 秒），验证失败返回 null。
+  int? _verifyCode(String code) {
+    // 1. 格式校验：WNPRO-<8hex>-<16hex>-<8hex>
     final parts = code.toUpperCase().split('-');
-    if (parts.length != 3) return false;
-    if (parts[0] != 'WNPRO') return false;
-    if (parts[1].length != 16) return false;
-    if (parts[2].length != 8) return false;
+    if (parts.length != 4) return null;
+    if (parts[0] != 'WNPRO') return null;
+    if (parts[1].length != 8) return null;
+    if (parts[2].length != 16) return null;
+    if (parts[3].length != 8) return null;
 
     // 2. hex 合法性
-    final randomHex = parts[1];
-    final sigHex = parts[2];
-    if (!_isHex(randomHex) || !_isHex(sigHex)) return false;
+    final tsHex = parts[1];
+    final randomHex = parts[2];
+    final sigHex = parts[3];
+    if (!_isHex(tsHex) || !_isHex(randomHex) || !_isHex(sigHex)) return null;
 
-    // 3. HMAC 验证
+    // 3. 解析时间戳
+    final tsBytes = _hexToBytes(tsHex);
+    final genTimestamp = _bytesToUint32(tsBytes);
+
+    // 4. HMAC 签名验证（覆盖时间戳 + 随机数）
     final randomBytes = _hexToBytes(randomHex);
-    final expectedSig = _computeHmac(randomBytes);
-    if (expectedSig.length < 4) return false;
+    final payload = [...tsBytes, ...randomBytes];
+    final expectedSig = _computeHmac(payload);
+    if (expectedSig.length < 4) return null;
 
     final expectedHex = _bytesToHex(expectedSig.sublist(0, 4));
-    return expectedHex == sigHex;
+    if (expectedHex != sigHex) return null;
+
+    return genTimestamp;
   }
 
-  /// 计算 HMAC-SHA256(密钥, data)
+  // ── HMAC 工具 ──
+
   List<int> _computeHmac(List<int> data) {
     final key = _getKey();
     final hmac = Hmac(sha256, key);
@@ -97,12 +141,20 @@ class LicenseService {
   }
 
   String _bytesToHex(List<int> bytes) {
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+    return bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join()
+        .toUpperCase();
   }
 
-  /// XOR 混淆后的密钥 — 仅供离线激活码验证使用
+  /// 4 字节大端 → int
+  int _bytesToUint32(List<int> bytes) {
+    return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+  }
+
+  // ── 密钥（XOR 混淆） ──
+
   List<int> _getKey() {
-    // 混淆存储：实际密钥 XOR 固定掩码
     const stored = <int>[
       0x8a, 0x1d, 0x36, 0x23, 0xff, 0x28, 0x21, 0x66,
       0x57, 0xe0, 0xf5, 0x9b, 0xca, 0xc2, 0x21, 0xac,
