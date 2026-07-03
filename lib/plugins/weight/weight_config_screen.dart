@@ -7,6 +7,7 @@ import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
 import '../../services/excel_export_service.dart';
 import '../../screens/weigh/weigh_input_config.dart';
+import '../../theme/app_tokens.dart';
 import 'grid_color_config.dart';
 
 /// 称重插件设置页 — 数据导出 + 表格颜色 + 品种称重间隔配置
@@ -26,31 +27,38 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final sp = context.sp;
+    final r = context.r;
     final spAsync = ref.watch(allSpeciesProvider);
     final cfg = ref.watch(gridColorConfigProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('称重设置')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: sp.paddingLg,
         children: [
           // ── 数据导出 ──
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: sp.paddingLg,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       const Icon(Icons.table_chart, size: 22),
-                      const SizedBox(width: 8),
-                      Text('数据导出', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      SizedBox(width: sp.sm),
+                      Text('数据导出',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text('按月份导出所有鹦鹉体重记录为 Excel', style: TextStyle(color: Color(0xFF555555), fontSize: 13)),
-                  const SizedBox(height: 12),
+                  SizedBox(height: sp.sm),
+                  Text('按月份导出所有鹦鹉体重记录为 Excel',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant)),
+                  SizedBox(height: sp.md),
                   Row(
                     children: [
                       Expanded(
@@ -59,36 +67,43 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
                           child: Text(_exportLabel ?? '选择月份'),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: sp.md),
                       FilledButton.tonalIcon(
-                        onPressed: (_selectedYear != null && _selectedMonth != null)
-                            ? () => _exportData()
-                            : null,
+                        onPressed:
+                            (_selectedYear != null && _selectedMonth != null)
+                                ? () => _exportData()
+                                : null,
                         icon: const Icon(Icons.download),
                         label: const Text('导出 Excel'),
                       ),
                     ],
                   ),
-                  if (_exportPath != null && _exportPath != '正在导出...' && !_exportPath!.startsWith('导出失败')) ...[
-                    const SizedBox(height: 8),
+                  if (_exportPath != null &&
+                      _exportPath != '正在导出...' &&
+                      !_exportPath!.startsWith('导出失败')) ...[
+                    SizedBox(height: sp.sm),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => Share.shareXFiles([XFile(_exportPath!)]),
+                        onPressed: () =>
+                            Share.shareXFiles([XFile(_exportPath!)]),
                         icon: const Icon(Icons.share, size: 18),
                         label: const Text('分享文件'),
                       ),
                     ),
                   ],
                   if (_exportPath != null) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: sp.sm),
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: _exportPath!.startsWith('导出失败') ? Colors.orange.shade50 : Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        color: _exportPath!.startsWith('导出失败')
+                            ? scheme.errorContainer
+                            : scheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(r.lg),
                       ),
-                      child: Text(_exportPath!, style: const TextStyle(fontSize: 12)),
+                      child: Text(_exportPath!,
+                          style: theme.textTheme.bodySmall),
                     ),
                   ],
                 ],
@@ -96,7 +111,7 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: sp.lg),
 
           // ── 称重表格颜色配置 ──
           _ColorConfigCard(
@@ -105,49 +120,59 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
                 ref.read(gridColorConfigProvider.notifier).update(newCfg),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: sp.lg),
 
           // ── 输入偏好 ──
           _InputPrefsCard(),
 
-          const SizedBox(height: 16),
+          SizedBox(height: sp.lg),
 
           // ── 品种称重间隔配置 ──
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: sp.paddingLg,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     const Icon(Icons.scale, size: 22),
-                    const SizedBox(width: 8),
+                    SizedBox(width: sp.sm),
                     Expanded(
-                      child: Text('品种称重间隔配置', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      child: Text('品种称重间隔配置',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
                     ),
                   ]),
-                  const SizedBox(height: 4),
+                  SizedBox(height: sp.xs),
                   Text('设置各品种在不同生长阶段的称重频率',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  const SizedBox(height: 12),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant)),
+                  SizedBox(height: sp.md),
                   spAsync.when(
-                    loading: () => const Center(child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
+                    loading: () => Center(
+                        child: Padding(
+                      padding: EdgeInsets.all(sp.xl),
+                      child: const CircularProgressIndicator(),
                     )),
                     error: (e, _) => Center(child: Text('加载失败: $e')),
                     data: (spList) {
                       if (spList.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: Text('暂无品种，请先在设置中添加品种', style: TextStyle(color: Colors.grey))),
+                        return Padding(
+                          padding: sp.paddingLg,
+                          child: Center(
+                              child: Text('暂无品种，请先在设置中添加品种',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant))),
                         );
                       }
                       return Column(
-                        children: spList.map((s) => _SpeciesWeighRow(
-                          species: s,
-                          onTap: () => _showWeighIntervalDialog(context, s),
-                        )).toList(),
+                        children: spList
+                            .map((s) => _SpeciesWeighRow(
+                                  species: s,
+                                  onTap: () =>
+                                      _showWeighIntervalDialog(context, s),
+                                ))
+                            .toList(),
                       );
                     },
                   ),
@@ -164,7 +189,8 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
     final now = AppClock.now;
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(_selectedYear ?? now.year, _selectedMonth ?? now.month),
+      initialDate:
+          DateTime(_selectedYear ?? now.year, _selectedMonth ?? now.month),
       firstDate: DateTime(2020),
       lastDate: DateTime(now.year, now.month),
       helpText: '选择导出月份',
@@ -199,9 +225,12 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
   }
 
   void _showWeighIntervalDialog(BuildContext context, Specy species) {
-    final nestlingCtrl = TextEditingController(text: '${species.nestlingWeighIntervalDays}');
-    final juvenileCtrl = TextEditingController(text: '${species.juvenileWeighIntervalDays}');
-    final adultCtrl = TextEditingController(text: '${species.adultWeighIntervalDays}');
+    final nestlingCtrl =
+        TextEditingController(text: '${species.nestlingWeighIntervalDays}');
+    final juvenileCtrl =
+        TextEditingController(text: '${species.juvenileWeighIntervalDays}');
+    final adultCtrl =
+        TextEditingController(text: '${species.adultWeighIntervalDays}');
 
     showDialog<bool>(
       context: context,
@@ -211,25 +240,35 @@ class _WeightConfigScreenState extends ConsumerState<WeightConfigScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('雏鸟 ≤${species.nestlingEndDays}天 · 幼鸟 ≤${species.juvenileEndDays}天 · 成鸟 >${species.juvenileEndDays}天',
-                  style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurface.withAlpha(140))),
+              Text(
+                  '雏鸟 ≤${species.nestlingEndDays}天 · 幼鸟 ≤${species.juvenileEndDays}天 · 成鸟 >${species.juvenileEndDays}天',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          Theme.of(ctx).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: TextField(
+                Expanded(
+                    child: TextField(
                   controller: nestlingCtrl,
-                  decoration: const InputDecoration(labelText: '雏鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '雏鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 )),
                 const SizedBox(width: 8),
-                Expanded(child: TextField(
+                Expanded(
+                    child: TextField(
                   controller: juvenileCtrl,
-                  decoration: const InputDecoration(labelText: '幼鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '幼鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 )),
                 const SizedBox(width: 8),
-                Expanded(child: TextField(
+                Expanded(
+                    child: TextField(
                   controller: adultCtrl,
-                  decoration: const InputDecoration(labelText: '成鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '成鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 )),
               ]),
@@ -280,25 +319,37 @@ class _SpeciesWeighRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final sp = context.sp;
+    final a = context.a;
+    final r = context.r;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(r.lg),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(Icons.pets, size: 18, color: scheme.primary.withAlpha(180)),
-            const SizedBox(width: 10),
+            Icon(Icons.pets, size: 18, color: scheme.primary.withAlpha(a.heavy)),
+            SizedBox(width: sp.sm + 2),
             Expanded(
-              child: Text(species.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              child: Text(species.name,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
             ),
-            _IntervalBadge(label: '雏${species.nestlingWeighIntervalDays}天', color: scheme.tertiary),
-            const SizedBox(width: 4),
-            _IntervalBadge(label: '幼${species.juvenileWeighIntervalDays}天', color: scheme.primary),
-            const SizedBox(width: 4),
-            _IntervalBadge(label: '成${species.adultWeighIntervalDays}天', color: scheme.secondary),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 18, color: scheme.onSurface.withAlpha(80)),
+            _IntervalBadge(
+                label: '雏${species.nestlingWeighIntervalDays}天',
+                color: scheme.tertiary),
+            SizedBox(width: sp.xs),
+            _IntervalBadge(
+                label: '幼${species.juvenileWeighIntervalDays}天',
+                color: scheme.primary),
+            SizedBox(width: sp.xs),
+            _IntervalBadge(
+                label: '成${species.adultWeighIntervalDays}天',
+                color: scheme.secondary),
+            SizedBox(width: sp.xs),
+            Icon(Icons.chevron_right,
+                size: 18, color: scheme.onSurface.withAlpha(a.medium)),
           ],
         ),
       ),
@@ -313,13 +364,17 @@ class _IntervalBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
+    final a = context.a;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: color.withAlpha(25),
+        borderRadius: BorderRadius.circular(r.sm),
+        color: color.withAlpha(a.subtle),
       ),
-      child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, color: color, fontWeight: FontWeight.w500)),
     );
   }
 }
@@ -329,11 +384,21 @@ class _IntervalBadge extends StatelessWidget {
 // ═══════════════════════════════════════════════
 
 const _palette = <Color>[
-  Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFF009688),
-  Color(0xFF2196F3), Color(0xFF3F51B5), Color(0xFF9C27B0),
-  Color(0xFFF44336), Color(0xFFE91E63), Color(0xFFFF5722),
-  Color(0xFFFF9800), Color(0xFFFFEB3B), Color(0xFF795548),
-  Color(0xFF607D8B), Color(0xFF9E9E9E), Color(0xFFE0E0E0),
+  Color(0xFF4CAF50),
+  Color(0xFF8BC34A),
+  Color(0xFF009688),
+  Color(0xFF2196F3),
+  Color(0xFF3F51B5),
+  Color(0xFF9C27B0),
+  Color(0xFFF44336),
+  Color(0xFFE91E63),
+  Color(0xFFFF5722),
+  Color(0xFFFF9800),
+  Color(0xFFFFEB3B),
+  Color(0xFF795548),
+  Color(0xFF607D8B),
+  Color(0xFF9E9E9E),
+  Color(0xFFE0E0E0),
 ];
 
 class _ColorConfigCard extends StatelessWidget {
@@ -346,6 +411,7 @@ class _ColorConfigCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final sp = context.sp;
 
     final states = [
       BirdCellState.weighedToday,
@@ -357,48 +423,52 @@ class _ColorConfigCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: sp.paddingLg,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
               const Icon(Icons.palette_outlined, size: 22),
-              const SizedBox(width: 8),
+              SizedBox(width: sp.sm),
               Text('称重表格颜色',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
             ]),
-            const SizedBox(height: 4),
+            SizedBox(height: sp.xs),
             Text('自定义各状态的单元格颜色与显示方式',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: scheme.onSurfaceVariant)),
 
             const Divider(height: 24),
 
             // 显示模式
             Text('显示方式',
-                style: theme.textTheme.labelMedium?.copyWith(
-                    color: scheme.onSurface.withAlpha(160))),
-            const SizedBox(height: 8),
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: scheme.onSurfaceVariant)),
+            SizedBox(height: sp.sm),
             SegmentedButton<CellDisplayMode>(
               segments: CellDisplayMode.values
                   .map((m) => ButtonSegment(
-                      value: m, label: Text(m.label, style: const TextStyle(fontSize: 12))))
+                      value: m,
+                      label: Text(m.label, style: theme.textTheme.bodySmall)))
                   .toList(),
               selected: {config.displayMode},
-              onSelectionChanged: (s) => onChanged(config.copyWith(displayMode: s.first)),
+              onSelectionChanged: (s) =>
+                  onChanged(config.copyWith(displayMode: s.first)),
               style: ButtonStyle(
                 padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 8)),
+                    EdgeInsets.symmetric(horizontal: sp.sm)),
               ),
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // 边框粗细
             if (config.displayMode != CellDisplayMode.fill) ...[
               Row(children: [
                 Text('边框粗细',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        color: scheme.onSurface.withAlpha(160))),
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: scheme.onSurfaceVariant)),
                 const Spacer(),
                 Text('${config.borderWidth.toStringAsFixed(1)} px',
                     style: theme.textTheme.bodySmall),
@@ -416,8 +486,8 @@ class _ColorConfigCard extends StatelessWidget {
             if (config.displayMode != CellDisplayMode.border) ...[
               Row(children: [
                 Text('填充浓度',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        color: scheme.onSurface.withAlpha(160))),
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: scheme.onSurfaceVariant)),
                 const Spacer(),
                 Text('${(config.fillOpacity * 100).round()}%',
                     style: theme.textTheme.bodySmall),
@@ -434,8 +504,8 @@ class _ColorConfigCard extends StatelessWidget {
             // 表格最小列宽
             Row(children: [
               Text('表格最小列宽',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                      color: scheme.onSurface.withAlpha(160))),
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant)),
               const Spacer(),
               Text('${config.minColumnWidth.round()} px',
                   style: theme.textTheme.bodySmall),
@@ -447,20 +517,20 @@ class _ColorConfigCard extends StatelessWidget {
               divisions: 49,
               onChanged: (v) => onChanged(config.copyWith(minColumnWidth: v)),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: sp.sm),
 
             // 图例开关
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('显示图例', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('在称重表格右下角显示颜色含义',
-                  style: TextStyle(fontSize: 12)),
+              title: Text('显示图例', style: theme.textTheme.labelLarge),
+              subtitle: Text('在称重表格右下角显示颜色含义',
+                  style: theme.textTheme.bodySmall),
               value: config.showLegend,
               onChanged: (v) => onChanged(config.copyWith(showLegend: v)),
             ),
 
             const Divider(height: 8),
-            const SizedBox(height: 8),
+            SizedBox(height: sp.sm),
 
             // 各状态颜色行
             ...states.map((s) => _StateColorRow(
@@ -469,13 +539,14 @@ class _ColorConfigCard extends StatelessWidget {
                   displayMode: config.displayMode,
                   fillOpacity: config.fillOpacity,
                   onColorPicked: (c) {
-                    final updated = Map<BirdCellState, Color>.from(config.colors);
+                    final updated =
+                        Map<BirdCellState, Color>.from(config.colors);
                     updated[s] = c;
                     onChanged(config.copyWith(colors: updated));
                   },
                 )),
 
-            const SizedBox(height: 8),
+            SizedBox(height: sp.sm),
 
             // 恢复默认
             Center(
@@ -513,13 +584,17 @@ class _StateColorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sp = context.sp;
+    final r = context.r;
     return InkWell(
       onTap: () => _showColorPicker(context),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(r.lg),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(children: [
-          Expanded(child: Text(state.label, style: const TextStyle(fontSize: 13))),
+          Expanded(
+              child: Text(state.label, style: TextStyle(fontSize: 13))),
           Container(
             width: 48,
             height: 22,
@@ -530,17 +605,21 @@ class _StateColorRow extends StatelessWidget {
               border: displayMode == CellDisplayMode.fill
                   ? null
                   : Border.all(color: color, width: 2),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(r.sm),
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-        ]),
+          SizedBox(width: sp.sm),
+          Icon(Icons.chevron_right,
+              size: 18, color: theme.colorScheme.onSurfaceVariant),
+        ],
+      ),
       ),
     );
   }
 
   void _showColorPicker(BuildContext context) {
+    final theme = Theme.of(context);
+    final r = context.r;
     Color picked = color;
     showDialog<Color>(
       context: context,
@@ -565,13 +644,20 @@ class _StateColorRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: c,
                         shape: BoxShape.circle,
-                        border: selected ? Border.all(color: Colors.white, width: 3) : null,
+                        border: selected
+                            ? Border.all(color: Colors.white, width: 3)
+                            : null,
                         boxShadow: selected
-                            ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 8)]
+                            ? [
+                                BoxShadow(
+                                    color: c.withValues(alpha: 0.5),
+                                    blurRadius: 8)
+                              ]
                             : null,
                       ),
                       child: selected
-                          ? const Icon(Icons.check, size: 18, color: Colors.white)
+                          ? const Icon(Icons.check,
+                              size: 18, color: Colors.white)
                           : null,
                     ),
                   );
@@ -588,11 +674,12 @@ class _StateColorRow extends StatelessWidget {
                   border: displayMode == CellDisplayMode.fill
                       ? null
                       : Border.all(color: picked, width: 2),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(r.md),
                 ),
                 child: Center(
                   child: Text('预览效果',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -600,9 +687,11 @@ class _StateColorRow extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, picked), child: const Text('应用')),
+              onPressed: () => Navigator.pop(ctx, picked),
+              child: const Text('应用')),
         ],
       ),
     ).then((c) {
@@ -621,19 +710,30 @@ class _InputPrefsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final sp = context.sp;
     final cfg = ref.watch(weighInputConfigProvider);
     final notifier = ref.read(weighInputConfigProvider.notifier);
 
+    // 滑块参数行样式：标题 + 当前值
+    final paramLabelStyle =
+        theme.textTheme.labelLarge ?? const TextStyle();
+    final paramValueStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: scheme.primary,
+    );
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: sp.paddingLg,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Icon(Icons.touch_app, size: 22),
-                const SizedBox(width: 8),
+                SizedBox(width: sp.sm),
                 Text(
                   '输入偏好',
                   style: theme.textTheme.titleMedium
@@ -641,49 +741,48 @@ class _InputPrefsCard extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: sp.xs),
             Text(
               '设置快速称重的默认输入方式和转盘参数',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 默认输入模式 ──
             Row(
               children: [
-                const Expanded(
-                  child: Text('默认输入模式', style: TextStyle(fontSize: 14)),
-                ),
+                Expanded(child: Text('默认输入模式', style: paramLabelStyle)),
                 SegmentedButton<WeighInputMode>(
                   segments: WeighInputMode.values.map((m) {
                     return ButtonSegment<WeighInputMode>(
                       value: m,
-                      label: Text(m.label, style: const TextStyle(fontSize: 13)),
+                      label: Text(m.label, style: theme.textTheme.bodySmall),
                     );
                   }).toList(),
                   selected: {cfg.mode},
                   onSelectionChanged: (sel) => notifier.setMode(sel.first),
                   style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: theme.colorScheme.primaryContainer,
+                    selectedBackgroundColor: scheme.primaryContainer,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: sp.md),
 
             // ── 转盘位置 ──
             Row(
               children: [
-                const Expanded(
-                  child: Text('转盘位置', style: TextStyle(fontSize: 14)),
-                ),
+                Expanded(child: Text('转盘位置', style: paramLabelStyle)),
                 SegmentedButton<DialSide>(
                   segments: DialSide.values.map((s) {
                     return ButtonSegment<DialSide>(
                       value: s,
-                      label: Text(s.label, style: const TextStyle(fontSize: 13)),
+                      label: Text(s.label, style: theme.textTheme.bodySmall),
                       icon: Icon(
-                        s == DialSide.left ? Icons.swipe_left : Icons.swipe_right,
+                        s == DialSide.left
+                            ? Icons.swipe_left
+                            : Icons.swipe_right,
                         size: 16,
                       ),
                     );
@@ -691,301 +790,192 @@ class _InputPrefsCard extends ConsumerWidget {
                   selected: {cfg.dialSide},
                   onSelectionChanged: (sel) => notifier.setDialSide(sel.first),
                   style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: theme.colorScheme.primaryContainer,
+                    selectedBackgroundColor: scheme.primaryContainer,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 转盘灵敏度 ──
-            Row(
-              children: [
-                const Text('转盘灵敏度', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${cfg.sensitivity.toStringAsFixed(0)}°',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.sensitivity,
-                    min: WeighInputConfig.sensitivityMin,
-                    max: WeighInputConfig.sensitivityMax,
-                    divisions: 20,
-                    label: '${cfg.sensitivity.toStringAsFixed(0)}°',
-                    onChanged: (v) => notifier.setSensitivity(v),
-                  ),
-                ),
-                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '每刻度角度，值越小越灵敏（一圈=360°）',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '转盘灵敏度',
+              value: '${cfg.sensitivity.toStringAsFixed(0)}°',
+              leftHint: '粗',
+              rightHint: '细',
+              help: '每刻度角度，值越小越灵敏（一圈=360°）',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.sensitivity,
+                min: WeighInputConfig.sensitivityMin,
+                max: WeighInputConfig.sensitivityMax,
+                divisions: 20,
+                label: '${cfg.sensitivity.toStringAsFixed(0)}°',
+                onChanged: (v) => notifier.setSensitivity(v),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 速度阈值 ──
-            Row(
-              children: [
-                const Text('速度阈值', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('灵敏', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.speedThreshold,
-                    min: WeighInputConfig.speedThresholdMin,
-                    max: WeighInputConfig.speedThresholdMax,
-                    divisions: 10,
-                    label: '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
-                    onChanged: (v) => notifier.setSpeedThreshold(v),
-                  ),
-                ),
-                const Text('迟钝', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '慢/快的分界线，超过此速度触发快速档',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '速度阈值',
+              value: '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
+              leftHint: '灵敏',
+              rightHint: '迟钝',
+              help: '慢/快的分界线，超过此速度触发快速档',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.speedThreshold,
+                min: WeighInputConfig.speedThresholdMin,
+                max: WeighInputConfig.speedThresholdMax,
+                divisions: 10,
+                label: '${cfg.speedThreshold.toStringAsFixed(0)}°/s',
+                onChanged: (v) => notifier.setSpeedThreshold(v),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: sp.md),
 
             // ── 窗口大小 ──
-            Row(
-              children: [
-                const Text('平滑窗口', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${cfg.windowSize}帧',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('灵敏', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.windowSize.toDouble(),
-                    min: WeighInputConfig.windowSizeMin.toDouble(),
-                    max: WeighInputConfig.windowSizeMax.toDouble(),
-                    divisions: 9,
-                    label: '${cfg.windowSize}帧',
-                    onChanged: (v) => notifier.setWindowSize(v.round()),
-                  ),
-                ),
-                const Text('平缓', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '滑动平均帧数，越大越平缓，越不易误触快档',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '平滑窗口',
+              value: '${cfg.windowSize}帧',
+              leftHint: '灵敏',
+              rightHint: '平缓',
+              help: '滑动平均帧数，越大越平缓，越不易误触快档',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.windowSize.toDouble(),
+                min: WeighInputConfig.windowSizeMin.toDouble(),
+                max: WeighInputConfig.windowSizeMax.toDouble(),
+                divisions: 9,
+                label: '${cfg.windowSize}帧',
+                onChanged: (v) => notifier.setWindowSize(v.round()),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: sp.md),
 
             // ── 快速步长 ──
-            Row(
-              children: [
-                const Text('快速步长', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${cfg.fastStep.toStringAsFixed(1)}g',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.fastStep,
-                    min: WeighInputConfig.fastStepMin,
-                    max: WeighInputConfig.fastStepMax,
-                    divisions: 7,
-                    label: '${cfg.fastStep.toStringAsFixed(1)}g',
-                    onChanged: (v) => notifier.setFastStep(v),
-                  ),
-                ),
-                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '快速滑动时的步长（慢速始终 0.1g）',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '快速步长',
+              value: '${cfg.fastStep.toStringAsFixed(1)}g',
+              leftHint: '细',
+              rightHint: '粗',
+              help: '快速滑动时的步长（慢速始终 0.1g）',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.fastStep,
+                min: WeighInputConfig.fastStepMin,
+                max: WeighInputConfig.fastStepMax,
+                divisions: 7,
+                label: '${cfg.fastStep.toStringAsFixed(1)}g',
+                onChanged: (v) => notifier.setFastStep(v),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 转盘宽度 ──
-            Row(
-              children: [
-                const Text('转盘宽度', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${(cfg.dialWidthPercent * 100).round()}%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('窄', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.dialWidthPercent,
-                    min: WeighInputConfig.dialWidthPercentMin,
-                    max: WeighInputConfig.dialWidthPercentMax,
-                    divisions: 40,
-                    label: '${(cfg.dialWidthPercent * 100).round()}%',
-                    onChanged: (v) => notifier.setDialWidthPercent(v),
-                  ),
-                ),
-                const Text('宽', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '转盘占屏幕宽度的百分比，影响图表可用空间',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '转盘宽度',
+              value: '${(cfg.dialWidthPercent * 100).round()}%',
+              leftHint: '窄',
+              rightHint: '宽',
+              help: '转盘占屏幕宽度的百分比，影响图表可用空间',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.dialWidthPercent,
+                min: WeighInputConfig.dialWidthPercentMin,
+                max: WeighInputConfig.dialWidthPercentMax,
+                divisions: 40,
+                label: '${(cfg.dialWidthPercent * 100).round()}%',
+                onChanged: (v) => notifier.setDialWidthPercent(v),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 弧线半径 ──
-            Row(
-              children: [
-                const Text('弧线半径', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${(cfg.arcRadiusPercent * 100).round()}%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('弯', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.arcRadiusPercent,
-                    min: WeighInputConfig.arcRadiusPercentMin,
-                    max: WeighInputConfig.arcRadiusPercentMax,
-                    divisions: 35,
-                    label: '${(cfg.arcRadiusPercent * 100).round()}%',
-                    onChanged: (v) => notifier.setArcRadiusPercent(v),
-                  ),
-                ),
-                const Text('直', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '大圆半径占屏幕高度的百分比，越大弧线越平直',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '弧线半径',
+              value: '${(cfg.arcRadiusPercent * 100).round()}%',
+              leftHint: '弯',
+              rightHint: '直',
+              help: '大圆半径占屏幕高度的百分比，越大弧线越平直',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.arcRadiusPercent,
+                min: WeighInputConfig.arcRadiusPercentMin,
+                max: WeighInputConfig.arcRadiusPercentMax,
+                divisions: 35,
+                label: '${(cfg.arcRadiusPercent * 100).round()}%',
+                onChanged: (v) => notifier.setArcRadiusPercent(v),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: sp.lg),
 
             // ── 弧线粗细 ──
-            Row(
-              children: [
-                const Text('弧线粗细', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(
-                  '${cfg.strokeWidth.round()}px',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text('细', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: cfg.strokeWidth,
-                    min: WeighInputConfig.strokeWidthMin,
-                    max: WeighInputConfig.strokeWidthMax,
-                    divisions: 12,
-                    label: '${cfg.strokeWidth.round()}px',
-                    onChanged: (v) => notifier.setStrokeWidth(v),
-                  ),
-                ),
-                const Text('粗', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '弧线轨道的描边宽度',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            _buildSliderSection(
+              context: context,
+              label: '弧线粗细',
+              value: '${cfg.strokeWidth.round()}px',
+              leftHint: '细',
+              rightHint: '粗',
+              help: '弧线轨道的描边宽度',
+              valueStyle: paramValueStyle,
+              slider: Slider(
+                value: cfg.strokeWidth,
+                min: WeighInputConfig.strokeWidthMin,
+                max: WeighInputConfig.strokeWidthMax,
+                divisions: 12,
+                label: '${cfg.strokeWidth.round()}px',
+                onChanged: (v) => notifier.setStrokeWidth(v),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// 通用滑块配置区块：标题+值行、滑块（两端 hint）、帮助说明。
+  /// 统一了 6 个重复滑块的间距/字号/颜色 token。
+  Widget _buildSliderSection({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required String leftHint,
+    required String rightHint,
+    required String help,
+    required TextStyle valueStyle,
+    required Widget slider,
+  }) {
+    final theme = Theme.of(context);
+    final sp = context.sp;
+    final hintStyle = theme.textTheme.labelSmall
+        ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text(label, style: theme.textTheme.labelLarge),
+          SizedBox(width: sp.sm),
+          Text(value, style: valueStyle),
+        ]),
+        SizedBox(height: sp.xs),
+        Row(children: [
+          Text(leftHint, style: hintStyle),
+          Expanded(child: slider),
+          Text(rightHint, style: hintStyle),
+        ]),
+        Padding(
+          padding: EdgeInsets.only(left: sp.xs),
+          child: Text(help, style: hintStyle),
+        ),
+      ],
     );
   }
 }

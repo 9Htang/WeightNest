@@ -9,6 +9,8 @@ import '../../repositories/enclosure_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../database/database.dart';
 import '../../services/bird_export_service.dart';
+import '../../widgets/bird_list_tile.dart';
+import '../../widgets/bird_search_bar.dart';
 import 'bird_detail_screen.dart';
 import '../weigh/weigh_grid_screen.dart';
 
@@ -23,14 +25,19 @@ class BirdsScreen extends ConsumerStatefulWidget {
 
 class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   String _searchText = '';
-  int? _filterRoomId;
+  Set<int> _filterSpeciesIds = {};
+  Set<String> _filterPhysioStages = {};
+  Set<String> _filterGenders = {};
+  Set<int> _filterRoomIds = {};
   bool _selecting = false;
   final _selectedIds = <int>{};
 
   @override
   void initState() {
     super.initState();
-    _filterRoomId = widget.roomId;
+    if (widget.roomId != null) {
+      _filterRoomIds.add(widget.roomId!);
+    }
   }
 
   @override
@@ -42,25 +49,29 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       appBar: _selecting
           ? AppBar(
               leading: TextButton(
-                onPressed: () => setState(() { _selecting = false; _selectedIds.clear(); }),
+                onPressed: () => setState(() {
+                  _selecting = false;
+                  _selectedIds.clear();
+                }),
                 child: const Text('取消'),
               ),
               title: Text('已选择 ${_selectedIds.length} 只'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showRoomFilter(context),
-                ),
                 TextButton(
                   onPressed: () {
                     setState(() {
                       birdsAsync.whenData((birds) {
                         final filtered = _filterBirds(birds);
-                        final allSelected = filtered.every((b) => _selectedIds.contains(b.bird.id));
+                        final allSelected = filtered
+                            .every((b) => _selectedIds.contains(b.bird.id));
                         if (allSelected) {
-                          for (final b in filtered) { _selectedIds.remove(b.bird.id); }
+                          for (final b in filtered) {
+                            _selectedIds.remove(b.bird.id);
+                          }
                         } else {
-                          for (final b in filtered) { _selectedIds.add(b.bird.id); }
+                          for (final b in filtered) {
+                            _selectedIds.add(b.bird.id);
+                          }
                         }
                       });
                     });
@@ -72,10 +83,6 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
           : AppBar(
               title: const Text('鹦鹉列表'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showRoomFilter(context),
-                ),
                 IconButton(
                   icon: const Icon(Icons.file_upload_outlined),
                   tooltip: '导出',
@@ -103,23 +110,27 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
           : null,
       body: Column(
         children: [
-          // 搜索栏
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: '搜索名称或脚环号...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchText.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setState(() => _searchText = ''),
-                      )
-                    : null,
-                isDense: true,
-              ),
-              onChanged: (v) => setState(() => _searchText = v),
-            ),
+          // 搜索 + 多字段过滤
+          BirdSearchBar(
+            showSearchBox: true,
+            showGenderFilter: true,
+            showSpeciesFilter: true,
+            showStageFilter: true,
+            showRoomFilter: true,
+            onChanged: ({
+              required searchText,
+              required genders,
+              required speciesIds,
+              required stages,
+              required roomIds,
+            }) =>
+                setState(() {
+              _searchText = searchText;
+              _filterGenders = genders;
+              _filterSpeciesIds = speciesIds;
+              _filterPhysioStages = stages;
+              _filterRoomIds = roomIds;
+            }),
           ),
 
           // 列表
@@ -143,20 +154,42 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
 
   List<BirdWithDetails> _filterBirds(List<BirdWithDetails> birds) {
     var result = birds;
-    if (_filterRoomId != null) {
-      result = result.where((b) => b.bird.roomId == _filterRoomId).toList();
-    }
     if (_searchText.isNotEmpty) {
       final q = _searchText.toLowerCase();
-      result = result.where((b) =>
-          b.bird.name.toLowerCase().contains(q) ||
-          (b.bird.ringNumber?.toLowerCase().contains(q) ?? false)
-      ).toList();
+      result = result
+          .where((b) =>
+              b.bird.name.toLowerCase().contains(q) ||
+              (b.bird.ringNumber?.toLowerCase().contains(q) ?? false) ||
+              b.physioStage.toLowerCase().contains(q))
+          .toList();
+    }
+    if (_filterSpeciesIds.isNotEmpty) {
+      result =
+          result.where((b) => _filterSpeciesIds.contains(b.bird.speciesId)).toList();
+    }
+    if (_filterPhysioStages.isNotEmpty) {
+      result = result
+          .where((b) => _filterPhysioStages.contains(b.physioStage))
+          .toList();
+    }
+    if (_filterGenders.isNotEmpty) {
+      result = result
+          .where((b) => _filterGenders.contains(b.bird.gender))
+          .toList();
+    }
+    if (_filterRoomIds.isNotEmpty) {
+      result = result
+          .where((b) => _filterRoomIds.contains(b.bird.roomId))
+          .toList();
     }
     return result;
   }
 
-  Widget _buildBirdList(BuildContext context, List<BirdWithDetails> birds, WidgetRef ref) {
+  // _buildFilterBar / _buildFilterChip / _showMultiSelectSheet
+  // extracted to lib/widgets/bird_search_bar.dart
+
+  Widget _buildBirdList(
+      BuildContext context, List<BirdWithDetails> birds, WidgetRef ref) {
     final weightsAsync = ref.watch(allLatestWeightsProvider);
 
     if (_selecting) {
@@ -164,17 +197,10 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
         itemCount: birds.length,
         itemBuilder: (context, index) {
           final b = birds[index];
-          return _BirdListTile(
+          return BirdListTile(
             key: ValueKey(b.bird.id),
             bird: b,
-            weight: weightsAsync.when(
-              data: (map) => map[b.bird.id],
-              loading: () => null,
-              error: (_, __) => null,
-            ),
-            selecting: true,
-            selected: _selectedIds.contains(b.bird.id),
-            onToggle: () {
+            onTap: () {
               setState(() {
                 if (_selectedIds.contains(b.bird.id)) {
                   _selectedIds.remove(b.bird.id);
@@ -183,12 +209,34 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
                 }
               });
             },
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                BirdListTile.buildAvatar(b.bird.id, size: 40, growthStage: b.growthStage),
+                const SizedBox(width: 4),
+                Checkbox(
+                  value: _selectedIds.contains(b.bird.id),
+                  onChanged: (_) {
+                    setState(() {
+                      if (_selectedIds.contains(b.bird.id)) {
+                        _selectedIds.remove(b.bird.id);
+                      } else {
+                        _selectedIds.add(b.bird.id);
+                      }
+                    });
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+            trailing: _buildWeightTrailing(weightsAsync, b.bird.id),
           );
         },
       );
     }
 
     return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
       itemCount: birds.length,
       onReorder: (oldIndex, newIndex) async {
         if (newIndex > oldIndex) newIndex--;
@@ -209,28 +257,76 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       },
       itemBuilder: (context, index) {
         final b = birds[index];
-        return _BirdListTile(
+        // Wrap the whole row in a delayed drag listener so users can
+        // long-press anywhere on the tile to start reordering — no
+        // separate drag handle icon next to the avatar.
+        return ReorderableDelayedDragStartListener(
           key: ValueKey(b.bird.id),
-          bird: b,
-          weight: weightsAsync.when(
-            data: (map) => map[b.bird.id],
-            loading: () => null,
-            error: (_, __) => null,
+          index: index,
+          child: BirdListTile(
+            bird: b,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: b)),
+            ),
+            leading: BirdListTile.buildAvatar(b.bird.id, size: 40, growthStage: b.growthStage),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildWeightTrailing(weightsAsync, b.bird.id),
+                if (pluginRegistry.enabledPlugins
+                    .any((p) => p.id == 'weights')) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.monitor_weight_outlined, size: 20),
+                    tooltip: '称重',
+                    onPressed: () => _startWeighing(b.bird.roomId, b.bird.id),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ],
+            ),
           ),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: b)),
-          ),
-          onWeigh: () => _startWeighing(b.bird.roomId, b.bird.id),
         );
       },
+    );
+  }
+
+  Widget _buildWeightTrailing(
+      AsyncValue<Map<int, Weight?>> weightsAsync, int birdId) {
+    final theme = Theme.of(context);
+    return weightsAsync.when(
+      data: (map) {
+        final w = map[birdId];
+        if (w != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${w.weightG.toStringAsFixed(1)}g',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary)),
+              Text(BirdListTile.formatDate(w.recordedAt),
+                  style: theme.textTheme.labelSmall),
+            ],
+          );
+        }
+        return Text('-',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant));
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
   void _startWeighing(int? roomId, int birdId) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)),
+      MaterialPageRoute(
+          builder: (_) =>
+              WeighGridScreen(initialRoomId: roomId, initialBirdId: birdId)),
     );
   }
 
@@ -277,7 +373,8 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
 
     try {
       final db = ref.read(databaseProvider);
-      final file = await BirdExportService().exportBirds(_selectedIds.toList(), db);
+      final file =
+          await BirdExportService().exportBirds(_selectedIds.toList(), db);
 
       if (mounted) Navigator.pop(context); // 关闭进度
 
@@ -287,13 +384,16 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
           subject: 'WeightNest 鹦鹉数据',
         );
         // 分享后删除临时文件
-        try { await file.delete(); } catch (_) {}
+        try {
+          await file.delete();
+        } catch (_) {}
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('导出失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -301,41 +401,6 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
     setState(() {
       _selecting = false;
       _selectedIds.clear();
-    });
-  }
-
-  void _showRoomFilter(BuildContext context) {
-    final roomsAsync = ref.watch(allRoomsProvider);
-    roomsAsync.whenData((rooms) {
-      showModalBottomSheet(
-        context: this.context,
-        builder: (ctx) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.all_inclusive),
-                title: const Text('全部'),
-                selected: _filterRoomId == null,
-                onTap: () {
-                  setState(() => _filterRoomId = null);
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...rooms.map((r) => ListTile(
-                    leading: const Icon(Icons.meeting_room_outlined),
-                    title: Text(r.name),
-                    selected: _filterRoomId == r.id,
-                    onTap: () {
-                      setState(() => _filterRoomId = r.id);
-                      Navigator.pop(ctx);
-                    },
-                  )),
-            ],
-          ),
-        ),
-      );
     });
   }
 
@@ -368,7 +433,8 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
       if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('加载失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -439,16 +505,18 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                       children: [
                         const Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('选择品种', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: Text('选择品种',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                         ...widget.spList.map((s) => ListTile(
-                          title: Text(s.name),
-                          selected: _selectedSpeciesId == s.id,
-                          onTap: () {
-                            setState(() => _selectedSpeciesId = s.id);
-                            Navigator.pop(ctx);
-                          },
-                        )),
+                              title: Text(s.name),
+                              selected: _selectedSpeciesId == s.id,
+                              onTap: () {
+                                setState(() => _selectedSpeciesId = s.id);
+                                Navigator.pop(ctx);
+                              },
+                            )),
                         const SizedBox(height: 8),
                       ],
                     ),
@@ -463,7 +531,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                 child: Text(
                   _selectedSpeciesId != null
                       ? (widget.spList.any((s) => s.id == _selectedSpeciesId)
-                          ? widget.spList.firstWhere((s) => s.id == _selectedSpeciesId).name
+                          ? widget.spList
+                              .firstWhere((s) => s.id == _selectedSpeciesId)
+                              .name
                           : '未知品种')
                       : '请选择品种',
                   style: TextStyle(
@@ -486,7 +556,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                       children: [
                         const Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('选择房间', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: Text('选择房间',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                         ListTile(
                           title: const Text('不分配房间'),
@@ -502,17 +574,17 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                           },
                         ),
                         ...widget.roomList.map((r) => ListTile(
-                          title: Text(r.name),
-                          selected: _selectedRoomId == r.id,
-                          onTap: () {
-                            setState(() {
-                              _selectedRoomId = r.id;
-                              _selectedEnclosureId = null;
-                              _selectedEnclosureName = null;
-                            });
-                            Navigator.pop(ctx);
-                          },
-                        )),
+                              title: Text(r.name),
+                              selected: _selectedRoomId == r.id,
+                              onTap: () {
+                                setState(() {
+                                  _selectedRoomId = r.id;
+                                  _selectedEnclosureId = null;
+                                  _selectedEnclosureName = null;
+                                });
+                                Navigator.pop(ctx);
+                              },
+                            )),
                         const SizedBox(height: 8),
                       ],
                     ),
@@ -527,7 +599,9 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                 child: Text(
                   _selectedRoomId != null
                       ? (widget.roomList.any((r) => r.id == _selectedRoomId)
-                          ? widget.roomList.firstWhere((r) => r.id == _selectedRoomId).name
+                          ? widget.roomList
+                              .firstWhere((r) => r.id == _selectedRoomId)
+                              .name
                           : '未知房间')
                       : '不分配',
                   style: TextStyle(
@@ -576,8 +650,7 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
                               ),
                               ...enclosures.map((e) => ListTile(
                                     title: Text(e.name),
-                                    selected:
-                                        _selectedEnclosureId == e.id,
+                                    selected: _selectedEnclosureId == e.id,
                                     onTap: () {
                                       setState(() {
                                         _selectedEnclosureId = e.id;
@@ -615,16 +688,18 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
             const SizedBox(height: 12),
             // 性别
             Row(
-              children: ['公', '母', '未知'].map((g) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
-                  child: ChoiceChip(
-                    label: Text(g),
-                    selected: _gender == g,
-                    onSelected: (v) => setState(() => _gender = g),
-                  ),
-                ),
-              )).toList(),
+              children: ['公', '母', '未知']
+                  .map((g) => Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
+                          child: ChoiceChip(
+                            label: Text(g),
+                            selected: _gender == g,
+                            onSelected: (v) => setState(() => _gender = g),
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 12),
             InkWell(
@@ -657,28 +732,36 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入名称'), behavior: SnackBarBehavior.floating),
+                const SnackBar(
+                    content: Text('请输入名称'),
+                    behavior: SnackBarBehavior.floating),
               );
               return;
             }
             if (_selectedSpeciesId == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请选择品种'), behavior: SnackBarBehavior.floating),
+                const SnackBar(
+                    content: Text('请选择品种'),
+                    behavior: SnackBarBehavior.floating),
               );
               return;
             }
-            final db = ProviderScope.containerOf(context).read(databaseProvider);
+            final db =
+                ProviderScope.containerOf(context).read(databaseProvider);
             final bird = await db.createBird(
               name: name,
               speciesId: _selectedSpeciesId!,
               birthDate: _birthDate,
               roomId: _selectedRoomId,
               enclosureId: _selectedEnclosureId,
-              ringNumber: _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
+              ringNumber:
+                  _ringCtrl.text.trim().isEmpty ? null : _ringCtrl.text.trim(),
               gender: _gender,
             );
             if (mounted) {
-              ProviderScope.containerOf(context).read(weightSavedProvider.notifier).state++;
+              ProviderScope.containerOf(context)
+                  .read(weightSavedProvider.notifier)
+                  .state++;
               Navigator.pop(context, bird.id);
             }
           },
@@ -689,144 +772,4 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
   }
 }
 
-/// 鹦鹉列表项
-class _BirdListTile extends ConsumerWidget {
-  final BirdWithDetails bird;
-  final Weight? weight;
-  final VoidCallback? onTap;
-  final VoidCallback? onWeigh;
-  final bool selecting;
-  final bool selected;
-  final VoidCallback? onToggle;
-
-  const _BirdListTile({
-    super.key,
-    required this.bird,
-    required this.weight,
-    this.onTap,
-    this.onWeigh,
-    this.selecting = false,
-    this.selected = false,
-    this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(pluginToggleVersionProvider); // 插件开关时重建称重按钮
-    final theme = Theme.of(context);
-    final w = weight;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: selecting ? onToggle : onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Row(
-            children: [
-              if (selecting)
-                Checkbox(
-                  value: selected,
-                  onChanged: (_) => onToggle?.call(),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                )
-              else
-                ReorderableDragStartListener(
-                  index: 0,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
-                  ),
-                ),
-              _buildAvatar(theme),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(bird.bird.name,
-                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                        if (bird.bird.ringNumber != null) ...[
-                          const SizedBox(width: 6),
-                          Text('#${bird.bird.ringNumber}',
-                            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${bird.species.name} · ${bird.growthStage} · ${bird.ageDays}天',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withAlpha(130)),
-                    ),
-                  ],
-                ),
-              ),
-              if (w != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('${w.weightG.toStringAsFixed(1)}g',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.primary)),
-                    Text(_formatDate(w.recordedAt),
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
-                  ],
-                )
-              else
-                const Text('-', style: TextStyle(color: Colors.grey)),
-              // 仅称重插件启用时显示称重按钮
-              if (pluginRegistry.enabledPlugins.any((p) => p.id == 'weights')) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.monitor_weight_outlined, size: 20),
-                  tooltip: '称重',
-                  onPressed: onWeigh,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatar(ThemeData theme) {
-    for (final plugin in pluginRegistry.enabledPlugins) {
-      final avatar = plugin.buildAvatar(bird.bird.id, size: 40);
-      if (avatar != null) return avatar;
-    }
-    // Fallback to original emoji
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: _stageColor(bird.growthStage, theme),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          bird.growthStage == '雏鸟' ? '🐣' : bird.growthStage == '幼鸟' ? '🐤' : '🦜',
-          style: const TextStyle(fontSize: 20),
-        ),
-      ),
-    );
-  }
-
-  Color _stageColor(String stage, ThemeData theme) {
-    switch (stage) {
-      case '雏鸟': return Colors.orange.shade100;
-      case '幼鸟': return Colors.green.shade100;
-      default: return theme.colorScheme.primaryContainer;
-    }
-  }
-
-  String _formatDate(DateTime dt) {
-    return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-}
+// _BirdListTile extracted to lib/widgets/bird_list_tile.dart
