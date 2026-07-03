@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/app_tokens.dart';
+import '../../theme/theme.dart';
 import 'weigh_input_config.dart';
 
 /// 体重数字显示区 — 大字体体重 + 消息 + 左右 ±1g + 空腹按钮
@@ -34,6 +36,7 @@ class WeighDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayText = weightText.isEmpty ? '0.0' : weightText;
     final scheme = theme.colorScheme;
+    final sc = AppTheme.statusColors(scheme);
     final showButtons = onMinus1 != null && onPlus1 != null;
 
     return Column(
@@ -83,7 +86,8 @@ class WeighDisplay extends StatelessWidget {
                   size: 16,
                   color: isFasting! ? Colors.white : null,
                 ),
-                label: Text(isFasting! ? '空腹' : '非空腹', style: const TextStyle(fontSize: 12)),
+                label: Text(isFasting! ? '空腹' : '非空腹',
+                    style: const TextStyle(fontSize: 12)),
                 backgroundColor: isFasting! ? scheme.primary : null,
                 onPressed: onToggleFasting!,
                 padding: EdgeInsets.zero,
@@ -100,7 +104,7 @@ class WeighDisplay extends StatelessWidget {
               Text(
                 '克',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurface.withAlpha(120),
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
               if (isFasting != null) ...[
@@ -108,9 +112,7 @@ class WeighDisplay extends StatelessWidget {
                 Text(
                   isFasting! ? ' (空腹)' : ' (非空腹)',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isFasting!
-                        ? const Color(0xFF639922)
-                        : const Color(0xFFE24B4A),
+                    color: isFasting! ? sc.fasting : sc.notFasting,
                   ),
                 ),
               ],
@@ -122,7 +124,7 @@ class WeighDisplay extends StatelessWidget {
           Text(
             message!,
             style: TextStyle(
-              color: message!.startsWith('✅') ? Colors.green : Colors.orange,
+              color: message!.startsWith('✅') ? sc.success : sc.warning,
               fontSize: 14,
             ),
           ),
@@ -147,24 +149,28 @@ class _QuickBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
+    final a = context.a;
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(r.xl),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withAlpha(60),
+            color: Theme.of(context).colorScheme.outline.withAlpha(a.low),
           ),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(r.md),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 2),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -232,12 +238,12 @@ class WeighDial extends StatefulWidget {
 }
 
 class _WeighDialState extends State<WeighDial> {
-  double _dialOffset = 0;  // 盘面旋转偏移（弧度），顺时针手势减少
+  double _dialOffset = 0; // 盘面旋转偏移（弧度），顺时针手势减少
   double _lastAngle = 0;
   bool _isTracking = false;
   DateTime? _lastUpdateTime;
-  double _accumRaw = 0;  // 累积未触发的原始角度
-  double _lastClockwiseSign = 0;  // 上一帧手势方向（+1/-1/0），用于检测方向反转
+  double _accumRaw = 0; // 累积未触发的原始角度
+  double _lastClockwiseSign = 0; // 上一帧手势方向（+1/-1/0），用于检测方向反转
   // 滑动窗口：记录每帧的 (角度增量, 耗时)，最终按"总角度/总耗时"算时间加权平均速度。
   // 不能直接对每帧瞬时速度(deltaDeg/dt)取算术平均——
   // dt 极小的噪声帧（触屏采样抖动，尤其在反转瞬间手指接近静止时信噪比最差）
@@ -256,7 +262,7 @@ class _WeighDialState extends State<WeighDial> {
       totalDt += sample.dt;
     }
     if (totalDt <= 0) return _kSlowStep;
-    final avgSpeed = totalDeg / totalDt;  // 时间加权平均速度
+    final avgSpeed = totalDeg / totalDt; // 时间加权平均速度
     return avgSpeed < widget.speedThreshold ? _kSlowStep : widget.fastStep;
   }
 
@@ -265,7 +271,7 @@ class _WeighDialState extends State<WeighDial> {
   // cx = rightEdge + R - W (右手), cy 已改为垂直居中 (size.height / 2)
 
   static double _sweep(double w, double r) {
-    if (r <= 0 || w >= 2 * r) return pi;       // 半圆兜底
+    if (r <= 0 || w >= 2 * r) return pi; // 半圆兜底
     final ratio = 1 - w / r;
     return 2 * acos(ratio.clamp(-1.0, 1.0));
   }
@@ -298,7 +304,8 @@ class _WeighDialState extends State<WeighDial> {
     _cachedR = r >= _cachedW ? r : _cachedW; // R 必须 ≥ W，否则几何不成立
   }
 
-  bool _onArc(Offset pos, Size size, Offset arcCenter, double radius, double startA, double sweep) {
+  bool _onArc(Offset pos, Size size, Offset arcCenter, double radius,
+      double startA, double sweep) {
     final dist = (pos - arcCenter).distance;
     if ((dist - radius).abs() > 56) return false;
     // 判断角度是否在可见弧段内
@@ -394,6 +401,7 @@ class _WeighDialState extends State<WeighDial> {
   @override
   Widget build(BuildContext context) {
     final scheme = widget.theme.colorScheme;
+    final sc = AppTheme.statusColors(scheme);
     final isRight = widget.side == DialSide.right;
 
     return LayoutBuilder(builder: (context, constraints) {
@@ -440,10 +448,10 @@ class _WeighDialState extends State<WeighDial> {
                 isFasting: widget.isFasting,
                 sensitivity: widget.sensitivity,
                 color: scheme.primary,
-                trackColor: scheme.outlineVariant.withAlpha(60),
+                trackColor: scheme.outlineVariant.withAlpha(context.a.low),
                 pointerColor: scheme.primary,
-                fastingGreen: const Color(0xFF639922),
-                fastingRed: const Color(0xFFE24B4A),
+                fastingGreen: sc.fasting,
+                fastingRed: sc.notFasting,
               ),
             ),
             // 体重数字区域 — 点击切换空腹
@@ -509,12 +517,16 @@ class _DialArcPainter extends CustomPainter {
     final startAngle = dotAngle - sweepAngleRad / 2;
 
     // ── 弧线轨道（统一颜色，不随 tracking 状态变化） ──
-    canvas.drawArc(arcRect, startAngle, sweepAngleRad, false,
-      Paint()
-        ..color = trackColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round);
+    canvas.drawArc(
+        arcRect,
+        startAngle,
+        sweepAngleRad,
+        false,
+        Paint()
+          ..color = trackColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round);
 
     // ── 车轮纹理：密集小刻度随 dialOffset 旋转，转动时有明显视觉反馈 ──
     final halfSweepDeg = sweepAngleRad * 180 / pi / 2;
@@ -561,9 +573,7 @@ class _DialArcPainter extends CustomPainter {
         Offset(center.dx + dx * outerR, center.dy + dy * outerR),
         Offset(center.dx + dx * innerR, center.dy + dy * innerR),
         Paint()
-          ..color = isCenter
-              ? color.withAlpha(200)
-              : trackColor.withAlpha(150)
+          ..color = isCenter ? color.withAlpha(200) : trackColor.withAlpha(150)
           ..strokeWidth = isCenter ? 2.0 : 1.0,
       );
     }
@@ -572,8 +582,12 @@ class _DialArcPainter extends CustomPainter {
     final dotRadius = 5.0;
     final px = center.dx + cos(dotAngle) * arcRadius;
     final py = center.dy + sin(dotAngle) * arcRadius;
-    canvas.drawCircle(Offset(px, py), dotRadius,
-      Paint()..color = pointerColor..style = PaintingStyle.fill);
+    canvas.drawCircle(
+        Offset(px, py),
+        dotRadius,
+        Paint()
+          ..color = pointerColor
+          ..style = PaintingStyle.fill);
 
     // ── 体重数字：颜色根据空腹状态（绿=空腹，红=非空腹） ──
     final textColor = isFasting ? fastingGreen : fastingRed;
@@ -617,7 +631,8 @@ class _DialArcPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
     tpFasting.layout();
-    tpFasting.paint(canvas, Offset(textX + tpUnit.width, py + tp.height / 2 - 2));
+    tpFasting.paint(
+        canvas, Offset(textX + tpUnit.width, py + tp.height / 2 - 2));
   }
 
   @override
@@ -707,7 +722,7 @@ class _WeighSliderState extends State<WeighSlider> {
     return switch (widget.growthStage) {
       '雏鸟' => max(5.0, w * 0.30),
       '幼鸟' => max(3.0, w * 0.15),
-      _      => max(2.0, w * 0.03),
+      _ => max(2.0, w * 0.03),
     };
   }
 
@@ -762,6 +777,8 @@ class _WeighSliderState extends State<WeighSlider> {
   @override
   Widget build(BuildContext context) {
     final scheme = widget.theme.colorScheme;
+    final sc = AppTheme.statusColors(scheme);
+    final r = context.r;
     final displayText = widget.weightText.isEmpty ? '0.0' : widget.weightText;
     final currentW = double.tryParse(widget.weightText) ?? 0;
     final halfRange = _halfRange(currentW.clamp(1, double.infinity));
@@ -789,7 +806,8 @@ class _WeighSliderState extends State<WeighSlider> {
                 children: [
                   Text(
                     (currentW - halfRange).toStringAsFixed(1),
-                    style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100)),
+                    style: TextStyle(
+                        fontSize: 10, color: scheme.onSurfaceVariant),
                   ),
                   Expanded(
                     child: Text(
@@ -805,7 +823,8 @@ class _WeighSliderState extends State<WeighSlider> {
                   ),
                   Text(
                     (currentW + halfRange).toStringAsFixed(1),
-                    style: TextStyle(fontSize: 10, color: scheme.onSurface.withAlpha(100)),
+                    style: TextStyle(
+                        fontSize: 10, color: scheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -822,7 +841,7 @@ class _WeighSliderState extends State<WeighSlider> {
                         isTracking: _isTracking,
                         trackOffset: _trackOffset,
                         color: scheme.primary,
-                        trackColor: scheme.outlineVariant.withAlpha(60),
+                        trackColor: scheme.outlineVariant.withAlpha(context.a.low),
                       ),
                     ),
                   ),
@@ -831,16 +850,17 @@ class _WeighSliderState extends State<WeighSlider> {
                   GestureDetector(
                     onTap: widget.onToggleFasting,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(r.lg),
                         color: widget.isFasting
-                            ? const Color(0xFFEAF3DE)
-                            : const Color(0xFFFCEBEB),
+                            ? sc.fastingBg
+                            : sc.notFastingBg,
                         border: Border.all(
                           color: widget.isFasting
-                              ? const Color(0xFF639922)
-                              : const Color(0xFFE24B4A),
+                              ? sc.fasting
+                              : sc.notFasting,
                           width: 1.5,
                         ),
                       ),
@@ -848,11 +868,13 @@ class _WeighSliderState extends State<WeighSlider> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            widget.isFasting ? Icons.restaurant : Icons.restaurant_menu,
+                            widget.isFasting
+                                ? Icons.restaurant
+                                : Icons.restaurant_menu,
                             size: 16,
                             color: widget.isFasting
-                                ? const Color(0xFF3B6D11)
-                                : const Color(0xFFA32D2D),
+                                ? sc.fasting
+                                : sc.notFasting,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -861,8 +883,8 @@ class _WeighSliderState extends State<WeighSlider> {
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: widget.isFasting
-                                  ? const Color(0xFF3B6D11)
-                                  : const Color(0xFFA32D2D),
+                                  ? sc.fasting
+                                  : sc.notFasting,
                             ),
                           ),
                         ],
@@ -917,12 +939,17 @@ class _SliderTrackPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx.clamp(8.0, size.width - 8), midY),
       8.0,
-      Paint()..color = color..style = PaintingStyle.fill,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       Offset(cx.clamp(8.0, size.width - 8), midY),
       8.0,
-      Paint()..color = color.withAlpha(60)..style = PaintingStyle.stroke..strokeWidth = 3.0,
+      Paint()
+        ..color = color.withAlpha(60)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
     );
 
     // Tick marks
@@ -975,9 +1002,12 @@ class WeighNumPad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = theme.colorScheme;
+    final sp = context.sp;
+    final r = context.r;
+    final a = context.a;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: sp.lg),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -988,110 +1018,64 @@ class WeighNumPad extends StatelessWidget {
             ['7', '8', '9'],
           ])
             Row(
-              children: row.map((key) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(3),
-                    child: SizedBox(
-                      height: 42,
-                      child: Material(
-                        color: scheme.surfaceContainerHighest.withAlpha(80),
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => onDigit(key),
-                          child: Center(
-                            child: Text(
-                              key,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+              children: row
+                  .map((key) => _numKey(context, key,
+                      onTap: () => onDigit(key),
+                      color: scheme.surfaceContainerHighest.withAlpha(a.medium)))
+                  .toList(),
             ),
           // 小数点 + 0 + 退格
           Row(
             children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: SizedBox(
-                    height: 42,
-                    child: Material(
-                      color: scheme.surfaceContainerHighest.withAlpha(80),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => onDigit('.'),
-                        child: Center(
-                          child: Text(
-                            '.',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w500,
-                              color: scheme.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: SizedBox(
-                    height: 42,
-                    child: Material(
-                      color: scheme.surfaceContainerHighest.withAlpha(80),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => onDigit('0'),
-                        child: const Center(
-                          child: Text(
-                            '0',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: SizedBox(
-                    height: 42,
-                    child: Material(
-                      color: scheme.error.withAlpha(20),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: onDelete,
-                        child: const Center(
-                          child: Icon(Icons.backspace_outlined, size: 20),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              _numKey(context, '.',
+                  onTap: () => onDigit('.'),
+                  color: scheme.surfaceContainerHighest.withAlpha(a.medium),
+                  textColor: scheme.primary),
+              _numKey(context, '0',
+                  onTap: () => onDigit('0'),
+                  color: scheme.surfaceContainerHighest.withAlpha(a.medium)),
+              _numKey(context, null,
+                  onTap: onDelete,
+                  color: scheme.error.withAlpha(a.subtle)),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// 数字键盘按键。label 为 null 时显示退格图标。
+  Widget _numKey(BuildContext context, String? label,
+      {required VoidCallback onTap,
+      required Color color,
+      Color? textColor}) {
+    final r = context.r;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: SizedBox(
+          height: 42,
+          child: Material(
+            color: color,
+            borderRadius: BorderRadius.circular(r.xl),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(r.xl),
+              onTap: onTap,
+              child: Center(
+                child: label == null
+                    ? const Icon(Icons.backspace_outlined, size: 20)
+                    : Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          color: textColor,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
