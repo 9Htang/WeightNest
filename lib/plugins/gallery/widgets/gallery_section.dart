@@ -28,6 +28,11 @@ class _GallerySectionState extends State<GallerySection> {
   bool _batchMode = false;
   final Set<int> _selectedIds = {};
 
+  /// 缓存当前页面已确认存在于磁盘的图片相对路径。
+  /// build() 内不再做同步 [File.existsSync]，避免滚动时阻塞 UI。
+  /// 在 [_loadPhotos] / [_addPhoto] / [_deleteSelected] / [_onReorder] 中维护。
+  final Set<String> _existingPhotoPaths = {};
+
   // Pagination: 3×3 grid per page
   static const _photosPerPage = 9;
   int _currentPage = 0;
@@ -55,6 +60,7 @@ class _GallerySectionState extends State<GallerySection> {
       _isSwipeMode = false;
       _batchMode = false;
       _selectedIds.clear();
+      _existingPhotoPaths.clear();
       _loadPhotos();
     }
   }
@@ -67,9 +73,20 @@ class _GallerySectionState extends State<GallerySection> {
           ..where((t) => t.birdId.equals(widget.birdId))
           ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
         .get();
+    // 异步并发预检查文件存在性，结果缓存到 Set，供 build() 同步查表
+    final exists = await Future.wait(
+      photos.map((p) => File(_storage.resolve(p.filePath)).exists()),
+    );
+    final existing = <String>{};
+    for (var i = 0; i < photos.length; i++) {
+      if (exists[i]) existing.add(photos[i].filePath);
+    }
     if (mounted) {
       setState(() {
         _photos = photos;
+        _existingPhotoPaths
+          ..clear()
+          ..addAll(existing);
         _loaded = true;
       });
     }
@@ -78,7 +95,8 @@ class _GallerySectionState extends State<GallerySection> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(
+          height: 200, child: Center(child: CircularProgressIndicator()));
     }
 
     return Column(
@@ -167,7 +185,8 @@ class _GallerySectionState extends State<GallerySection> {
             SizedBox(height: 8),
             Text('暂无照片', style: TextStyle(color: Colors.grey)),
             SizedBox(height: 4),
-            Text('点击右上角 + 添加', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Text('点击右上角 + 添加',
+                style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -198,8 +217,7 @@ class _GallerySectionState extends State<GallerySection> {
             },
             itemBuilder: (context, page) {
               final start = page * _photosPerPage;
-              final end =
-                  (start + _photosPerPage).clamp(0, _photos.length);
+              final end = (start + _photosPerPage).clamp(0, _photos.length);
               final pagePhotos = _photos.sublist(start, end);
 
               return Wrap(
@@ -238,15 +256,14 @@ class _GallerySectionState extends State<GallerySection> {
                             height: thumbSize * 1.05,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: Colors.blue, width: 2.5),
+                              border:
+                                  Border.all(color: Colors.blue, width: 2.5),
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: Opacity(
                                 opacity: 0.85,
-                                child:
-                                    _buildStaticImage(photo, thumbSize),
+                                child: _buildStaticImage(photo, thumbSize),
                               ),
                             ),
                           ),
@@ -396,36 +413,34 @@ class _GallerySectionState extends State<GallerySection> {
   }
 
   /// Static still image used for drag feedback.
+  ///
+  /// 通过 [_existingPhotoPaths] 缓存查表判定文件存在性，避免 build() 内同步
+  /// [File.existsSync] 阻塞 UI；图片解码本身由 Flutter 异步执行。
   Widget _buildStaticImage(BirdPhoto photo, double size) {
-    final path = _storage.resolve(photo.filePath);
-    final file = File(path);
-    if (file.existsSync()) {
-      final cacheDim = (size * 2).toInt();
-      return Image.file(file,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          cacheWidth: cacheDim);
+    if (!_existingPhotoPaths.contains(photo.filePath)) {
+      return const Icon(Icons.broken_image, color: Colors.grey);
     }
-    return const Icon(Icons.broken_image, color: Colors.grey);
+    final file = File(_storage.resolve(photo.filePath));
+    final cacheDim = (size * 2).toInt();
+    return Image.file(file,
+        width: size, height: size, fit: BoxFit.cover, cacheWidth: cacheDim);
   }
 
   Widget _buildImage(BirdPhoto photo, double size) {
-    final path = _storage.resolve(photo.filePath);
-    final file = File(path);
-    if (file.existsSync()) {
-      final cacheDim = (size * 2).toInt();
-      return Image.file(
-        file,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        cacheWidth: cacheDim,
-        errorBuilder: (_, __, ___) =>
-            const Icon(Icons.broken_image, color: Colors.grey),
-      );
+    if (!_existingPhotoPaths.contains(photo.filePath)) {
+      return const Icon(Icons.broken_image, color: Colors.grey);
     }
-    return const Icon(Icons.broken_image, color: Colors.grey);
+    final file = File(_storage.resolve(photo.filePath));
+    final cacheDim = (size * 2).toInt();
+    return Image.file(
+      file,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      cacheWidth: cacheDim,
+      errorBuilder: (_, __, ___) =>
+          const Icon(Icons.broken_image, color: Colors.grey),
+    );
   }
 
   // ── swipe view ──
@@ -489,50 +504,17 @@ class _GallerySectionState extends State<GallerySection> {
     final db = pluginRegistry.db;
     if (db == null) return;
 
-    int nextOrder = _photos.isEmpty
+    final startOrder = _photos.isEmpty
         ? 0
         : _photos.map((p) => p.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
 
-    for (final xfile in picked) {
-      // Save the still image first
-      final relPath = await _storage.savePhoto(widget.birdId, xfile.path);
-
-      // Check if it's a motion photo and extract video
-      String? videoRelPath;
-      String mediaType = 'photo';
-
-      final savedPath = _storage.resolve(relPath);
-      final extractedVideo = await MotionPhotoService.extractVideo(savedPath);
-      if (extractedVideo != null) {
-        videoRelPath = await _storage.saveVideo(widget.birdId, extractedVideo);
-        mediaType = 'motion_photo';
-        // Clean up the temp extracted video file
-        try {
-          await File(extractedVideo).delete();
-        } catch (_) {}
-      }
-
-      // Compress the saved JPEG (now that motion photo data has been extracted)
-      await _storage.compressPhoto(savedPath);
-
-      // Compress the extracted motion video to 480p
-      if (videoRelPath != null) {
-        await _storage.compressVideo(_storage.resolve(videoRelPath));
-      }
-
-      await db.into(db.birdPhotos).insert(
-            BirdPhotosCompanion(
-              birdId: Value(widget.birdId),
-              filePath: Value(relPath),
-              sortOrder: Value(nextOrder++),
-              mediaType: Value(mediaType),
-              videoFilePath: videoRelPath != null
-                  ? Value(videoRelPath)
-                  : const Value.absent(),
-              createdAt: Value(DateTime.now()),
-            ),
-          );
-    }
+    // 并行处理所有选中的图片：复制 → 动图检测/抽取 → 压缩 → 入库。
+    // 每张图片处理流程相互独立（独立文件名、独立平台通道调用），用 index
+    // 固定 sortOrder 以保留选择器顺序。底层压缩走原生线程，主 Isolate 负担轻。
+    await Future.wait([
+      for (var i = 0; i < picked.length; i++)
+        _processOnePhoto(picked[i], startOrder + i),
+    ]);
 
     // 记录操作日志
     await pluginRegistry.operationService.record(
@@ -546,6 +528,52 @@ class _GallerySectionState extends State<GallerySection> {
     await _loadPhotos();
   }
 
+  /// 处理单张图片：保存 → 动图视频抽取 → JPEG 压缩 → 视频压缩 → 数据库插入。
+  /// [_addPhoto] 中以 [Future.wait] 并发调用本方法。
+  Future<void> _processOnePhoto(XFile xfile, int sortOrder) async {
+    final db = pluginRegistry.db;
+    if (db == null) return;
+
+    // Save the still image first
+    final relPath = await _storage.savePhoto(widget.birdId, xfile.path);
+
+    // Check if it's a motion photo and extract video
+    String? videoRelPath;
+    String mediaType = 'photo';
+
+    final savedPath = _storage.resolve(relPath);
+    final extractedVideo = await MotionPhotoService.extractVideo(savedPath);
+    if (extractedVideo != null) {
+      videoRelPath = await _storage.saveVideo(widget.birdId, extractedVideo);
+      mediaType = 'motion_photo';
+      // Clean up the temp extracted video file
+      try {
+        await File(extractedVideo).delete();
+      } catch (_) {}
+    }
+
+    // Compress the saved JPEG (now that motion photo data has been extracted)
+    await _storage.compressPhoto(savedPath);
+
+    // Compress the extracted motion video to 480p
+    if (videoRelPath != null) {
+      await _storage.compressVideo(_storage.resolve(videoRelPath));
+    }
+
+    await db.into(db.birdPhotos).insert(
+          BirdPhotosCompanion(
+            birdId: Value(widget.birdId),
+            filePath: Value(relPath),
+            sortOrder: Value(sortOrder),
+            mediaType: Value(mediaType),
+            videoFilePath: videoRelPath != null
+                ? Value(videoRelPath)
+                : const Value.absent(),
+            createdAt: Value(DateTime.now()),
+          ),
+        );
+  }
+
   // ── batch delete ──
 
   Future<void> _deleteSelected() async {
@@ -555,7 +583,9 @@ class _GallerySectionState extends State<GallerySection> {
         title: const Text('确认删除'),
         content: Text('确定要删除选中的 ${_selectedIds.length} 张照片吗？此操作不可恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -574,8 +604,7 @@ class _GallerySectionState extends State<GallerySection> {
     for (final id in _selectedIds) {
       final photo = _photos.firstWhere((p) => p.id == id);
       await _storage.deletePhoto(photo.filePath,
-          videoPath: photo.videoFilePath,
-          thumbnailPath: photo.thumbnailPath);
+          videoPath: photo.videoFilePath, thumbnailPath: photo.thumbnailPath);
       await (db.delete(db.birdPhotos)..where((t) => t.id.equals(id))).go();
     }
 

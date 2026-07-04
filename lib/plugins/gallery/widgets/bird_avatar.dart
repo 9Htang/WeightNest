@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/plugin_registry.dart';
-import '../../../repositories/bird_repository.dart';
 import '../gallery_storage_service.dart';
 
 /// Displays a bird's custom avatar if one exists, otherwise falls back to the
@@ -12,7 +11,7 @@ import '../gallery_storage_service.dart';
 class BirdAvatarWidget extends StatefulWidget {
   final int birdId;
   final double size;
-  final BirdWithDetails? bird; // for emoji fallback
+  final String? growthStage; // for emoji fallback
   final VoidCallback? onTap;
   final BoxShape shape;
 
@@ -20,7 +19,7 @@ class BirdAvatarWidget extends StatefulWidget {
     super.key,
     required this.birdId,
     this.size = 56,
-    this.bird,
+    this.growthStage,
     this.onTap,
     this.shape = BoxShape.rectangle,
   });
@@ -33,6 +32,11 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
   String? _avatarPath;
   bool _loaded = false;
   int _version = 0;
+  int _generation = 0;
+
+  /// 缓存 [_avatarPath] 对应文件是否存在（异步预检查结果）。
+  /// build() 内据此分支，避免每次重建同步调用 [File.existsSync] 阻塞 UI。
+  bool _avatarFileExists = false;
 
   @override
   void initState() {
@@ -43,29 +47,41 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
   @override
   void didUpdateWidget(BirdAvatarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reload whenever birdId changes OR widget is rebuilt (avatar may have
-    // been updated externally via the picker).
-    final idChanged = oldWidget.birdId != widget.birdId;
-    final onTapChanged = oldWidget.onTap != widget.onTap;
-    if (idChanged || onTapChanged || oldWidget.size != widget.size) {
+    if (oldWidget.birdId != widget.birdId || oldWidget.size != widget.size) {
       _avatarPath = null;
       _loaded = false;
-      _loadAvatar();
-    } else {
-      // Same bird, same size — reload to catch external avatar updates.
+      _avatarFileExists = false;
       _loadAvatar();
     }
+    // ponytail: don't reload on every rebuild — the avatar picker evicts the
+    // image cache directly (PaintingBinding.imageCache.evict) after save, so
+    // the new avatar shows on next build without a redundant DB query here.
   }
 
   Future<void> _loadAvatar() async {
-    // Ensure the storage singleton is initialized before any resolve() call.
-    await GalleryStorageService().ensureInitialized();
-    final path =
-        await pluginRegistry.call('gallery', 'getAvatarPath', widget.birdId);
-    if (mounted) {
+    final gen = ++_generation;
+    try {
+      await GalleryStorageService().ensureInitialized();
+      final path =
+          await pluginRegistry.call('gallery', 'getAvatarPath', widget.birdId);
+      if (!mounted || gen != _generation) return;
+      // 异步预检查文件存在性，结果缓存到 _avatarFileExists 供 build() 查表
+      final exists = (path is String && path.isNotEmpty)
+          ? await File(GalleryStorageService().resolve(path)).exists()
+          : false;
+      if (!mounted || gen != _generation) return;
       setState(() {
         _avatarPath = path as String?;
+        _avatarFileExists = exists;
         _loaded = true;
+        _version++;
+      });
+    } catch (_) {
+      if (!mounted || gen != _generation) return;
+      setState(() {
+        _avatarPath = null;
+        _avatarFileExists = false;
+        _loaded = true; // resolve spinner, show fallback
         _version++;
       });
     }
@@ -76,26 +92,22 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
     final theme = Theme.of(context);
 
     Widget child;
-    if (_avatarPath != null && _avatarPath!.isNotEmpty) {
+    if (_avatarPath != null && _avatarPath!.isNotEmpty && _avatarFileExists) {
       final storage = GalleryStorageService();
       final file = File(storage.resolve(_avatarPath!));
-      if (file.existsSync()) {
-        child = ClipRRect(
-          borderRadius: BorderRadius.circular(widget.shape == BoxShape.circle
-              ? widget.size / 2
-              : widget.size / 7),
-          child: Image.file(
-            file,
-            key: ValueKey('avatar_${widget.birdId}_$_version'),
-            width: widget.size,
-            height: widget.size,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _buildEmojiFallback(theme),
-          ),
-        );
-      } else {
-        child = _buildEmojiFallback(theme);
-      }
+      child = ClipRRect(
+        borderRadius: BorderRadius.circular(widget.shape == BoxShape.circle
+            ? widget.size / 2
+            : widget.size / 7),
+        child: Image.file(
+          file,
+          key: ValueKey('avatar_${widget.birdId}_$_version'),
+          width: widget.size,
+          height: widget.size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildEmojiFallback(theme),
+        ),
+      );
     } else if (!_loaded) {
       child = SizedBox(
         width: widget.size,
@@ -112,40 +124,34 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
       child = _buildEmojiFallback(theme);
     }
 
-    final borderRadius = widget.shape == BoxShape.circle
-        ? widget.size / 2
-        : widget.size / 7;
-    final decorated = Container(
-      width: widget.size,
-      height: widget.size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        color: child is! ClipRRect ? _stageColor(theme) : null,
-      ),
-      child: child,
-    );
+    // _buildEmojiFallback and the loading spinner already have their own
+    // sized Container with decoration, so only wrap the ClipRRect (photo)
+    // case with an outer Container to enforce size + optional tap.
+    Widget result = child;
 
     if (widget.onTap != null) {
       return GestureDetector(
         onTap: widget.onTap,
-        child: decorated,
+        child: result,
       );
     }
-    return decorated;
+    return result;
   }
 
   Widget _buildEmojiFallback(ThemeData theme) {
-    final stage = widget.bird?.growthStage ?? '';
-    final emoji = stage == '雏鸟' ? '🐣' : stage == '幼鸟' ? '🐤' : '🦜';
+    final stage = widget.growthStage ?? '';
+    final emoji = stage == '雏鸟'
+        ? '🐣'
+        : stage == '幼鸟'
+            ? '🐤'
+            : '🦜';
     return Container(
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
         color: _stageColor(theme),
         borderRadius: BorderRadius.circular(
-          widget.shape == BoxShape.circle
-              ? widget.size / 2
-              : widget.size / 7,
+          widget.shape == BoxShape.circle ? widget.size / 2 : widget.size / 7,
         ),
       ),
       child: Center(
@@ -158,7 +164,7 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
   }
 
   Color _stageColor(ThemeData theme) {
-    final stage = widget.bird?.growthStage ?? '';
+    final stage = widget.growthStage ?? '';
     switch (stage) {
       case '雏鸟':
         return Colors.orange.shade100;
