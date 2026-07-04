@@ -13,7 +13,8 @@ import 'repositories/task_repository.dart';
 import 'repositories/user_repository.dart';
 import 'services/alert_service.dart';
 import 'services/work_hours_config.dart';
-import 'plugins/medication/medication_repository.dart';
+import 'plugins/medication/drug_library_repository.dart';
+import 'plugins/stage/stage_repository.dart';
 import 'screens/worker/worker_screen.dart';
 import 'theme/theme_notifier.dart';
 
@@ -24,6 +25,10 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(() => db.close());
   pluginRegistry.setDatabase(db);
+  // 预热 stage 插件缓存：为所有鸟推断/加载生理阶段到内存，
+  // 确保同步读取（getStageSync）在 UI 渲染时能命中缓存。
+  // fire-and-forget，不阻塞 app 启动。
+  db.recomputeAllStages();
   return db;
 });
 
@@ -36,7 +41,7 @@ final allBirdsProvider = FutureProvider<List<BirdWithDetails>>((ref) async {
 /// 所有鹦鹉的最新体重（批量查询，避免 N+1）
 /// 复用 allBirdsProvider 结果，避免重复 JOIN 查询
 final allLatestWeightsProvider = FutureProvider<Map<int, Weight?>>((ref) async {
-  ref.watch(weightSavedProvider);
+  ref.watch(weightSavedBirdsProvider); // 批量 provider 需要全量刷新
   final db = ref.watch(databaseProvider);
   final birds = await ref.watch(allBirdsProvider.future);
   if (birds.isEmpty) return {};
@@ -46,7 +51,7 @@ final allLatestWeightsProvider = FutureProvider<Map<int, Weight?>>((ref) async {
 /// 某只鹦鹉的体重列表
 final birdWeightsProvider =
     FutureProvider.family<List<Weight>, int>((ref, birdId) async {
-  ref.watch(weightSavedProvider); // 监听保存通知，自动刷新
+  ref.watch(weightSavedBirdsProvider.select((s) => s.contains(birdId))); // 仅当该鸟变化时刷新
   final db = ref.watch(databaseProvider);
   return db.getByBird(birdId);
 });
@@ -54,7 +59,7 @@ final birdWeightsProvider =
 /// 某只鹦鹉的最新体重
 final latestWeightProvider =
     FutureProvider.family<Weight?, int>((ref, birdId) async {
-  ref.watch(weightSavedProvider);
+  ref.watch(weightSavedBirdsProvider.select((s) => s.contains(birdId))); // 仅当该鸟变化时刷新
   final db = ref.watch(databaseProvider);
   return db.getLatestByBird(birdId);
 });
@@ -75,7 +80,7 @@ final allSpeciesProvider = FutureProvider<List<Specy>>((ref) async {
 final todayTasksProvider = FutureProvider<List<TaskWithBird>>((ref) async {
   final db = ref.watch(databaseProvider);
   final worker = ref.watch(workerProvider);
-  ref.watch(weightSavedProvider); // 体重保存后自动刷新
+  ref.watch(weightSavedBirdsProvider); // 体重保存后自动刷新
   return db.getTodayTasks(worker.userId);
 });
 
@@ -119,8 +124,8 @@ final initDefaultsProvider = FutureProvider<void>((ref) async {
 final alertConfirmedVersionProvider = StateProvider<int>((ref) => 0);
 
 /// 原始告警检测结果（共享，避免 alertListProvider 和 allAlertsProvider 重复执行 detectAll）
-final _rawAlertsProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
-  ref.watch(weightSavedProvider); // 体重保存后自动刷新
+/// 由称重流程 debounce 后主动 invalidate，避免批量称重时每只鸟都触发全量 detectAll + upsertUnreadAlerts。
+final rawAlertsProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
   ref.watch(alertConfirmedVersionProvider); // 确认后刷新
   final db = ref.watch(databaseProvider);
   final service = AlertService(db);
@@ -137,14 +142,14 @@ final _rawAlertsProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
 /// 从 alert_records 表读取 30 天内未确认的记录，而非实时 detectAll()，
 /// 确保异常消除后未确认的历史记录仍可查看。
 final alertListProvider = FutureProvider<List<AnomalyAlert>>((ref) async {
-  ref.watch(_rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
+  ref.watch(rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
   final db = ref.watch(databaseProvider);
   return db.getUnconfirmedAlerts(30);
 });
 
 /// 全部告警列表（含已确认 + 未确认，近 30 天）— 供快捷操作「异常提醒」使用
 final allAlertsProvider = FutureProvider<List<AlertWithStatus>>((ref) async {
-  ref.watch(_rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
+  ref.watch(rawAlertsProvider); // 保持监听以触发刷新，数据从 DB 读取
   final db = ref.watch(databaseProvider);
   return db.getAllAlertRecordsWithStatus(30);
 });
@@ -156,21 +161,23 @@ final alertCountProvider = Provider<int>((ref) {
 });
 
 /// 首页轻量检查：近 30 天是否有已检测但未确认的异常（不触发 detectAll）
-/// 注意：不直接监听 weightSavedProvider，否则会与 _rawAlertsProvider 竞态 —
-/// _rawAlertsProvider 持久化未读记录之前本 provider 已查询到空结果。
-/// 改为由 _rawAlertsProvider 在 upsertUnreadAlerts 完成后主动 invalidate 本 provider。
+/// 不直接监听称重通知，避免与 rawAlertsProvider 竞态——
+/// rawAlertsProvider 持久化未读记录之前本 provider 已查询到空结果。
+/// 改为由 rawAlertsProvider 在 upsertUnreadAlerts 完成后主动 invalidate 本 provider。
 final hasRecentAlertRecordsProvider = FutureProvider<bool>((ref) async {
   ref.watch(alertConfirmedVersionProvider); // 确认后重新检查
   final db = ref.watch(databaseProvider);
   final cutoff = AppClock.now.subtract(const Duration(days: 30));
   final rows = await (db.select(db.alertRecords)
-    ..where((t) => t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff)))
-    .get();
+        ..where((t) =>
+            t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff)))
+      .get();
   return rows.isNotEmpty;
 });
 
 /// 某房间的鹦鹉列表 — 依赖 allBirdsProvider，鸟变更时自动刷新
-final roomBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>((ref, roomId) async {
+final roomBirdsProvider =
+    FutureProvider.family<List<BirdWithDetails>, int>((ref, roomId) async {
   final birds = await ref.watch(allBirdsProvider.future);
   return birds.where((b) => b.bird.roomId == roomId).toList();
 });
@@ -185,15 +192,15 @@ final roomEnclosuresProvider =
 });
 
 /// 某房间的所有容器及鸟数
-final roomEnclosuresWithCountsProvider = FutureProvider.family<
-    List<EnclosureWithCount>, int>((ref, roomId) async {
+final roomEnclosuresWithCountsProvider =
+    FutureProvider.family<List<EnclosureWithCount>, int>((ref, roomId) async {
   final db = ref.watch(databaseProvider);
   return db.getByRoomWithCounts(roomId);
 });
 
 /// 某容器的鹦鹉列表
-final enclosureBirdsProvider = FutureProvider.family<List<BirdWithDetails>, int>(
-    (ref, enclosureId) async {
+final enclosureBirdsProvider =
+    FutureProvider.family<List<BirdWithDetails>, int>((ref, enclosureId) async {
   final db = ref.watch(databaseProvider);
   return db.getByEnclosure(enclosureId);
 });
@@ -205,10 +212,25 @@ final roomHasEnclosuresProvider =
   return enclosures.valueOrNull?.isNotEmpty ?? false;
 });
 
-/// 某只鹦鹉的活跃喂药方案
-final medicationPlansProvider = FutureProvider.family<List<Medication>, int>((ref, birdId) async {
+/// 某只鹦鹉的活跃喂药方案（含药品库信息）
+final medicationPlansProvider =
+    FutureProvider.family<List<MedicationWithDetails>, int>(
+        (ref, birdId) async {
   final db = ref.watch(databaseProvider);
   return db.getMedicationsByBird(birdId);
+});
+
+/// 药品库全部药品
+final allDrugsProvider = FutureProvider<List<DrugLibraryData>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return db.getAllDrugs();
+});
+
+/// 全部疾病目录
+final allDiseasesProvider =
+    FutureProvider<List<DiseaseCatalogData>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return db.getAllDiseases();
 });
 
 /// 用户工作时间配置（多插件共享）
@@ -219,7 +241,7 @@ final workHoursProvider = FutureProvider<WorkHoursConfig>((ref) async {
 /// 某只鹦鹉的操作日志（ActivityLogs 统一时间轴）
 final activityLogsProvider =
     FutureProvider.family<List<ActivityLog>, int>((ref, birdId) async {
-  ref.watch(weightSavedProvider); // 操作后触发刷新
+  ref.watch(weightSavedBirdsProvider.select((s) => s.contains(birdId))); // 仅当该鸟变化时刷新
   final db = ref.watch(databaseProvider);
   return (db.select(db.activityLogs)
         ..where((t) => t.birdId.equals(birdId))
@@ -227,8 +249,29 @@ final activityLogsProvider =
       .get();
 });
 
-/// 体重保存通知——用于触发图表刷新
-final weightSavedProvider = StateProvider<int>((ref) => 0);
+/// 细粒度体重保存通知——记录自上次消费以来变化过的 birdId 集合。
+/// 下游 provider 用 ref.watch(weightSavedBirdsProvider.select((s) => s.contains(birdId)))
+/// 实现按 birdId 粒度的失效，避免全局级联重建。
+class WeightSavedBirdsNotifier extends StateNotifier<Set<int>> {
+  WeightSavedBirdsNotifier() : super(const <int>{});
+
+  /// 标记某只鸟的体重已保存，追加 birdId 到变化集合。
+  void notifySaved(int birdId) {
+    if (state.contains(birdId)) return; // Set 未变 → 不触发下游
+    state = {...state, birdId};
+  }
+
+  /// 兼容旧写入点（无 birdId 场景），强制全量刷新。
+  void notifyAll() {
+    state = {...state, -1}; // -1 为哨兵值，确保 .select((s) => s.contains(x)) 中 x=-1 不命中，但 state 引用已变
+  }
+}
+
+/// 细粒度通知载体：变化的 birdId 集合
+final weightSavedBirdsProvider =
+    StateNotifierProvider<WeightSavedBirdsNotifier, Set<int>>((ref) {
+  return WeightSavedBirdsNotifier();
+});
 
 /// 插件开关通知——用于触发 UI 刷新（快捷操作、称重按钮等）
 final pluginToggleVersionProvider = StateProvider<int>((ref) => 0);
@@ -242,7 +285,7 @@ final myRoomsProvider = FutureProvider<List<Room>>((ref) async {
 });
 
 /// 主题模式（SharedPreferences 持久化）
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier();
 });
-

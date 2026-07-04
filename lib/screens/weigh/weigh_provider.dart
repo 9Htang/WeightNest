@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_clock.dart';
 import '../../database/database.dart';
@@ -90,7 +90,7 @@ class WeighState {
 class WeighNotifier extends StateNotifier<WeighState> {
   final AppDatabase _db;
   int? _userId;
-  final VoidCallback? _onWeightSaved;
+  final void Function(int birdId)? _onWeightSaved;
 
   // ── 层级上下文（不在 state 中，内部使用） ──
   List<Room> _rooms = [];
@@ -102,7 +102,7 @@ class WeighNotifier extends StateNotifier<WeighState> {
   String _searchQuery = '';
   List<int> _filteredIndices = [];
 
-  WeighNotifier(this._db, {VoidCallback? onWeightSaved})
+  WeighNotifier(this._db, {void Function(int birdId)? onWeightSaved})
       : _onWeightSaved = onWeightSaved,
         super(WeighState(birds: []));
 
@@ -156,9 +156,14 @@ class WeighNotifier extends StateNotifier<WeighState> {
   /// 加载当前房间/容器下的鸟列表
   Future<void> _loadCurrentBirds({int? birdId}) async {
     if (_rooms.isEmpty) {
-      state = state.copyWith(birds: [], roomName: null, enclosureName: null,
-        hasPrevRoom: false, hasNextRoom: false,
-        hasPrevEnclosure: false, hasNextEnclosure: false);
+      state = state.copyWith(
+          birds: [],
+          roomName: null,
+          enclosureName: null,
+          hasPrevRoom: false,
+          hasNextRoom: false,
+          hasPrevEnclosure: false,
+          hasNextEnclosure: false);
       return;
     }
 
@@ -180,8 +185,8 @@ class WeighNotifier extends StateNotifier<WeighState> {
     }
 
     // 获取最新体重
-    final weights = await _db.getLatestByBirds(
-        birds.map((b) => b.bird.id).toList());
+    final weights =
+        await _db.getLatestByBirds(birds.map((b) => b.bird.id).toList());
 
     final enclosureName = _currentEnclosureName();
     final encs = _enclosuresByRoom[room.id] ?? [];
@@ -204,7 +209,8 @@ class WeighNotifier extends StateNotifier<WeighState> {
       birds: birds,
       currentIndex: idx,
       latestWeights: weights,
-      weightText: firstWeight != null ? firstWeight.weightG.toStringAsFixed(1) : '',
+      weightText:
+          firstWeight != null ? firstWeight.weightG.toStringAsFixed(1) : '',
       isFasting: true,
       message: null,
       roomName: room.name,
@@ -212,7 +218,8 @@ class WeighNotifier extends StateNotifier<WeighState> {
       hasPrevRoom: _roomIdx > 0,
       hasNextRoom: _roomIdx < _rooms.length - 1,
       hasPrevEnclosure: hasEncs && (_enclosureIdx > 0 || _roomIdx > 0),
-      hasNextEnclosure: hasEncs && (_enclosureIdx < encs.length - 1 || _roomIdx < _rooms.length - 1),
+      hasNextEnclosure: hasEncs &&
+          (_enclosureIdx < encs.length - 1 || _roomIdx < _rooms.length - 1),
     );
   }
 
@@ -357,15 +364,13 @@ class WeighNotifier extends StateNotifier<WeighState> {
     // 只允许一位小数
     final dot = state.weightText.indexOf('.');
     if (dot >= 0 && state.weightText.length - dot > 1) return;
-    state = state.copyWith(
-        weightText: state.weightText + digit, message: null);
+    state = state.copyWith(weightText: state.weightText + digit, message: null);
   }
 
   void deleteDigit() {
     if (state.weightText.isEmpty) return;
     state = state.copyWith(
-        weightText: state.weightText.substring(
-            0, state.weightText.length - 1),
+        weightText: state.weightText.substring(0, state.weightText.length - 1),
         message: null);
   }
 
@@ -373,12 +378,12 @@ class WeighNotifier extends StateNotifier<WeighState> {
     state = state.copyWith(weightText: '', isFasting: true, message: null);
   }
 
-  void setFasting(bool v) =>
-      state = state.copyWith(isFasting: v);
+  void setFasting(bool v) => state = state.copyWith(isFasting: v);
 
   void adjustWeight(double delta) {
     final current = double.tryParse(state.weightText) ?? 0;
-    final newVal = (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
+    final newVal =
+        (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
     state = state.copyWith(weightText: newVal, message: null);
   }
 
@@ -434,10 +439,10 @@ class WeighNotifier extends StateNotifier<WeighState> {
     final updatedWeights = Map<int, Weight?>.from(state.latestWeights);
     updatedWeights[bird.bird.id] = savedWeight;
 
-    _onWeightSaved?.call();
+    _onWeightSaved?.call(bird.bird.id);
 
-    final done = allTodayTasks.where((t) => t.task.status == '已完成').length
-        + (pendingTask != null ? 1 : 0);
+    final done = allTodayTasks.where((t) => t.task.status == '已完成').length +
+        (pendingTask != null ? 1 : 0);
 
     state = state.copyWith(
       isSaving: false,
@@ -467,10 +472,21 @@ class WeighNotifier extends StateNotifier<WeighState> {
 }
 
 /// Riverpod Provider
-final weighProvider =
-    StateNotifierProvider<WeighNotifier, WeighState>((ref) {
+final weighProvider = StateNotifierProvider<WeighNotifier, WeighState>((ref) {
   final db = ref.watch(databaseProvider);
-  return WeighNotifier(db, onWeightSaved: () {
-    ref.read(weightSavedProvider.notifier).state++;
+
+  // debounce 计时器：连续保存时合并为一次 alert 检测
+  Timer? alertDebounce;
+
+  return WeighNotifier(db, onWeightSaved: (int birdId) {
+    // 1) 细粒度通知：标记该鸟变化
+    ref.read(weightSavedBirdsProvider.notifier).notifySaved(birdId);
+
+    // 2) debounce alert 检测
+    alertDebounce?.cancel();
+    alertDebounce = Timer(const Duration(seconds: 2), () {
+      alertDebounce = null;
+      ref.invalidate(rawAlertsProvider);
+    });
   });
 });

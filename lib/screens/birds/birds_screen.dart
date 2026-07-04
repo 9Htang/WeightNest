@@ -190,7 +190,11 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
 
   Widget _buildBirdList(
       BuildContext context, List<BirdWithDetails> birds, WidgetRef ref) {
-    final weightsAsync = ref.watch(allLatestWeightsProvider);
+    // 用 .select() 提取稳定的 Map 引用与加载标志，避免 AsyncValue 包装对象
+    // 引用变化（如 isLoading 态切换）触发整列表无谓重建。
+    final weightsMap = ref.watch(
+        allLatestWeightsProvider.select((a) => a.valueOrNull ?? const <int, Weight?>{}));
+    final weightsLoading = ref.watch(allLatestWeightsProvider.select((a) => a.isLoading));
 
     if (_selecting) {
       return ListView.builder(
@@ -229,7 +233,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
                 ),
               ],
             ),
-            trailing: _buildWeightTrailing(weightsAsync, b.bird.id),
+            trailing: _buildWeightTrailing(weightsMap, weightsLoading, b.bird.id),
           );
         },
       );
@@ -273,7 +277,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildWeightTrailing(weightsAsync, b.bird.id),
+                _buildWeightTrailing(weightsMap, weightsLoading, b.bird.id),
                 if (pluginRegistry.enabledPlugins
                     .any((p) => p.id == 'weights')) ...[
                   const SizedBox(width: 4),
@@ -293,32 +297,29 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
   }
 
   Widget _buildWeightTrailing(
-      AsyncValue<Map<int, Weight?>> weightsAsync, int birdId) {
+      Map<int, Weight?> weightsMap, bool weightsLoading, int birdId) {
     final theme = Theme.of(context);
-    return weightsAsync.when(
-      data: (map) {
-        final w = map[birdId];
-        if (w != null) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${w.weightG.toStringAsFixed(1)}g',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary)),
-              Text(BirdListTile.formatDate(w.recordedAt),
-                  style: theme.textTheme.labelSmall),
-            ],
-          );
-        }
-        return Text('-',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant));
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
+    if (weightsLoading && weightsMap.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final w = weightsMap[birdId];
+    if (w != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${w.weightG.toStringAsFixed(1)}g',
+              style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary)),
+          Text(BirdListTile.formatDate(w.recordedAt),
+              style: theme.textTheme.labelSmall),
+        ],
+      );
+    }
+    return Text('-',
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: theme.colorScheme.onSurfaceVariant));
   }
 
   void _startWeighing(int? roomId, int birdId) {
@@ -760,8 +761,8 @@ class _AddBirdDialogState extends State<_AddBirdDialog> {
             );
             if (mounted) {
               ProviderScope.containerOf(context)
-                  .read(weightSavedProvider.notifier)
-                  .state++;
+                  .read(weightSavedBirdsProvider.notifier)
+                  .notifySaved(bird.id);
               Navigator.pop(context, bird.id);
             }
           },

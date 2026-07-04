@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_clock.dart';
 import '../../database/database.dart';
@@ -45,10 +45,11 @@ class WeighGridState {
   final int todayCompleted;
   final Map<int, AbnormalDirection> abnormalDirections; // 体重异常方向
   final Set<int> weighedTodayBirdIds; // 今日已称
-  final Set<int> overdueBirdIds;      // 超期未称
+  final Set<int> overdueBirdIds; // 超期未称
   final Set<int> weaningBirdIds;
   final Map<int, Weight?> latestWeights;
   final Map<int, BirdWithDetails> birdById;
+  final bool isInitialized;
 
   const WeighGridState({
     this.columns = const [],
@@ -66,6 +67,7 @@ class WeighGridState {
     this.weaningBirdIds = const {},
     this.latestWeights = const {},
     this.birdById = const {},
+    this.isInitialized = false,
   });
 
   /// 向后兼容：任意方向的异常鸟 ID 集合
@@ -87,13 +89,15 @@ class WeighGridState {
     Set<int>? weaningBirdIds,
     Map<int, Weight?>? latestWeights,
     Map<int, BirdWithDetails>? birdById,
+    bool? isInitialized,
     bool clearSelected = false,
     bool clearLastWeigh = false,
   }) =>
       WeighGridState(
         columns: columns ?? this.columns,
         birdOrder: birdOrder ?? this.birdOrder,
-        selectedBirdId: clearSelected ? null : (selectedBirdId ?? this.selectedBirdId),
+        selectedBirdId:
+            clearSelected ? null : (selectedBirdId ?? this.selectedBirdId),
         weightText: weightText ?? this.weightText,
         isFasting: isFasting ?? this.isFasting,
         isSaving: isSaving ?? this.isSaving,
@@ -106,6 +110,7 @@ class WeighGridState {
         weaningBirdIds: weaningBirdIds ?? this.weaningBirdIds,
         latestWeights: latestWeights ?? this.latestWeights,
         birdById: birdById ?? this.birdById,
+        isInitialized: isInitialized ?? this.isInitialized,
       );
 }
 
@@ -113,9 +118,9 @@ class WeighGridState {
 class WeighGridNotifier extends StateNotifier<WeighGridState> {
   final AppDatabase _db;
   int? _userId;
-  final VoidCallback? _onWeightSaved;
+  final void Function(int birdId)? _onWeightSaved;
 
-  WeighGridNotifier(this._db, {VoidCallback? onWeightSaved})
+  WeighGridNotifier(this._db, {void Function(int birdId)? onWeightSaved})
       : _onWeightSaved = onWeightSaved,
         super(const WeighGridState());
 
@@ -130,11 +135,16 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     int? initialEnclosureId,
     int? initialBirdId,
   }) async {
-    // 1. 一次性加载全部数据
-    final allBirds = await _db.getAllWithDetails();
-    final allRooms = await _db.getAllRooms();
-    allRooms.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    final allEnclosures = await _db.getAllEnclosureCounts();
+    // 1. 并行加载全部基础数据（三表无依赖，Future.wait 消除串行等待）
+    final results = await Future.wait([
+      _db.getAllWithDetails(),
+      _db.getAllRooms(),
+      _db.getAllEnclosureCounts(),
+    ]);
+    final allBirds = results[0] as List<BirdWithDetails>;
+    final allRooms = (results[1] as List<Room>)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final allEnclosures = results[2] as Map<int, List<EnclosureWithCount>>;
     for (final r in allRooms) {
       allEnclosures.putIfAbsent(r.id, () => []);
     }
@@ -145,8 +155,12 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     // 辅助：按容器分组的函数
     List<BirdGroup> buildGroups(List<BirdWithDetails> birds, int? roomId) {
-      final encs = roomId != null ? (allEnclosures[roomId] ?? []) : <EnclosureWithCount>[];
-      final encMap = <int, EnclosureWithCount>{for (final e in encs) e.enclosure.id: e};
+      final encs = roomId != null
+          ? (allEnclosures[roomId] ?? [])
+          : <EnclosureWithCount>[];
+      final encMap = <int, EnclosureWithCount>{
+        for (final e in encs) e.enclosure.id: e
+      };
 
       // 分组：无容器 + 各容器
       final noEnc = birds.where((b) => b.bird.enclosureId == null).toList();
@@ -188,7 +202,8 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     // 各房间列
     for (final room in allRooms) {
-      final roomBirds = allBirds.where((b) => b.bird.roomId == room.id).toList();
+      final roomBirds =
+          allBirds.where((b) => b.bird.roomId == room.id).toList();
       final groups = buildGroups(roomBirds, room.id);
       columns.add(RoomColumn(room: room, groups: groups));
     }
@@ -203,7 +218,8 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     }
 
     final birdById = {for (final b in allBirds) b.bird.id: b};
-    state = state.copyWith(columns: columns, birdOrder: birdOrder, birdById: birdById);
+    state = state.copyWith(
+        columns: columns, birdOrder: birdOrder, birdById: birdById);
 
     // 3. 批量计算异常方向 / 断奶期 / 今日已称 / 超期
     final now = AppClock.now;
@@ -303,6 +319,9 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     if (targetBirdId != null) {
       await _loadAndSelectBird(targetBirdId);
     }
+
+    // 5. 标记初始化完成（用于 UI 区分加载中 / 无数据）
+    state = state.copyWith(isInitialized: true);
   }
 
   // ═══════════════════════════════════════════════
@@ -366,7 +385,8 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
   void adjustWeight(double delta) {
     final current = double.tryParse(state.weightText) ?? 0;
-    final newVal = (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
+    final newVal =
+        (current + delta).clamp(0.0, double.infinity).toStringAsFixed(1);
     state = state.copyWith(weightText: newVal, message: null);
   }
 
@@ -387,11 +407,8 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 
     final now = AppClock.now;
 
-    // 查找今日待完成称重任务（事务外查询）
-    final allTodayTasks = await _db.getTodayTasks(null);
-    final pendingTask = allTodayTasks
-        .where((t) => t.bird.id == birdId && t.task.status == '待完成')
-        .firstOrNull;
+    // 定向查找该鸟今日待完成称重任务（单表 WHERE，不 JOIN 5 表）
+    final pendingTask = await _db.getTodayPendingTask(birdId, 'weigh');
 
     // 原子写入：Weights + ActivityLogs + 完成任务（单事务，防崩溃不一致）
     late final Weight savedWeight;
@@ -414,14 +431,14 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
           'isFasting': state.isFasting,
           'weightId': savedWeight.id,
         },
-        relatedTaskId: pendingTask?.task.id,
+        relatedTaskId: pendingTask?.id,
         operatedBy: _userId,
       );
     });
 
-    _onWeightSaved?.call();
+    _onWeightSaved?.call(birdId);
 
-    final done = allTodayTasks.where((t) => t.task.status == '已完成').length +
+    final done = await _db.getTodayCompletedCount() +
         (pendingTask != null ? 1 : 0);
 
     // 即时更新最新体重显示，无需重新加载整个页面
@@ -431,8 +448,7 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
     // 即时更新"今日已称" + 移除"超期"
     final updatedWeighedToday = Set<int>.from(state.weighedTodayBirdIds)
       ..add(birdId);
-    final updatedOverdue = Set<int>.from(state.overdueBirdIds)
-      ..remove(birdId);
+    final updatedOverdue = Set<int>.from(state.overdueBirdIds)..remove(birdId);
 
     state = state.copyWith(
       isSaving: false,
@@ -473,7 +489,25 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
 final weighGridProvider =
     StateNotifierProvider<WeighGridNotifier, WeighGridState>((ref) {
   final db = ref.watch(databaseProvider);
-  return WeighGridNotifier(db, onWeightSaved: () {
-    ref.read(weightSavedProvider.notifier).state++;
+
+  // debounce 计时器：连续保存时合并为一次 alert 检测
+  Timer? alertDebounce;
+  // 记录 debounce 窗口内保存过的 birdId 集合
+  final debouncedBirdIds = <int>{};
+
+  return WeighGridNotifier(db, onWeightSaved: (int birdId) {
+    // 1) 细粒度通知：标记该鸟变化
+    ref.read(weightSavedBirdsProvider.notifier).notifySaved(birdId);
+
+    // 2) debounce alert 检测：连续保存只触发一次全量 alert 刷新
+    debouncedBirdIds.add(birdId);
+    alertDebounce?.cancel();
+    alertDebounce = Timer(const Duration(seconds: 2), () {
+      alertDebounce = null;
+      if (debouncedBirdIds.isNotEmpty) {
+        debouncedBirdIds.clear();
+        ref.invalidate(rawAlertsProvider);
+      }
+    });
   });
 });
