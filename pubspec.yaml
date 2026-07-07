@@ -1,8 +1,14 @@
----
+name: weight_nest
+description: 鹦鹉体重记录系统 - 离线单机版 MVP
+version: 1.9.12+60
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
 dependencies:
-  cupertino_icons: ^1.0.8
   # 数据库
-  drift: ^2.22.0
+  drift: ^2.28.0
   drift_flutter: ^0.2.1
   # Excel 导出
   excel: ^4.0.6
@@ -13,37 +19,38 @@ dependencies:
     sdk: flutter
   # 状态管理
   flutter_riverpod: ^2.6.1
-  # 局域网同步
-  http: ^1.2.2
   # 工具
   intl: ^0.19.0
-  # 扫码连接（新增）
-  mobile_scanner: ^5.2.3
   path: ^1.9.0
   path_provider: ^2.1.5
-  riverpod_annotation: ^2.6.1
+  flutter_local_notifications: ^18.0.0
   share_plus: ^10.0.0
   shared_preferences: ^2.3.4
-  # 二维码渲染（手绘，桌面端/手机端通用）
-  qr: ^3.0.2
-  # mDNS 自动发现
-  multicast_dns: ^0.3.2
-  # 嵌入式服务器（局域网联机）
-  shelf: ^1.4.2
-  shelf_router: ^1.1.4
+  image_picker: ^1.1.2
   sqlite3_flutter_libs: ^0.5.26
-description: 鹦鹉体重记录系统 - 支持局域网多人协同
+  # 视频播放 (实况照片)
+  video_player: ^2.9.5
+  # 备份恢复
+  archive: ^3.6.1
+  file_picker: ^8.0.0
+  crypto: ^3.0.6
+  receive_sharing_intent: ^1.8.1
+  flutter_image_compress: ^2.4.0
+  video_compress: ^3.1.4
+  flutter_svg: ^2.2.0
+
 dev_dependencies:
   build_runner: ^2.4.13
   # 代码生成
-  drift_dev: ^2.22.0
+  drift_dev: ^2.28.0
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
-environment:
-  sdk: ^3.6.0
+  # 测试 mock（无 codegen，~50KB）
+  mocktail: ^1.0.0
+
 flutter:
   uses-material-design: true
-name: weight_nest
-publish_to: none
-version: 1.7.18+35
+  assets:
+    - assets/icons/
+    - pubspec.yaml

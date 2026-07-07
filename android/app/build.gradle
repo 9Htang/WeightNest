@@ -13,6 +13,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -46,20 +47,10 @@ android {
             }
         }
     }
-    // 在 assembleRelease 任务完成后执行复制到指定目录的操作
-    tasks.whenTaskAdded { task ->
-        if (task.name == 'assembleRelease') {
-            task.doLast {
-                copy {
-                    from("$buildDir/outputs/flutter-apk/app-release.apk")
-                    into('C:/Users/Cwb/.openclaw/workspace/releases')
-                    rename { String fileName ->
-                        "鹦鹉体重记录_v${android.defaultConfig.versionName}.apk"
-                    }
-                }
-            }
-        }
-    }
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
 
 flutter {

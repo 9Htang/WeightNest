@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -31,23 +32,29 @@ extension SpeciesRepository on AppDatabase {
   }
 
   /// Upsert by UUID: returns created or updated species
-  Future<Specy> upsertByUuid(String uuid, {
+  Future<Specy> upsertByUuid(
+    String uuid, {
     required String name,
     int nestlingEndDays = 45,
     int juvenileEndDays = 120,
     int nestlingWeighIntervalDays = 1,
     int juvenileWeighIntervalDays = 3,
     int adultWeighIntervalDays = 7,
+    double? minWeightG,
+    double? maxWeightG,
   }) async {
     final existing = await getSpeciesByUuid(uuid);
     if (existing != null) {
-      return updateSpecies(existing.id,
+      return updateSpecies(
+        existing.id,
         name: name,
         nestlingEndDays: nestlingEndDays,
         juvenileEndDays: juvenileEndDays,
         nestlingWeighIntervalDays: nestlingWeighIntervalDays,
         juvenileWeighIntervalDays: juvenileWeighIntervalDays,
         adultWeighIntervalDays: adultWeighIntervalDays,
+        minWeightG: minWeightG,
+        maxWeightG: maxWeightG,
       );
     }
     final id = await into(species).insert(SpeciesCompanion.insert(
@@ -58,6 +65,10 @@ extension SpeciesRepository on AppDatabase {
       nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
       juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
+      minWeightG: Value(minWeightG),
+      maxWeightG: Value(maxWeightG),
+      createdAt: Value(AppClock.now),
+      updatedAt: Value(AppClock.now),
     ));
     return (await getSpeciesById(id))!;
   }
@@ -67,15 +78,24 @@ extension SpeciesRepository on AppDatabase {
       int juvenileEndDays = 120,
       int nestlingWeighIntervalDays = 1,
       int juvenileWeighIntervalDays = 3,
-      int adultWeighIntervalDays = 7}) async {
+      int adultWeighIntervalDays = 7,
+      double? minWeightG,
+      double? maxWeightG,
+      String? uuid,
+      DateTime? createdAt,
+      DateTime? updatedAt}) async {
     await into(species).insert(SpeciesCompanion.insert(
-      uuid: genUuid(),
+      uuid: uuid ?? genUuid(),
       name: name,
       nestlingEndDays: Value(nestlingEndDays),
       juvenileEndDays: Value(juvenileEndDays),
       nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
       juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
+      minWeightG: Value(minWeightG),
+      maxWeightG: Value(maxWeightG),
+      createdAt: Value(createdAt ?? AppClock.now),
+      updatedAt: Value(updatedAt ?? AppClock.now),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
     return (await getSpeciesById(rows.first.read<int>('id')))!;
@@ -87,16 +107,30 @@ extension SpeciesRepository on AppDatabase {
       int? juvenileEndDays,
       int? nestlingWeighIntervalDays,
       int? juvenileWeighIntervalDays,
-      int? adultWeighIntervalDays}) async {
+      int? adultWeighIntervalDays,
+      double? minWeightG,
+      double? maxWeightG}) async {
     final list = await (update(species)..where((t) => t.id.equals(id)))
         .writeReturning(SpeciesCompanion(
       name: name != null ? Value(name) : const Value.absent(),
-      nestlingEndDays: nestlingEndDays != null ? Value(nestlingEndDays) : const Value.absent(),
-      juvenileEndDays: juvenileEndDays != null ? Value(juvenileEndDays) : const Value.absent(),
-      nestlingWeighIntervalDays: nestlingWeighIntervalDays != null ? Value(nestlingWeighIntervalDays) : const Value.absent(),
-      juvenileWeighIntervalDays: juvenileWeighIntervalDays != null ? Value(juvenileWeighIntervalDays) : const Value.absent(),
-      adultWeighIntervalDays: adultWeighIntervalDays != null ? Value(adultWeighIntervalDays) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
+      nestlingEndDays: nestlingEndDays != null
+          ? Value(nestlingEndDays)
+          : const Value.absent(),
+      juvenileEndDays: juvenileEndDays != null
+          ? Value(juvenileEndDays)
+          : const Value.absent(),
+      nestlingWeighIntervalDays: nestlingWeighIntervalDays != null
+          ? Value(nestlingWeighIntervalDays)
+          : const Value.absent(),
+      juvenileWeighIntervalDays: juvenileWeighIntervalDays != null
+          ? Value(juvenileWeighIntervalDays)
+          : const Value.absent(),
+      adultWeighIntervalDays: adultWeighIntervalDays != null
+          ? Value(adultWeighIntervalDays)
+          : const Value.absent(),
+      minWeightG: minWeightG != null ? Value(minWeightG) : const Value.absent(),
+      maxWeightG: maxWeightG != null ? Value(maxWeightG) : const Value.absent(),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }

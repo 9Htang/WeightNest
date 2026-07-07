@@ -1,0 +1,53 @@
+# WeightNest 测试运行器配置
+# 文档：https://github.com/dart-lang/test/blob/master/pkgs/test/doc/configuration.md
+#
+# 用法：
+#   flutter test                          # 运行全部（默认）
+#   flutter test --tags smoke             # 仅冒烟测试（关键路径，目标 <10s）
+#   flutter test --exclude-tags perf      # 跳过性能基准（CI 默认）
+#   flutter test --exclude-tags slow      # 跳过文件 IO 慢测试（迁移/备份）
+#   flutter test --coverage               # 全量 + 覆盖率（产出 coverage/lcov.info）
+#
+# 分道运行示例：
+#   flutter test --tags smoke             # 仅冒烟（关键路径，目标 <10s）
+#   flutter test --exclude-tags slow      # 跳过文件 IO 慢测试（迁移/备份）
+#   flutter test                         # 全量（含 slow）
+#   flutter test --coverage              # 全量 + 覆盖率（产出 coverage/lcov.info）
+
+# 并发数：默认按 CPU 核心数。迁移/备份等文件 IO 测试之间无共享状态，
+# 但内存 DB + pluginRegistry 是全局单例，降低并发可减少偶发竞争。
+concurrency: 4
+
+# 全局超时（单测试用例）：30 秒
+timeout: 30s
+
+# 测试标签分类
+tags:
+  # 冒烟测试：快速、关键路径，每次提交运行
+  smoke:
+    timeout: 10s
+  # 性能基准：较慢，需要大数据集
+  perf:
+    timeout: 5m
+    skip: false
+  # 慢测试：迁移、备份等文件 IO
+  slow:
+    timeout: 2m
+
+# 仅运行 L1-L5（无头，无设备）；integration_test 由 flutter test integration_test/ 单独触发
+# platforms: [vm]  # 默认即 vm，注释掉以保持灵活性
+
+# 覆盖率配置（配合 flutter test --coverage）
+# 排除生成代码与主入口：lcov 排除规则需在 CI 后处理时应用（见 codemagic.yaml）
+#   - *.g.dart (drift 生成代码)
+#   - *.freezed.dart (如有)
+#   - lib/main.dart (入口胶水)
+#
+# 本地查看覆盖率：
+#   flutter test --coverage
+#   # 然后用 genhtml coverage/lcov.info -o coverage/html 打开 HTML 报告
+#
+# 运行指定子集：
+#   flutter test --tags smoke             # 仅冒烟测试（关键路径，<10s）
+#   flutter test test/repositories/        # 仅 L2 仓储层
+#   flutter test test/unit/                # 仅 L1 纯函数

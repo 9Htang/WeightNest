@@ -1,40 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
+import '../../repositories/task_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../core/plugin_registry.dart';
+import '../../utils/app_version.dart';
+import '../../widgets/feather_icon.dart';
 import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
+import '../rooms/rooms_screen.dart';
 import '../settings/settings_screen.dart';
-import '../weigh/weigh_screen.dart';
-import '../login/login_screen.dart';
+import '../species/species_screen.dart';
 import '../alerts/alerts_screen.dart';
-
-Future<void> _showLogoutConfirm(BuildContext context, WidgetRef ref) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('退出登录'),
-      content: const Text('确定要退出当前账号吗？'),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('退出')),
-      ],
-    ),
-  );
-  if (ok == true) {
-    await ref.read(workerProvider.notifier).clear();
-    if (context.mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-  }
-}
+import '../enclosures/enclosure_management_screen.dart';
 
 class MobileShell extends ConsumerStatefulWidget {
   const MobileShell({super.key});
@@ -43,57 +24,113 @@ class MobileShell extends ConsumerStatefulWidget {
   ConsumerState<MobileShell> createState() => _MobileShellState();
 }
 
-class _MobileShellState extends ConsumerState<MobileShell> {
+class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  Timer? _dateCheckTimer;
+
+  // 懒加载 + IndexedStack：首次访问后才构建标签页，之后所有已访问标签页
+  // 同时挂载在树中（IndexedStack 只显示当前项但保留其他项的 State），
+  // 这样切换标签不会丢失滚动位置 / 已加载的 FutureBuilder 结果。
+  final List<Widget?> _tabCache = List.filled(_tabs.length, null);
 
   static const _tabs = [
     _TabData(Icons.home_outlined, Icons.home_rounded, '首页'),
     _TabData(Icons.assignment_outlined, Icons.assignment, '任务'),
-    _TabData(Icons.monitor_weight_outlined, Icons.monitor_weight, '称重'),
-    _TabData(Icons.pets_outlined, Icons.pets, '鹦鹉'),
+    _TabData(null, null, '鹦鹉', useFeather: true),
     _TabData(Icons.settings_outlined, Icons.settings, '设置'),
   ];
 
+  Widget _makeTab(int i) => switch (i) {
+        0 => const HomeShell(),
+        1 => const TasksScreen(),
+        2 => const BirdsScreen(),
+        3 => const SettingsScreen(),
+        _ => const HomeShell(),
+      };
+
+  /// Lazily build a tab on first access and keep it alive thereafter.
+  Widget _tab(int i) => _tabCache[i] ??= _makeTab(i);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startDateCheckTimer();
+    // 首帧渲染后执行数据库初始化，不阻塞首页显示
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initAfterBuild());
+  }
+
+  Future<void> _initAfterBuild() async {
+    try {
+      // 1. 确保 DB 已迁移、种子数据已创建
+      await ref.read(initDefaultsProvider.future);
+      // 2. 自动选择第一个用户（首次启动无缓存用户时）
+      if (!ref.read(workerProvider).isSelected) {
+        final users = await ref.read(databaseProvider).getAllUsers();
+        if (users.isNotEmpty) {
+          final u = users.first;
+          await ref.read(workerProvider.notifier).selectUser(u.id, u.displayName, u.role, username: u.username);
+        }
+      }
+      // 3. 预生成今日任务
+      await ref.read(databaseProvider).generateTodayTasks();
+      // 4. 刷新任务列表（首帧查询时可能还没有生成的任务）
+      ref.invalidate(todayTasksProvider);
+      // 5. 触发异常检测（由 alertListProvider 统一管理，避免重复 detectAll）
+      ref.invalidate(alertListProvider);
+      ref.invalidate(hasRecentAlertRecordsProvider);
+    } catch (_) {
+      // DB 异常时静默失败，首页在加载状态中显示错误
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(databaseProvider).generateTodayTasks();
+      ref.invalidate(todayTasksProvider);
+      ref.invalidate(alertListProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dateCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startDateCheckTimer() {
+    _dateCheckTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (mounted) {
+        ref.read(databaseProvider).generateTodayTasks();
+        ref.invalidate(todayTasksProvider);
+        ref.invalidate(alertListProvider);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final worker = ref.watch(workerProvider);
-
-    if (!worker.isSelected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
+      // IndexedStack keeps every visited tab mounted so their State (scroll
+      // position, loaded data, form inputs) survives tab switches. Tabs are
+      // built lazily on first visit via _tab(i).
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          HomeShell(),
-          TasksScreen(),
-          SizedBox.shrink(), // Placeholder for weigh tab
-          BirdsScreen(),
-          SettingsScreen(),
+        children: [
+          _tab(0),
+          _tab(1),
+          _tab(2),
+          _tab(3),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
-          if (i == 2) {
-            // Weigh tab — push to weigh screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WeighScreen(roomId: null)),
-            );
-            return;
-          }
           setState(() => _currentIndex = i);
         },
         backgroundColor: scheme.surface,
@@ -101,10 +138,9 @@ class _MobileShellState extends ConsumerState<MobileShell> {
         surfaceTintColor: Colors.transparent,
         destinations: List.generate(_tabs.length, (i) {
           final t = _tabs[i];
-          final selected = i == _currentIndex;
           return NavigationDestination(
-            icon: Icon(t.outlinedIcon, size: 24),
-            selectedIcon: Icon(t.filledIcon, size: 24),
+            icon: t.useFeather ? const FeatherIcon(size: 24) : Icon(t.outlinedIcon, size: 24),
+            selectedIcon: t.useFeather ? const FeatherIcon(size: 24) : Icon(t.filledIcon, size: 24),
             label: t.label,
           );
         }),
@@ -114,11 +150,12 @@ class _MobileShellState extends ConsumerState<MobileShell> {
 }
 
 class _TabData {
-  final IconData outlinedIcon;
-  final IconData filledIcon;
+  final IconData? outlinedIcon;
+  final IconData? filledIcon;
   final String label;
+  final bool useFeather;
 
-  const _TabData(this.outlinedIcon, this.filledIcon, this.label);
+  const _TabData(this.outlinedIcon, this.filledIcon, this.label, {this.useFeather = false});
 }
 
 /// Wrapper for HomeScreen to use within the shell (no Scaffold wrapper needed)
@@ -127,31 +164,30 @@ class HomeShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final worker = ref.watch(workerProvider);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WeightNest'),
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: CircleAvatar(
-            radius: 14,
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            child: Text(
-              worker.displayName.isNotEmpty
-                  ? worker.displayName[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          ),
+        title: FutureBuilder<String>(
+          future: getAppVersion(),
+          builder: (context, snapshot) {
+            final v = snapshot.data ?? '';
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('WeightNest'),
+                const SizedBox(width: 8),
+                Text(
+                  'v$v',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: Theme.of(context).colorScheme.onSurface.withAlpha(110),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
-            onPressed: () => _showLogoutConfirm(context, ref),
-          ),
-        ],
+        actions: const [],
       ),
       body: const HomeScreenContent(),
     );
@@ -164,19 +200,17 @@ class HomeScreenContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(initDefaultsProvider);
+    ref.read(initDefaultsProvider);
+    ref.watch(pluginToggleVersionProvider); // 插件开关时重建快捷操作/称重按钮
     final theme = Theme.of(context);
     final tasksAsync = ref.watch(todayTasksProvider);
-    final alertsAsync = ref.watch(alertCountProvider);
+    final hasRecentAlerts = ref.watch(hasRecentAlertRecordsProvider);
     final roomsAsync = ref.watch(allRoomsProvider);
-    final myRoomsAsync = ref.watch(myRoomsProvider);
-    final worker = ref.watch(workerProvider);
-    final isAdmin = worker.isAdmin;
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(todayTasksProvider);
-        ref.invalidate(alertCountProvider);
+        ref.invalidate(alertListProvider);
         ref.invalidate(allRoomsProvider);
       },
       child: ListView(
@@ -187,101 +221,96 @@ class HomeScreenContent extends ConsumerWidget {
             loading: () => const _StatsSkeleton(),
             error: (e, _) => Center(child: Text('$e')),
             data: (tasks) {
-              final pending =
-                  tasks.where((t) => t.task.status == '待完成').length;
-              final done =
-                  tasks.where((t) => t.task.status == '已完成').length;
-              return _StatsCardWarm(
-                  pending: pending, done: done, ref: ref);
+              final pending = tasks.where((t) => t.task.status == '待完成').length;
+              final done = tasks.where((t) => t.task.status == '已完成').length;
+              return _StatsCardWarm(pending: pending, done: done, ref: ref);
             },
           ),
           const SizedBox(height: 16),
 
           // ── 异常提醒入口 ──
-          alertsAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (alertCount) => _AlertBannerWarm(count: alertCount),
-          ),
+          if (hasRecentAlerts.valueOrNull == true) _AlertBannerWarm(),
 
           const SizedBox(height: 16),
 
-          // ── 房间列表 ──
-          Text(
-              worker.isSelected && !isAdmin ? '我的房间' : '房间',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          (worker.isSelected && !isAdmin ? myRoomsAsync : roomsAsync).when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
-            data: (rooms) => rooms.isEmpty
-                ? Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text('暂无房间，请先创建房间',
-                            style: TextStyle(
-                                color: theme.colorScheme.onSurface
-                                    .withAlpha(140))),
-                      ),
-                    ),
-                  )
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: rooms
-                        .map((r) => _RoomCardWarm(room: r))
-                        .toList(),
-                  ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── 快捷操作 ──
-          Text('快捷操作',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          // ── 快捷操作（在房间列表上方）──
+          Text('快捷操作', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _QuickChip(
-                icon: Icons.list_alt,
-                label: '鹦鹉列表',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const BirdsScreen())),
-              ),
-              _QuickChip(
-                icon: Icons.assignment_turned_in,
-                label: '称重任务',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const TasksScreen())),
-              ),
-              _QuickChip(
-                icon: Icons.warning_amber,
+                icon: const Icon(Icons.warning_amber, size: 20),
                 label: '异常提醒',
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AlertsScreen())),
+                    context, MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.all))),
               ),
               _QuickChip(
-                icon: Icons.scale,
-                label: '快速称重',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            WeighScreen(roomId: null))),
+                icon: const FeatherIcon(size: 20),
+                label: '品种管理',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeciesScreen())),
+              ),
+              // 插件贡献的快捷操作
+              ...pluginRegistry.enabledPlugins.expand((p) => p.quickActions).map(
+                    (a) => _QuickChip(
+                      icon: Icon(a.icon, size: 20),
+                      label: a.label,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => a.builder())),
+                    ),
+                  ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── 房间列表 ──
+          Row(
+            children: [
+              Expanded(
+                child: Text('房间', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_note, size: 22),
+                tooltip: '管理房间',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RoomsScreen()),
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          roomsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('$e')),
+            data: (rooms) => rooms.isEmpty
+                ? Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Text('暂无房间，请先创建房间', style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(140))),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const RoomsScreen()),
+                            ),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('创建房间'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rooms.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) => _RoomCardWarm(room: rooms[i]),
+                  ),
           ),
 
           const SizedBox(height: 40),
@@ -296,8 +325,7 @@ class _StatsCardWarm extends ConsumerWidget {
   final int pending, done;
   final WidgetRef ref;
 
-  const _StatsCardWarm(
-      {required this.pending, required this.done, required this.ref});
+  const _StatsCardWarm({required this.pending, required this.done, required this.ref});
 
   @override
   Widget build(BuildContext context, WidgetRef _) {
@@ -328,21 +356,9 @@ class _StatsCardWarm extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _StatItemWarm(
-                    icon: Icons.scale,
-                    label: '待称重',
-                    value: '$pending',
-                    color: const Color(0xFFC4956A)),
-                _StatItemWarm(
-                    icon: Icons.check_circle,
-                    label: '已完成',
-                    value: '$done',
-                    color: const Color(0xFF6B8F71)),
-                _StatItemWarm(
-                    icon: Icons.pie_chart,
-                    label: '完成率',
-                    value: '$pct%',
-                    color: scheme.primary),
+                _StatItemWarm(icon: Icons.scale, label: '待完成', value: '$pending', color: scheme.secondary),
+                _StatItemWarm(icon: Icons.check_circle, label: '已完成', value: '$done', color: scheme.primary),
+                _StatItemWarm(icon: Icons.pie_chart, label: '完成率', value: '$pct%', color: scheme.tertiary),
               ],
             ),
             const SizedBox(height: 20),
@@ -351,8 +367,8 @@ class _StatsCardWarm extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: total > 0 ? done / total : 0,
                 minHeight: 10,
-                backgroundColor: scheme.surfaceContainerHighest,
-                color: const Color(0xFF6B8F71),
+                backgroundColor: scheme.primary.withAlpha(30),
+                color: scheme.primary,
               ),
             ),
             const SizedBox(height: 14),
@@ -360,12 +376,8 @@ class _StatsCardWarm extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const TasksScreen())),
-                  icon:
-                      const Icon(Icons.assignment_turned_in, size: 20),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen())),
+                  icon: const Icon(Icons.assignment_turned_in, size: 20),
                   label: Text('查看任务 ($pending 只)'),
                 ),
               ),
@@ -381,11 +393,7 @@ class _StatItemWarm extends StatelessWidget {
   final String label, value;
   final Color color;
 
-  const _StatItemWarm(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      required this.color});
+  const _StatItemWarm({required this.icon, required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -407,8 +415,7 @@ class _StatItemWarm extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: color,
                 fontFeatures: const [FontFeature.tabularFigures()])),
-        Text(label,
-            style: TextStyle(fontSize: 12, color: color.withAlpha(180))),
+        Text(label, style: TextStyle(fontSize: 12, color: color.withAlpha(180))),
       ],
     );
   }
@@ -429,25 +436,25 @@ class _StatsSkeleton extends StatelessWidget {
 }
 
 class _AlertBannerWarm extends StatelessWidget {
-  final int count;
-  const _AlertBannerWarm({required this.count});
+  final int? count;
+  const _AlertBannerWarm({this.count});
 
   @override
   Widget build(BuildContext context) {
-    if (count == 0) return const SizedBox.shrink();
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final text = count != null ? '$count 只鹦鹉存在异常' : '查看异常提醒';
 
+    final scheme = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFFC44F4F).withAlpha(20),
-        border: Border.all(color: const Color(0xFFC44F4F).withAlpha(60)),
+        color: scheme.error.withAlpha(20),
+        border: Border.all(color: scheme.error.withAlpha(60)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen())),
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.unconfirmed))),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -457,20 +464,16 @@ class _AlertBannerWarm extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFC44F4F).withAlpha(30),
+                  color: scheme.error.withAlpha(30),
                 ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFC44F4F), size: 20),
+                child: Icon(Icons.warning_amber_rounded, color: scheme.error, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('$count 只鹦鹉存在异常',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFC44F4F))),
+                child: Text(text,
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: scheme.error)),
               ),
-              Icon(Icons.chevron_right,
-                  color: const Color(0xFFC44F4F).withAlpha(160)),
+              Icon(Icons.chevron_right, color: scheme.error.withAlpha(160)),
             ],
           ),
         ),
@@ -490,7 +493,7 @@ class _RoomCardWarm extends ConsumerWidget {
     final birdsAsync = ref.watch(roomBirdsProvider(room.id));
 
     return SizedBox(
-      width: (MediaQuery.of(context).size.width - 40) / 2 - 4,
+      width: double.infinity,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -501,10 +504,7 @@ class _RoomCardWarm extends ConsumerWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => WeighScreen(roomId: room.id))),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BirdsScreen(roomId: room.id))),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -517,29 +517,56 @@ class _RoomCardWarm extends ConsumerWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        color: const Color(0xFFC4956A).withAlpha(40),
+                        color: scheme.secondary.withAlpha(40),
                       ),
-                      child: const Icon(Icons.meeting_room_rounded,
-                          size: 18, color: Color(0xFFC4956A)),
+                      child: Icon(Icons.meeting_room_rounded, size: 18, color: scheme.secondary),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         room.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600),
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // 房间设置按钮
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined, size: 18),
+                      tooltip: '房间设置',
+                      color: scheme.onSurface.withAlpha(120),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _onRoomTap(context, ref, room),
+                    ),
+                    // 插件提供的房间称重按钮
+                    ...(() {
+                      final action = pluginRegistry.enabledPlugins
+                          .map((p) => p.roomWeighAction)
+                          .firstWhere((a) => a != null, orElse: () => null);
+                      if (action == null) return const <Widget>[];
+                      return <Widget>[
+                        IconButton(
+                          icon: Icon(action.icon, size: 20),
+                          tooltip: action.tooltip,
+                          color: scheme.primary,
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => action.builder(room.id),
+                              ),
+                            );
+                          },
+                        ),
+                      ];
+                    })(),
                   ],
                 ),
                 const SizedBox(height: 12),
                 birdsAsync.when(
                   loading: () => const SizedBox(
                     height: 16,
-                    child: Center(
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2)),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                   error: (_, __) => const Text('-'),
                   data: (birds) => Text(
@@ -559,13 +586,25 @@ class _RoomCardWarm extends ConsumerWidget {
   }
 }
 
+/// 房间设置按钮：进入容器管理页面
+void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => EnclosureManagementScreen(
+        roomId: room.id,
+        roomName: room.name,
+      ),
+    ),
+  );
+}
+
 class _QuickChip extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
 
-  const _QuickChip(
-      {required this.icon, required this.label, required this.onTap});
+  const _QuickChip({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -580,19 +619,18 @@ class _QuickChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
             child: Row(
               children: [
                 Container(
                   width: 36,
                   height: 36,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     color: scheme.primaryContainer.withAlpha(100),
                   ),
-                  child:
-                      Icon(icon, size: 20, color: scheme.primary),
+                  child: icon,
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -611,5 +649,3 @@ class _QuickChip extends StatelessWidget {
     );
   }
 }
-
-

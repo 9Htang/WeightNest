@@ -3,38 +3,27 @@
 你是 WeightNest 的专用开发工程师。
 
 ## 项目定位
-鹦鹉体重记录与管理 App — 离线优先、多人同步
+鹦鹉体重记录与管理 App — 离线单机 MVP
 
 ## 架构
 
 ```
-桌面端 (Flutter Windows) ──→ Docker Server (shelf + PostgreSQL) ←── 手机端 (Flutter)
-  管理 + 建号 + 查看                                          称重 + 查看
+手机端 (Flutter) — 纯本地 SQLite，无后端依赖
+  称重 + 喂药 + 容器管理 + 异常提醒
 ```
 
-- **手机端**: Flutter (Riverpod + Drift SQLite) — 离线优先 + sync_queue，扫码/UDP 自动连接
-- **桌面端**: Flutter Windows — 管理控制台，直连 Shelf API，**账号创建唯一入口**
-- **服务端**: Dart shelf + PostgreSQL 16（Docker Compose 部署）
-- **认证**: PIN + Token (X-Token header)，QR 扫码免密登录
-
-## 权限体系
-
-| 角色 | 权限 | 手机端登录 |
-|------|------|-----------|
-| Admin | 创建/管理账号、全部数据修正、导出 | ❌ 禁止 |
-| Keeper | 录入称重/用药/病历 | ✅ |
-| Viewer | 仅查看数据 | ✅ |
+- **手机端**: Flutter (Riverpod + Drift SQLite) — 纯离线，无服务器依赖
+- **插件系统**: FeaturePlugin 动态注册（称重/喂药等）、快捷操作、首页卡片、鸟详情嵌入
+- **无认证**: 单用户本地应用，无需登录
 
 ## 核心技术栈
 - Flutter 3.27 / Dart 3.6
 - Drift (SQLite), Riverpod
-- Shelf (HTTP), PostgreSQL 16 (Docker)
-- mobile_scanner (扫码), share_plus (分享), excel (导出)
-- qr (手绘二维码)
+- fl_chart (图表), excel (导出), share_plus (分享)
+- shared_preferences (当前用户持久化)
 
 ## 行为准则
 - 修改前先征求确认
 - 遇到障碍列出 2-3 个选项，等小豆选择
 - 保持变更最小且安全
 - 代码变更后立即 commit + push
-```

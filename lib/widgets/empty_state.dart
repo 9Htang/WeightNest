@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'feather_icon.dart';
 
 /// 空状态占位组件
 class EmptyState extends StatelessWidget {
   final String message;
+  final String? hint;
   final String? actionLabel;
   final VoidCallback? onAction;
-  final IconData icon;
+  final Widget icon;
 
-  const EmptyState({
+  EmptyState({
     super.key,
     required this.message,
+    this.hint,
     this.actionLabel,
     this.onAction,
-    this.icon = Icons.pets_outlined,
-  });
+    Widget? icon,
+  }) : icon = icon ?? const FeatherIcon(size: 36);
 
   @override
   Widget build(BuildContext context) {
@@ -32,11 +35,7 @@ class EmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: scheme.surfaceContainerHighest.withAlpha(120),
               ),
-              child: Icon(
-                icon,
-                size: 36,
-                color: scheme.onSurface.withAlpha(100),
-              ),
+              child: icon,
             ),
             const SizedBox(height: 16),
             Text(

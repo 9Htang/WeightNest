@@ -1,39 +1,11 @@
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: weightnest
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   server:
     build: ./server
     ports:
       - "0.0.0.0:8080:8080"
     environment:
-      PG_HOST: db
-      PG_PORT: 5432
-      PG_DATABASE: weightnest
-      PG_USERNAME: postgres
-      PG_PASSWORD: postgres
       SERVER_PORT: "8080"
       SERVER_PIN: "1234"
-      # 设置宿主机的局域网 IP，手机扫码用（可选，桌面端会自动检测并传入）
-      # 不设置时服务端会自动检测（Docker 内可能检测不准）
-      # 示例：SERVER_HOST=192.168.1.100 docker compose up -d
       SERVER_HOST: ${SERVER_HOST:-}
-    depends_on:
-      db:
-        condition: service_healthy
-
-volumes:
-  pgdata:
+    volumes:
+      - ./data:/app/data

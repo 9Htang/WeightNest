@@ -1,5 +1,8 @@
 # WeightNest Codemagic CI/CD
 # 文档: https://docs.codemagic.io
+#
+# 格式化门禁说明：目前仅对 test/ 与 tools/ 强制 dart format（这两层已合规）。
+# lib/ 历史代码尚未整体格式化，纳入检查会立即阻断 CI；待逐步格式化后再放开。
 
 workflows:
 
@@ -11,10 +14,14 @@ workflows:
       flutter: stable
       java: 17
     scripts:
+      - name: Check formatting (test & tools)
+        script: dart format --set-exit-if-changed test/ tools/
       - name: Get dependencies
         script: flutter pub get
       - name: Flutter analyze
         script: flutter analyze
+      - name: Flutter test
+        script: flutter test --coverage
       - name: Build APK (release)
         script: flutter build apk --release
       - name: Build AAB (Play Store)
@@ -36,10 +43,14 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Check formatting (test & tools)
+        script: dart format --set-exit-if-changed test/ tools/
       - name: Get dependencies
         script: flutter pub get
       - name: Flutter analyze
         script: flutter analyze
+      - name: Flutter test
+        script: flutter test --coverage
       - name: Set up code signing
         script: |
           # Codemagic 自动管理证书
@@ -69,8 +80,14 @@ workflows:
       # APP_STORE_CONNECT_PRIVATE_KEY
       # CERTIFICATE_PRIVATE_KEY
     scripts:
+      - name: Check formatting (test & tools)
+        script: dart format --set-exit-if-changed test/ tools/
       - name: Get dependencies
         script: flutter pub get
+      - name: Flutter analyze
+        script: flutter analyze
+      - name: Flutter test
+        script: flutter test --coverage
       - name: Install Apple certificate
         script: |
           # Codemagic 读取环境变量自动配置

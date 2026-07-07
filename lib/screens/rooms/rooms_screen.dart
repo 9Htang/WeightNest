@@ -3,9 +3,79 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
+import '../../widgets/list/app_list_card.dart';
+import '../../widgets/list/empty_state.dart';
 import '../birds/birds_screen.dart';
 
-import '../worker/worker_screen.dart';
+// 提取独立的输入对话框，彻底解决 TextEditingController 生命周期问题
+class _TextInputDialog extends StatefulWidget {
+  final String title;
+  final String? labelText;
+  final String? hintText;
+  final String? initialValue;
+  final Future<void> Function(String name) onSave;
+
+  const _TextInputDialog({
+    required this.title,
+    this.labelText,
+    this.hintText,
+    this.initialValue,
+    required this.onSave,
+  });
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving
+              ? null
+              : () async {
+                  final name = _controller.text.trim();
+                  if (name.isEmpty) return;
+                  setState(() => _saving = true); // 防抖
+                  await widget.onSave(name);
+                  if (mounted) Navigator.pop(context, true);
+                },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
 
 /// 房间管理页面
 class RoomsScreen extends ConsumerStatefulWidget {
@@ -16,6 +86,8 @@ class RoomsScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomsScreenState extends ConsumerState<RoomsScreen> {
+  List<Room>? _reorderedRooms; // 本地缓存拖拽结果
+
   @override
   Widget build(BuildContext context) {
     final roomsAsync = ref.watch(allRoomsProvider);
@@ -26,180 +98,127 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         onPressed: () => _showEditDialog(context, null),
         child: const Icon(Icons.add),
       ),
-
       body: roomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
-        data: (rooms) => rooms.isEmpty
-            ? const Center(child: Text('暂无房间'))
-            : ReorderableListView.builder(
-                itemCount: rooms.length,
-                onReorder: (oldIndex, newIndex) async {
-                  if (newIndex > oldIndex) newIndex--;
-                  final item = rooms.removeAt(oldIndex);
-                  rooms.insert(newIndex, item);
-                  setState(() {});
-                  final db = ref.read(databaseProvider);
-                  final userId = ref.read(workerProvider).userId;
-                  for (int i = 0; i < rooms.length; i++) {
-                    final room = await db.updateRoom(rooms[i].id, sortOrder: i);
-                    if (userId != null) {
-                      await ref.read(syncQueueProvider).enqueue(
-                        userId: userId,
-                        action: 'update_room',
-                        entityType: 'room',
-                        entityUuid: room.uuid,
-                        payload: {'sortOrder': i},
-                      );
+        data: (rooms) {
+          final displayRooms = _reorderedRooms ?? rooms;
+          return displayRooms.isEmpty
+              ? EmptyState(
+                  icon: const Icon(Icons.meeting_room_outlined, size: 56),
+                  message: '暂无房间',
+                  hint: '点击右下角 + 添加房间',
+                )
+              : ReorderableListView.builder(
+                  itemCount: displayRooms.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    if (newIndex > oldIndex) newIndex--;
+                    final reordered = List<Room>.from(displayRooms);
+                    final item = reordered.removeAt(oldIndex);
+                    reordered.insert(newIndex, item);
+
+                    // 1. 立即更新本地视图，维持UI流畅
+                    setState(() => _reorderedRooms = reordered);
+
+                    // 2. 后台静默更新数据库
+                    final db = ref.read(databaseProvider);
+                    final futures = <Future>[];
+                    for (int i = 0; i < reordered.length; i++) {
+                      futures.add(db.updateRoom(reordered[i].id, sortOrder: i));
                     }
-                  }
-                  ref.invalidate(allRoomsProvider);
-                },
-                itemBuilder: (context, i) {
-                  final r = rooms[i];
-                  final usersAsync = ref.watch(allUsersProvider);
-                  final assignedName = usersAsync.when(
-                    data: (users) => r.assignedUserId != null
-                        ? users.where((u) => u.id == r.assignedUserId).map((u) => u.displayName).firstOrNull ?? '未知'
-                        : null,
-                    loading: () => null, error: (_, __) => null,
-                  );
-                  return Card(
-                    key: ValueKey(r.id),
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                    child: ListTile(
+                    await Future.wait(futures);
+
+                    // 3. 延迟到下一帧再刷新 Provider，避免打断 ReorderableListView 动画
+                    if (!mounted) return;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      ref.invalidate(allRoomsProvider);
+                      setState(() => _reorderedRooms = null);
+                    });
+                  },
+                  itemBuilder: (context, i) {
+                    final r = displayRooms[i];
+                    return AppListCard.tile(
+                      key: ValueKey(r.id),
                       leading: const Icon(Icons.meeting_room),
-                      title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(assignedName != null ? '负责人: $assignedName' : '点击查看鹦鹉'),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
-                      ),
+                      title: Text(r.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('点击查看鹦鹉'),
                       trailing: PopupMenuButton(
                         itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                          const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
+                          const PopupMenuItem(
+                              value: 'edit', child: Text('编辑')),
+                          const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('删除',
+                                  style: TextStyle(color: Colors.red))),
                         ],
                         onSelected: (v) {
                           if (v == 'edit') _showEditDialog(context, r);
                           if (v == 'delete') _confirmDelete(context, r);
                         },
                       ),
-                    ),
-                  );
-                },
-              ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => BirdsScreen(roomId: r.id)),
+                      ),
+                    );
+                  },
+                );
+        },
       ),
     );
   }
 
   void _showEditDialog(BuildContext context, Room? existing) {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final usersAsync = ref.read(allUsersProvider);
-
-    showDialog(
+    final db = ref.read(databaseProvider);
+    showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        int? assignedId = existing?.assignedUserId;
-        return AlertDialog(
-          title: Text(existing != null ? '编辑房间' : '新增房间'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: '房间名称'),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-                usersAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (users) => DropdownButtonFormField<int?>(
-                    value: assignedId,
-                    decoration: const InputDecoration(labelText: '负责人'),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('未分配')),
-                      ...users.map((u) => DropdownMenuItem(
-                        value: u.id, child: Text(u.displayName),
-                      )),
-                    ],
-                    onChanged: (v) => assignedId = v,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-            FilledButton(onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              final db = ref.read(databaseProvider);
-              if (existing != null) {
-                final room = await db.updateRoom(existing.id, name: name, assignedUserId: assignedId);
-                final userId = ref.read(workerProvider).userId;
-                if (userId != null) {
-                  await ref.read(syncQueueProvider).enqueue(
-                    userId: userId,
-                    action: 'update_room',
-                    entityType: 'room',
-                    entityUuid: room.uuid,
-                    payload: {'name': name, 'assignedUserId': assignedId},
-                  );
-                }
-              } else {
-                final room = await db.createRoom(name, assignedUserId: assignedId);
-                final userId = ref.read(workerProvider).userId;
-                if (userId != null) {
-                  await ref.read(syncQueueProvider).enqueue(
-                    userId: userId,
-                    action: 'create_room',
-                    entityType: 'room',
-                    entityUuid: room.uuid,
-                    payload: {'name': name, 'assignedUserId': assignedId},
-                  );
-                }
-              }
-              ref.invalidate(allRoomsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
-            }, child: const Text('保存')),
-          ],
-        );
-      },
-    );
+      builder: (ctx) => _TextInputDialog(
+        title: existing != null ? '编辑房间' : '新增房间',
+        labelText: '房间名称',
+        initialValue: existing?.name,
+        onSave: (name) async {
+          if (existing != null) {
+            await db.updateRoom(existing.id, name: name);
+          } else {
+            await db.createRoom(name);
+          }
+        },
+      ),
+    ).then((saved) {
+      if (saved == true && mounted) {
+        ref.invalidate(allRoomsProvider);
+      }
+    });
   }
 
   void _confirmDelete(BuildContext context, Room r) {
-    showDialog(
+    final db = ref.read(databaseProvider);
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
         content: Text('删除房间「${r.name}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await ref.read(databaseProvider).removeRoom(r.id);
-              final userId = ref.read(workerProvider).userId;
-              if (userId != null) {
-                await ref.read(syncQueueProvider).enqueue(
-                  userId: userId,
-                  action: 'delete_room',
-                  entityType: 'room',
-                  entityUuid: r.uuid,
-                  payload: {'id': r.id, 'name': r.name},
-                );
-              }
-              ref.invalidate(allRoomsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+              await db.removeRoom(r.id);
+              if (ctx.mounted) Navigator.pop(ctx, true);
             },
             child: const Text('删除'),
           ),
         ],
       ),
-    );
+    ).then((deleted) {
+      if (deleted == true && mounted) {
+        ref.invalidate(allRoomsProvider);
+      }
+    });
   }
 }

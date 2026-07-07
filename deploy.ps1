@@ -1,10 +1,12 @@
 # ==============================
 # WeightNest 一键部署
-# 放行防火墙 → 启动服务 → 启动桌面端
+# 独立模式（默认）：server.exe + 桌面端，零依赖
+# Docker 模式：docker compose up
 # ==============================
 param(
+    [switch]$Docker,
     [switch]$SkipFirewall,
-    [switch]$ServerOnly  # 只启动服务端，不启动桌面端
+    [switch]$ServerOnly
 )
 
 $ErrorActionPreference = "Continue"
@@ -24,21 +26,7 @@ if (-not $SkipFirewall) {
     }
 }
 
-# 2. 启动 Docker 服务
-Write-Host "[Docker] 启动服务..." -ForegroundColor Yellow
-Push-Location $projectRoot
-try {
-    docker compose up -d --build 2>&1 | Select-String "Started|Running|Healthy|Recreated"
-    Write-Host "[Docker] 服务已启动" -ForegroundColor Green
-} catch {
-    Write-Host "[Docker] 启动失败: $_" -ForegroundColor Red
-    Pop-Location
-    exit 1
-}
-Pop-Location
-
-# 3. 显示本机 IP
-Write-Host ""
+# 2. 显示本机 IP
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
     $_.IPAddress -match "^192\.168\." -and $_.InterfaceAlias -notmatch "VMware|vEthernet|VirtualBox|Hyper-V"
 } | Select-Object -First 1).IPAddress
@@ -47,10 +35,38 @@ if (-not $ip) {
         $_.IPAddress -match "^192\.168\.|^10\." -and $_.InterfaceAlias -notmatch "VMware|vEthernet"
     } | Select-Object -First 1).IPAddress
 }
+
+if ($Docker) {
+    # ─── Docker 模式 ───
+    Write-Host "[Docker] 启动服务..." -ForegroundColor Yellow
+    Push-Location $projectRoot
+    try {
+        docker compose up -d --build 2>&1 | Select-String "Started|Running|Healthy"
+        Write-Host "[Docker] 服务已启动" -ForegroundColor Green
+    } catch {
+        Write-Host "[Docker] 启动失败: $_" -ForegroundColor Red
+        Pop-Location
+        exit 1
+    }
+    Pop-Location
+} else {
+    # ─── 独立模式：直接启动 server.exe ───
+    $serverExe = Join-Path $projectRoot "server\server.exe"
+    if (Test-Path $serverExe) {
+        Write-Host "[Server] 启动独立服务器..." -ForegroundColor Yellow
+        Start-Process $serverExe -WindowStyle Hidden
+        Write-Host "[Server] server.exe 已启动（后台）" -ForegroundColor Green
+    } else {
+        Write-Host "[Server] server.exe 未找到，请先编译: dart compile exe server/lib/server.dart -o server/server.exe" -ForegroundColor Red
+        Write-Host "[Server] 或使用 -Docker 参数以 Docker 模式启动" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
 Write-Host "本机 IP: $ip" -ForegroundColor Cyan
 Write-Host "手机扫码地址: $ip`:8080" -ForegroundColor Cyan
 
-# 4. 启动桌面端
+# 3. 启动桌面端
 if (-not $ServerOnly) {
     Write-Host ""
     Write-Host "[桌面] 启动..." -ForegroundColor Yellow

@@ -1,28 +1,64 @@
 import 'package:flutter/material.dart';
 
+import 'app_tokens.dart';
+
+/// 全局共享的 token 实例 —— 值与明暗模式无关，light/dark 主题共用同一组。
+const _appSpacing = AppSpacing();
+const _appRadius = AppRadius();
+const _appAlpha = AppAlpha();
+
 class AppTheme {
   static const _seedColor = Color(0xFF6B8F71); // 森林绿
   static const _warmBrown = Color(0xFFC4956A); // 暖木色
 
+  // ── 预计算 ColorScheme ──
+  static final ColorScheme _lightScheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: Brightness.light,
+    secondary: _warmBrown,
+  );
+
+  static final ColorScheme _darkScheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: Brightness.dark,
+    secondary: const Color(0xFFD4A87C),
+  );
+
+  /// 状态语义色 — 获取与当前主题适配的颜色
+  static StatusColors statusColors(ColorScheme scheme) => StatusColors(
+        // 雏鸟：暖色（浅/深模式皆可辨识）
+        nestling: scheme.tertiary,
+        // 幼鸟：主色
+        juvenile: scheme.primary,
+        // 成鸟：次要色
+        adult: scheme.secondary,
+        // 成功/已完成
+        success: scheme.primary,
+        // 错误/异常
+        error: scheme.error,
+        // 信息提示
+        info: scheme.primary,
+        // ── Phase 2 新增 ──
+        // 警告：替代 Colors.orange
+        warning: scheme.tertiary,
+        // 警告背景：替代 Colors.orange.shade50
+        warningBg: scheme.tertiaryContainer,
+        // 空腹绿：替代 #639922，用 primary 变体保持语义一致
+        fasting: scheme.primary,
+        // 空腹浅背景：替代 #EAF3DE
+        fastingBg: scheme.primaryContainer,
+        // 非空腹红：替代 #E24B4A
+        notFasting: scheme.error,
+        // 非空腹浅背景：替代 #FCEBEB
+        notFastingBg: scheme.errorContainer,
+      );
+
   // ── Light Theme ──
-  static ThemeData get lightTheme {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
-      brightness: Brightness.light,
-      secondary: _warmBrown,
-    );
-    return _buildTheme(scheme, Brightness.light);
-  }
+  static final ThemeData lightTheme =
+      _buildTheme(_lightScheme, Brightness.light);
 
   // ── Dark Theme ──
-  static ThemeData get darkTheme {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
-      brightness: Brightness.dark,
-      secondary: const Color(0xFFD4A87C),
-    );
-    return _buildTheme(scheme, Brightness.dark);
-  }
+  static final ThemeData darkTheme = _buildTheme(_darkScheme, Brightness.dark);
 
   static ThemeData _buildTheme(ColorScheme scheme, Brightness brightness) {
     final isDark = brightness == Brightness.dark;
@@ -30,6 +66,13 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+
+      // ── Design Tokens（间距 / 圆角 / 透明度）──
+      extensions: [
+        _appSpacing,
+        _appRadius,
+        _appAlpha,
+      ],
 
       // ── Typography ──
       textTheme: TextTheme(
@@ -142,8 +185,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(14),
           ),
           elevation: 0,
-          textStyle:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -268,4 +310,48 @@ class AppTheme {
       ),
     );
   }
+}
+
+/// 语义状态色 — 自动适配浅色/深色模式
+class StatusColors {
+  final Color nestling;
+  final Color juvenile;
+  final Color adult;
+  final Color success;
+  final Color error;
+  final Color info;
+
+  // ── Phase 2 新增 ──
+  /// 警告色（替代 Colors.orange，用于"暂无体重"等警告卡片图标/文字）。
+  final Color warning;
+
+  /// 警告背景（替代 Colors.orange.shade50 / Colors.amber.shade50）。
+  final Color warningBg;
+
+  /// 空腹状态色（替代 #639922 绿，称重输入面板）。
+  final Color fasting;
+
+  /// 空腹浅背景（替代 #EAF3DE）。
+  final Color fastingBg;
+
+  /// 非空腹状态色（替代 #E24B4A 红，称重输入面板）。
+  final Color notFasting;
+
+  /// 非空腹浅背景（替代 #FCEBEB）。
+  final Color notFastingBg;
+
+  const StatusColors({
+    required this.nestling,
+    required this.juvenile,
+    required this.adult,
+    required this.success,
+    required this.error,
+    required this.info,
+    required this.warning,
+    required this.warningBg,
+    required this.fasting,
+    required this.fastingBg,
+    required this.notFasting,
+    required this.notFastingBg,
+  });
 }

@@ -1,253 +1,329 @@
-﻿import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart';
 import '../database/database.dart';
-import '../utils/uuid.dart';
+import '../core/app_clock.dart';
+import '../core/plugin.dart';
+import '../core/plugin_registry.dart';
 import '../repositories/bird_repository.dart';
-import '../repositories/weight_repository.dart';
+import '../utils/uuid.dart';
+import 'notification_service.dart';
 
 class AnomalyAlert {
   final BirdWithDetails bird;
   final String type;
   final String description;
   final AlertSeverity severity;
-  AnomalyAlert({required this.bird, required this.type, required this.description, required this.severity});
+  final DateTime createdAt;
+  AnomalyAlert(
+      {required this.bird,
+      required this.type,
+      required this.description,
+      required this.severity,
+      required this.createdAt});
 }
 
-enum AlertSeverity { warning, danger }
+class AlertWithStatus {
+  final AnomalyAlert alert;
+  final bool isConfirmed;
+  final DateTime createdAt;
+  AlertWithStatus(
+      {required this.alert,
+      required this.isConfirmed,
+      required this.createdAt});
+}
 
 class AlertService {
   final AppDatabase _db;
   AlertService(this._db);
 
-  /// 检测所有异常——根据成长阶段自动分发
-  Future<List<AnomalyAlert>> detectAll() async {
-    final alerts = <AnomalyAlert>[];
-    final allBirds = await _db.getAllWithDetails();
-    for (final bird in allBirds) {
-      final weights = await _db.getByBird(bird.bird.id);
-      if (weights.isEmpty) continue;
-      // 统一升序（旧→新）
-      weights.sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-
-      switch (bird.growthStage) {
-        case '雏鸟':
-          alerts.addAll(_chickGrowth(bird, weights));
-          break;
-        case '幼鸟':
-          alerts.addAll(_juvenileStability(bird, weights));
-          break;
-        case '成鸟':
-          alerts.addAll(_adultAnomaly(bird, weights));
-          break;
-      }
-      alerts.addAll(_overdue(bird, weights));
-    }
-    return alerts;
-  }
-
-  // ==================== 工具函数 ====================
-
-  double _logGrowth(double prev, double curr) =>
-      prev > 0 && curr > 0 ? log(curr / prev) : 0;
-
-  double _normalize24h(double rate, double h) => h > 0 ? rate * (24 / h) : rate;
-
-  double _hoursBetween(DateTime a, DateTime b) =>
-      b.difference(a).inMilliseconds / 3600000.0;
-
-  double _avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
-
-  double _stdDev(List<double> v) {
-    if (v.length < 2) return 0;
-    final a = _avg(v);
-    return sqrt(v.map((x) => pow(x - a, 2)).reduce((a, b) => a + b) / v.length);
-  }
-
-  List<double> _ema(List<double> values, {double alpha = 0.3}) {
-    if (values.isEmpty) return [];
-    final r = <double>[values.first];
-    for (int i = 1; i < values.length; i++) {
-      r.add(values[i] * alpha + r.last * (1 - alpha));
-    }
-    return r;
-  }
-
-  // ==================== 雏鸟算法 ====================
-  // 核心：48h 滑动窗口 Log 增长率
-
-  List<AnomalyAlert> _chickGrowth(BirdWithDetails bird, List<Weight> weights) {
-    if (weights.length < 2) return [];
-
-    // 取最近 48h 内的所有记录，计算平均 Log 增长率
-    final now = DateTime.now();
-    final cutoff = now.subtract(const Duration(hours: 48));
-    final recent = weights.where((w) => w.recordedAt.isAfter(cutoff.subtract(const Duration(seconds: 1)))).toList();
-    if (recent.length < 2) return [];
-
-    // 计算每对相邻记录的时间标准化 Log 增长率
-    final rates = <double>[];
-    for (int i = 1; i < recent.length; i++) {
-      final h = _hoursBetween(recent[i - 1].recordedAt, recent[i].recordedAt);
-      if (h <= 0) continue;
-      final logR = _logGrowth(recent[i - 1].weightG, recent[i].weightG);
-      rates.add(_normalize24h(logR, h));
-    }
-    if (rates.isEmpty) return [];
-
-    final avgRate = _avg(rates);
+  /// 聚合所有启用插件的告警。
+  ///
+  /// 若指定 [birdId]，仅检测该鸟；否则全量扫描。
+  Future<List<AnomalyAlert>> detectAll({int? birdId}) async {
     final alerts = <AnomalyAlert>[];
 
-    // 检查连续下降次数
-    int consecDrop = 0;
-    for (int i = 1; i < weights.length; i++) {
-      if (weights[i].weightG < weights[i - 1].weightG) {
-        consecDrop++;
-      } else {
-        consecDrop = 0;
-      }
-    }
-
-    if (avgRate > 0.08) {
-      // 正常
-    } else if (avgRate > 0.03) {
-      alerts.add(AnomalyAlert(bird: bird, type: '增长减缓',
-        description: '雏鸟48h Log增长率 ${(avgRate*100).toStringAsFixed(1)}%，增长偏慢',
-        severity: AlertSeverity.warning));
-    } else if (avgRate > 0) {
-      alerts.add(AnomalyAlert(bird: bird, type: '增长停滞',
-        description: '雏鸟48h Log增长率仅 ${(avgRate*100).toStringAsFixed(1)}%，接近停滞',
-        severity: AlertSeverity.danger));
+    // 预加载鸟（供告警 enrichment 用）— Map 避免 O(N²)
+    final Map<int, BirdWithDetails> birdMap;
+    if (birdId != null) {
+      final single = await _db.getWithDetails(birdId);
+      birdMap = single != null ? {single.bird.id: single} : {};
     } else {
-      alerts.add(AnomalyAlert(bird: bird, type: '体重下降',
-        description: '雏鸟48h内体重下降（Log增长率${(avgRate*100).toStringAsFixed(1)}%）',
-        severity: AlertSeverity.danger));
+      final all = await _db.getAllWithDetails();
+      birdMap = {for (final b in all) b.bird.id: b};
     }
 
-    if (consecDrop >= 3) {
-      alerts.add(AnomalyAlert(bird: bird, type: '连续下降',
-        description: '连续 $consecDrop 次体重下降',
-        severity: consecDrop >= 4 ? AlertSeverity.danger : AlertSeverity.warning));
+    // 遍历插件告警
+    for (final plugin in pluginRegistry.enabledPlugins) {
+      try {
+        final pluginAlerts = await plugin.detectAlerts(_db, birdId: birdId);
+        for (final pa in pluginAlerts) {
+          // birdId 兜底过滤（防止插件忽略参数）
+          if (birdId != null && pa.birdId != birdId) continue;
+          final bird = birdMap[pa.birdId];
+          if (bird != null) {
+            alerts.add(AnomalyAlert(
+              bird: bird,
+              type: pa.type,
+              description: pa.description,
+              severity: pa.severity,
+              createdAt: AppClock.now,
+            ));
+          }
+        }
+      } catch (e) {
+        debugPrint(
+            '[AlertService] plugin ${plugin.id} detectAlerts failed: $e');
+      }
     }
 
     return alerts;
   }
+}
 
-  // ==================== 幼鸟算法 ====================
-  // 核心：7日 EMA 趋势 + 波动率 + 急性下降
+/// 异常提醒确认持久化
+extension AlertRepository on AppDatabase {
+  /// 持久化新检测到的异常（isRead = false），供首页横幅查询
+  /// 同一天同一鸟+同一类型只保留一条未读记录；
+  /// 若相同描述的已确认记录已存在也跳过（避免确认后立即重复出现）
+  ///
+  /// 批量实现：单事务内一次查出当天全部记录并在内存去重，避免逐条 2~3 次
+  /// 查询的 N+1（每次保存体重都会触发本方法）。
+  ///
+  /// 返回本次新写入的告警（用于发送通知）。
+  Future<List<AnomalyAlert>> upsertUnreadAlerts(
+      List<AnomalyAlert> alerts) async {
+    if (alerts.isEmpty) return [];
+    final newAlerts = <AnomalyAlert>[];
+    final today = AppClock.now;
+    final dayStart = DateTime(today.year, today.month, today.day);
 
-  List<AnomalyAlert> _juvenileStability(BirdWithDetails bird, List<Weight> weights) {
-    if (weights.length < 3) return [];
-    final alerts = <AnomalyAlert>[];
-
-    // ===== 7日 EMA 趋势 =====
-    final now = DateTime.now();
-    final cutoff7d = now.subtract(const Duration(days: 7));
-    final recent7d = weights.where((w) => w.recordedAt.isAfter(cutoff7d.subtract(const Duration(seconds: 1)))).toList();
-    
-    if (recent7d.length >= 3) {
-      final values = recent7d.map((w) => w.weightG).toList().cast<double>();
-      final ema = _ema(values);
-      final trendPct = (ema.last - ema.first) / ema.first * 100;
-      
-      if (trendPct < -5) {
-        alerts.add(AnomalyAlert(bird: bird, type: '慢性下降',
-          description: '幼鸟7日EMA趋势下降 ${trendPct.abs().toStringAsFixed(1)}%',
-          severity: trendPct < -8 ? AlertSeverity.danger : AlertSeverity.warning));
-      }
-
-      // 波动率
-      final std = _stdDev(values);
-      final avgV = _avg(values);
-      final volatility = std / avgV * 100;
-      if (volatility > 8) {
-        alerts.add(AnomalyAlert(bird: bird, type: '波动异常',
-          description: '幼鸟7日体重波动 ${volatility.toStringAsFixed(0)}%，不稳定',
-          severity: volatility > 12 ? AlertSeverity.danger : AlertSeverity.warning));
-      }
-    }
-
-    // ===== 24h 急性下降 =====
-    if (weights.length >= 2) {
-      final latest = weights.last;
-      final prev = weights[weights.length - 2];
-      final h = _hoursBetween(prev.recordedAt, latest.recordedAt);
-      if (h > 0) {
-        final dropPct = (prev.weightG - latest.weightG) / prev.weightG * 100;
-        final normDrop = _normalize24h(dropPct / 100, h) * 100;
-        if (normDrop > 8) {
-          alerts.add(AnomalyAlert(bird: bird, type: '急性下降',
-            description: '幼鸟24h标准化下降 ${normDrop.toStringAsFixed(1)}%',
-            severity: AlertSeverity.danger));
+    await transaction(() async {
+      final rows = await (select(alertRecords)
+            ..where((t) => t.createdAt.isBiggerOrEqualValue(dayStart)))
+          .get();
+      // 未读去重键：birdId:alertType ；已确认去重键：birdId:alertType:description
+      final unreadKeys = <String>{};
+      final confirmedKeys = <String>{};
+      for (final r in rows) {
+        final k = '${r.birdId}:${r.alertType}';
+        if (!r.isRead) {
+          unreadKeys.add(k);
+        } else {
+          confirmedKeys.add('$k:${r.description}');
         }
       }
+
+      for (final a in alerts) {
+        final k = '${a.bird.bird.id}:${a.type}';
+        // 1. 已有未读记录 → 跳过（去重）
+        if (unreadKeys.contains(k)) continue;
+        // 2. 完全相同描述的已确认记录 → 跳过（用户已确认过这个具体预警）
+        if (confirmedKeys.contains('$k:${a.description}')) continue;
+        // 3. 新预警 → 写入
+        await into(alertRecords).insert(AlertRecordsCompanion.insert(
+          uuid: genUuid(),
+          birdId: a.bird.bird.id,
+          alertType: a.type,
+          description: a.description,
+          severity: a.severity.name,
+          isRead: const Value(false),
+          createdAt: Value(AppClock.now),
+          updatedAt: Value(AppClock.now),
+        ));
+        unreadKeys.add(k); // 防止本次循环内重复写入
+        newAlerts.add(a);
+      }
+    });
+
+    // 异步发通知，不阻塞调用方
+    if (newAlerts.isNotEmpty) {
+      NotificationService.instance.showAlerts(newAlerts);
     }
 
-    // ===== 连续下降 =====
-    int consec = 0;
-    for (int i = 1; i < weights.length; i++) {
-      if (weights[i].weightG < weights[i - 1].weightG) { consec++; }
-      else { consec = 0; }
-    }
-    if (consec >= 3) {
-      alerts.add(AnomalyAlert(bird: bird, type: '连续下降',
-        description: '连续 $consec 次体重下降',
-        severity: AlertSeverity.warning));
-    }
-
-    return alerts;
+    return newAlerts;
   }
 
-  // ==================== 成鸟算法 ====================
-  // 核心：绝对值比较 + 连续下降检测
-
-  List<AnomalyAlert> _adultAnomaly(BirdWithDetails bird, List<Weight> weights) {
-    if (weights.length < 3) return [];
-    final alerts = <AnomalyAlert>[];
-
-    // 连续下降检测
-    int consec = 0;
-    for (int i = 1; i < weights.length; i++) {
-      if (weights[i].weightG < weights[i - 1].weightG) { consec++; }
-      else { consec = 0; }
+  /// 确认单条提醒（当天同鸟+同类型+同描述去重）
+  Future<void> confirmAlert(
+      int birdId, String alertType, String description) async {
+    final today = AppClock.now;
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final existing = await (select(alertRecords)
+          ..where((t) =>
+              t.birdId.equals(birdId) &
+              t.alertType.equals(alertType) &
+              t.description.equals(description) &
+              t.createdAt.isBiggerOrEqualValue(dayStart)))
+        .getSingleOrNull();
+    if (existing != null) {
+      await (update(alertRecords)..where((t) => t.id.equals(existing.id)))
+          .write(AlertRecordsCompanion(
+              isRead: Value(true), updatedAt: Value(AppClock.now)));
+    } else {
+      await into(alertRecords).insert(AlertRecordsCompanion.insert(
+        uuid: genUuid(),
+        birdId: birdId,
+        alertType: alertType,
+        description: description,
+        severity: 'warning',
+        isRead: Value(true),
+        createdAt: Value(AppClock.now),
+        updatedAt: Value(AppClock.now),
+      ));
     }
+  }
 
-    if (consec >= 3) {
-      final last3 = weights.sublist(weights.length - 3);
-      final oldW = last3.first.weightG;
-      final newW = last3.last.weightG;
-      final dropPct = (oldW - newW) / oldW * 100;
-      alerts.add(AnomalyAlert(bird: bird, type: '体重下降',
-        description: '连续 $consec 次下降，${oldW.toStringAsFixed(1)}g→${newW.toStringAsFixed(1)}g (-${dropPct.toStringAsFixed(0)}%)',
-        severity: dropPct > 10 ? AlertSeverity.danger : AlertSeverity.warning));
-    }
+  /// 批量确认 — 单事务内完成所有 SELECT+UPDATE/INSERT，避免 N+1。
+  Future<void> confirmAllAlerts(List<AnomalyAlert> alerts) async {
+    if (alerts.isEmpty) return;
+    final today = AppClock.now;
+    final dayStart = DateTime(today.year, today.month, today.day);
 
-    // 30日趋势（简单线性判断）
-    final now = DateTime.now();
-    final cutoff30 = now.subtract(const Duration(days: 30));
-    final recent30 = weights.where((w) => w.recordedAt.isAfter(cutoff30.subtract(const Duration(seconds: 1)))).toList();
-    if (recent30.length >= 4) {
-      final values30 = recent30.map((w) => w.weightG).toList().cast<double>();
-      final ema30 = _ema(values30, alpha: 0.15);
-      final trend30 = (ema30.last - ema30.first) / ema30.first * 100;
-      if (trend30 < -10) {
-        alerts.add(AnomalyAlert(bird: bird, type: '长期下降趋势',
-          description: '30日EMA趋势下降 ${trend30.abs().toStringAsFixed(0)}%',
-          severity: AlertSeverity.danger));
+    await transaction(() async {
+      // 一次查出今天所有记录
+      final rows = await (select(alertRecords)
+            ..where((t) => t.createdAt.isBiggerOrEqualValue(dayStart)))
+          .get();
+
+      final existingMap = <String, AlertRecord>{};
+      for (final r in rows) {
+        existingMap['${r.birdId}:${r.alertType}:${r.description}'] = r;
+      }
+
+      final insertedKeys = <String>{};
+      for (final a in alerts) {
+        final key = '${a.bird.bird.id}:${a.type}:${a.description}';
+        if (insertedKeys.contains(key)) continue; // 同批次已处理
+        final existing = existingMap[key];
+        if (existing != null) {
+          await (update(alertRecords)..where((t) => t.id.equals(existing.id)))
+              .write(AlertRecordsCompanion(
+                  isRead: const Value(true), updatedAt: Value(AppClock.now)));
+        } else {
+          await into(alertRecords).insert(AlertRecordsCompanion.insert(
+            uuid: genUuid(),
+            birdId: a.bird.bird.id,
+            alertType: a.type,
+            description: a.description,
+            severity: 'warning',
+            isRead: const Value(true),
+            createdAt: Value(AppClock.now),
+            updatedAt: Value(AppClock.now),
+          ));
+          insertedKeys.add(key);
+        }
+      }
+    });
+  }
+
+  /// 获取今日已确认的 birdId:alertType:description 集合
+  Future<Set<String>> getConfirmedAlertKeys() async {
+    final today = AppClock.now;
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final rows = await (select(alertRecords)
+          ..where((t) =>
+              t.isRead.equals(true) &
+              t.createdAt.isBiggerOrEqualValue(dayStart)))
+        .get();
+    return rows
+        .map((r) => '${r.birdId}:${r.alertType}:${r.description}')
+        .toSet();
+  }
+
+  /// 获取近 N 天内未确认的告警（去重、含鸟详情、含触发时间）
+  Future<List<AnomalyAlert>> getUnconfirmedAlerts(int days) async {
+    final cutoff = AppClock.now.subtract(Duration(days: days));
+    final rows = await (select(alertRecords)
+          ..where((t) =>
+              t.isRead.equals(false) & t.createdAt.isBiggerOrEqualValue(cutoff))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+    // 批量取鸟详情（单次查询），避免逐行 N+1
+    final birdMap = <int, BirdWithDetails>{};
+    if (rows.isNotEmpty) {
+      for (final b in await getAllWithDetails()) {
+        birdMap[b.bird.id] = b;
       }
     }
-
+    // 按 (birdId, alertType, description) 去重，保留最新一条
+    final alerts = <AnomalyAlert>[];
+    final seen = <String>{};
+    for (final r in rows) {
+      final key = '${r.birdId}:${r.alertType}:${r.description}';
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      final bird = birdMap[r.birdId];
+      if (bird == null) continue;
+      alerts.add(AnomalyAlert(
+        bird: bird,
+        type: r.alertType,
+        description: r.description,
+        severity: r.severity == 'danger'
+            ? AlertSeverity.danger
+            : AlertSeverity.warning,
+        createdAt: r.createdAt,
+      ));
+    }
     return alerts;
   }
 
-  // ==================== 通用：超期未称重 ====================
-
-  List<AnomalyAlert> _overdue(BirdWithDetails bird, List<Weight> weights) {
-    final latest = weights.last;
-    final daysSince = DateTime.now().difference(latest.recordedAt).inDays;
-    if (daysSince > 7) {
-      return [AnomalyAlert(bird: bird, type: '超期未称重',
-        description: '已 $daysSince 天未记录体重',
-        severity: daysSince > 14 ? AlertSeverity.danger : AlertSeverity.warning)];
+  /// 获取近 N 天内全部告警记录（含确认状态），供全部告警列表使用
+  Future<List<AlertWithStatus>> getAllAlertRecordsWithStatus(int days) async {
+    final cutoff = AppClock.now.subtract(Duration(days: days));
+    final rows = await (select(alertRecords)
+          ..where((t) => t.createdAt.isBiggerOrEqualValue(cutoff))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+    // 批量取鸟详情（单次查询），避免逐行 N+1
+    final birdMap = <int, BirdWithDetails>{};
+    if (rows.isNotEmpty) {
+      for (final b in await getAllWithDetails()) {
+        birdMap[b.bird.id] = b;
+      }
     }
-    return [];
+    // 按 (birdId, alertType, description) 去重，保留最新一条
+    final results = <AlertWithStatus>[];
+    final seen = <String>{};
+    for (final r in rows) {
+      final key = '${r.birdId}:${r.alertType}:${r.description}';
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      final bird = birdMap[r.birdId];
+      if (bird == null) continue;
+      results.add(AlertWithStatus(
+        alert: AnomalyAlert(
+          bird: bird,
+          type: r.alertType,
+          description: r.description,
+          severity: r.severity == 'danger'
+              ? AlertSeverity.danger
+              : AlertSeverity.warning,
+          createdAt: r.createdAt,
+        ),
+        isConfirmed: r.isRead,
+        createdAt: r.createdAt,
+      ));
+    }
+    return results;
   }
+
+  /// 获取近 N 天内全部告警记录的确认状态，供全部告警列表 join 用
+  Future<Map<String, AlertStatusInfo>> getAlertStatusMap(int days) async {
+    final cutoff = AppClock.now.subtract(Duration(days: days));
+    final rows = await (select(alertRecords)
+          ..where((t) => t.createdAt.isBiggerOrEqualValue(cutoff)))
+        .get();
+    final map = <String, AlertStatusInfo>{};
+    for (final r in rows) {
+      final key = '${r.birdId}:${r.alertType}:${r.description}';
+      map[key] = AlertStatusInfo(isConfirmed: r.isRead, createdAt: r.createdAt);
+    }
+    return map;
+  }
+}
+
+class AlertStatusInfo {
+  final bool isConfirmed;
+  final DateTime createdAt;
+  const AlertStatusInfo({required this.isConfirmed, required this.createdAt});
 }

@@ -1,4 +1,5 @@
-﻿import 'package:drift/drift.dart';
+import 'package:drift/drift.dart';
+import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
 
@@ -12,7 +13,11 @@ extension RoomRepository on AppDatabase {
   Future<Room?> getRoomByName(String name) =>
       (select(rooms)..where((t) => t.name.equals(name))).getSingleOrNull();
 
-  Future<Room> createRoom(String name, {int? assignedUserId}) async {
+  Future<Room?> getRoomByUuid(String uuid) =>
+      (select(rooms)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+
+  Future<Room> createRoom(String name,
+      {int? assignedUserId, DateTime? createdAt, DateTime? updatedAt}) async {
     final maxRow = await (selectOnly(rooms)
           ..addColumns([rooms.sortOrder.max()]))
         .map((row) => row.read(rooms.sortOrder.max()))
@@ -21,7 +26,10 @@ extension RoomRepository on AppDatabase {
       uuid: genUuid(),
       name: name,
       sortOrder: Value((maxRow ?? 0) + 1),
-      assignedUserId: assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
+      assignedUserId:
+          assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
+      createdAt: Value(createdAt ?? AppClock.now),
+      updatedAt: Value(updatedAt ?? AppClock.now),
     ));
     final rows = await customSelect('SELECT last_insert_rowid() as id').get();
     return (await getRoomById(rows.first.read<int>('id')))!;
@@ -33,8 +41,9 @@ extension RoomRepository on AppDatabase {
         .writeReturning(RoomsCompanion(
       name: name != null ? Value(name) : const Value.absent(),
       sortOrder: sortOrder != null ? Value(sortOrder) : const Value.absent(),
-      assignedUserId: assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
+      assignedUserId:
+          assignedUserId != null ? Value(assignedUserId) : const Value.absent(),
+      updatedAt: Value(AppClock.now),
     ));
     return list.first;
   }
@@ -42,7 +51,8 @@ extension RoomRepository on AppDatabase {
   Future<void> removeRoom(int id) =>
       (delete(rooms)..where((t) => t.id.equals(id))).go();
 
-  Future<List<Room>> getByUser(int userId) =>
-      (select(rooms)..where((t) => t.assignedUserId.equals(userId))
-        ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])).get();
+  Future<List<Room>> getByUser(int userId) => (select(rooms)
+        ..where((t) => t.assignedUserId.equals(userId))
+        ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+      .get();
 }
