@@ -8,6 +8,7 @@ import '../../core/app_clock.dart';
 import '../../database/database.dart';
 import '../../providers.dart';
 import '../../repositories/bird_repository.dart';
+import '../../widgets/feather_icon.dart';
 import '../../repositories/enclosure_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../core/plugin.dart';
@@ -74,9 +75,7 @@ class _BirdDetailScreenState extends ConsumerState<BirdDetailScreen> {
       );
 
       // 刷新本地状态
-      final updated = await db.getAllWithDetails();
-      final fresh =
-          updated.where((b) => b.bird.id == _bird.bird.id).firstOrNull;
+      final fresh = await db.getWithDetails(_bird.bird.id);
       if (fresh != null && mounted) {
         setState(() => _bird = fresh);
         ref.invalidate(allBirdsProvider);
@@ -1081,7 +1080,7 @@ class _BaselineCard extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.pets),
+              leading: const FeatherIcon(),
               title: const Text('正常'),
               subtitle: const Text('强制标记为非断奶状态（已断奶）'),
               selected: bird.bird.weaningOverride == false,
@@ -1133,7 +1132,7 @@ class _ActivityLogTile extends StatelessWidget {
                 color: color.withAlpha(25),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 20, color: color),
+              child: icon,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1187,18 +1186,18 @@ class _ActivityLogTile extends StatelessWidget {
   }
 
   /// 根据 pluginId 返回 (图标, 颜色)
-  static (IconData, Color) _pluginVisual(String pluginId) {
+  static (Widget, Color) _pluginVisual(String pluginId) {
     switch (pluginId) {
       case 'weights':
-        return (Icons.monitor_weight_outlined, Colors.blue);
+        return (const Icon(Icons.monitor_weight_outlined, size: 20, color: Colors.blue), Colors.blue);
       case 'medication':
-        return (Icons.medication_outlined, Colors.orange);
+        return (const Icon(Icons.medication_outlined, size: 20, color: Colors.orange), Colors.orange);
       case 'breeding':
-        return (Icons.pets, Colors.purple);
+        return (FeatherIcon(size: 20, color: Colors.purple), Colors.purple);
       case 'gallery':
-        return (Icons.photo_library_outlined, Colors.teal);
+        return (const Icon(Icons.photo_library_outlined, size: 20, color: Colors.teal), Colors.teal);
       default:
-        return (Icons.history, Colors.grey);
+        return (const Icon(Icons.history, size: 20, color: Colors.grey), Colors.grey);
     }
   }
 }

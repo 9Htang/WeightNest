@@ -40,7 +40,10 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
   Future<void> _loadTables() async {
     final db = pluginRegistry.db;
     if (db == null) {
-      setState(() { _loadingTables = false; _error = '数据库未初始化'; });
+      setState(() {
+        _loadingTables = false;
+        _error = '数据库未初始化';
+      });
       return;
     }
     try {
@@ -54,27 +57,40 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
         _error = null;
       });
     } catch (e) {
-      setState(() { _loadingTables = false; _error = '$e'; });
+      setState(() {
+        _loadingTables = false;
+        _error = '$e';
+      });
     }
   }
 
   Future<void> _loadRows(String table) async {
     final db = pluginRegistry.db!;
-    setState(() { _selectedTable = table; _loadingRows = true; _error = null; });
+    setState(() {
+      _selectedTable = table;
+      _loadingRows = true;
+      _error = null;
+    });
     try {
-      final result = await db.customSelect('SELECT * FROM "$table" LIMIT 100').get();
+      final result =
+          await db.customSelect('SELECT * FROM "$table" LIMIT 100').get();
       setState(() {
         _rows = result.map((r) => Map<String, dynamic>.from(r.data)).toList();
         _loadingRows = false;
       });
     } catch (e) {
-      setState(() { _loadingRows = false; _error = '$e'; });
+      setState(() {
+        _loadingRows = false;
+        _error = '$e';
+      });
     }
   }
 
   bool _isReadOnly(String sql) {
     final t = sql.trim().toUpperCase();
-    return t.startsWith('SELECT') || t.startsWith('PRAGMA') || t.startsWith('EXPLAIN');
+    return t.startsWith('SELECT') ||
+        t.startsWith('PRAGMA') ||
+        t.startsWith('EXPLAIN');
   }
 
   Future<void> _runQuery() async {
@@ -83,24 +99,37 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
     if (sql.isEmpty) return;
 
     if (!_writeMode && !_isReadOnly(sql)) {
-      setState(() { _queryError = '只读模式：仅允许 SELECT / PRAGMA / EXPLAIN。开启"写模式"以执行修改操作。'; });
+      setState(() {
+        _queryError = '只读模式：仅允许 SELECT / PRAGMA / EXPLAIN。开启"写模式"以执行修改操作。';
+      });
       return;
     }
 
-    setState(() { _queryRunning = true; _queryError = null; _queryResult = []; });
+    setState(() {
+      _queryRunning = true;
+      _queryError = null;
+      _queryResult = [];
+    });
     try {
       if (_isReadOnly(sql)) {
         final result = await db.customSelect(sql).get();
-        _queryResult = result.map((r) => Map<String, dynamic>.from(r.data)).toList();
+        _queryResult =
+            result.map((r) => Map<String, dynamic>.from(r.data)).toList();
       } else {
         // Confirm before write
         await db.customStatement(sql);
-        _queryResult = [{'result': 'OK — 语句已执行'}];
+        _queryResult = [
+          {'result': 'OK — 语句已执行'}
+        ];
       }
     } catch (e) {
-      setState(() { _queryError = '$e'; });
+      setState(() {
+        _queryError = '$e';
+      });
     } finally {
-      setState(() { _queryRunning = false; });
+      setState(() {
+        _queryRunning = false;
+      });
     }
   }
 
@@ -121,7 +150,9 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
     await Clipboard.setData(ClipboardData(text: tsv));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已复制 ${rows.length} 行数据到剪贴板'), duration: const Duration(seconds: 2)),
+        SnackBar(
+            content: Text('已复制 ${rows.length} 行数据到剪贴板'),
+            duration: const Duration(seconds: 2)),
       );
     }
   }
@@ -140,7 +171,9 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               color: theme.colorScheme.error.withAlpha(20),
-              child: Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
+              child: Text(_error!,
+                  style:
+                      TextStyle(color: theme.colorScheme.error, fontSize: 13)),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -154,7 +187,10 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                     onPressed: () => _copyRows(_rows),
                     tooltip: '复制全部数据 (TSV)',
                   ),
-                IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _loadTables, tooltip: '刷新'),
+                IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: _loadTables,
+                    tooltip: '刷新'),
               ],
             ),
           ),
@@ -189,22 +225,32 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                 scrollDirection: Axis.horizontal,
                 child: SingleChildScrollView(
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(theme.colorScheme.surfaceContainerLow),
+                    headingRowColor: WidgetStateProperty.all(
+                        theme.colorScheme.surfaceContainerLow),
                     columnSpacing: 24,
                     dataRowMinHeight: 32,
                     dataRowMaxHeight: 48,
                     columns: _rows.first.keys
-                        .map((k) => DataColumn(label: Text(k, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))))
+                        .map((k) => DataColumn(
+                            label: Text(k,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12))))
                         .toList(),
-                    rows: _rows.map((r) => DataRow(
-                      cells: r.entries.map((e) => DataCell(
-                        Text(_fmtCell(e.value, columnName: e.key),
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )).toList(),
-                    )).toList(),
+                    rows: _rows
+                        .map((r) => DataRow(
+                              cells: r.entries
+                                  .map((e) => DataCell(
+                                        Text(
+                                          _fmtCell(e.value, columnName: e.key),
+                                          style: const TextStyle(fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ))
+                                  .toList(),
+                            ))
+                        .toList(),
                   ),
                 ),
               ),
@@ -233,7 +279,12 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                       const Spacer(),
                       Row(
                         children: [
-                          Text('写模式', style: TextStyle(fontSize: 12, color: _writeMode ? theme.colorScheme.error : null)),
+                          Text('写模式',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: _writeMode
+                                      ? theme.colorScheme.error
+                                      : null)),
                           Switch(
                             value: _writeMode,
                             onChanged: (v) => setState(() => _writeMode = v),
@@ -245,7 +296,8 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                   TextField(
                     controller: _sqlCtl,
                     maxLines: 3,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
                     decoration: InputDecoration(
                       hintText: 'SELECT * FROM birds LIMIT 10',
                       border: const OutlineInputBorder(),
@@ -259,7 +311,10 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                     child: FilledButton.icon(
                       onPressed: _queryRunning ? null : _runQuery,
                       icon: _queryRunning
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.play_arrow, size: 18),
                       label: const Text('执行'),
                     ),
@@ -271,11 +326,15 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                       decoration: BoxDecoration(
                         color: theme.colorScheme.error.withAlpha(15),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: theme.colorScheme.error.withAlpha(60)),
+                        border: Border.all(
+                            color: theme.colorScheme.error.withAlpha(60)),
                       ),
                       child: Text(
                         _queryError!,
-                        style: TextStyle(color: theme.colorScheme.error, fontSize: 12, fontFamily: 'monospace'),
+                        style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontSize: 12,
+                            fontFamily: 'monospace'),
                       ),
                     ),
                   if (_queryResult.isNotEmpty) ...[
@@ -285,17 +344,33 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
                         scrollDirection: Axis.horizontal,
                         child: SingleChildScrollView(
                           child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(theme.colorScheme.surfaceContainerLow),
+                            headingRowColor: WidgetStateProperty.all(
+                                theme.colorScheme.surfaceContainerLow),
                             columnSpacing: 20,
                             dataRowMinHeight: 28,
                             columns: _queryResult.first.keys
-                                .map((k) => DataColumn(label: Text(k, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11))))
+                                .map((k) => DataColumn(
+                                    label: Text(k,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 11))))
                                 .toList(),
-                            rows: _queryResult.map((r) => DataRow(
-                              cells: r.entries.map((e) => DataCell(
-                                Text(_fmtCell(e.value, columnName: e.key), style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              )).toList(),
-                            )).toList(),
+                            rows: _queryResult
+                                .map((r) => DataRow(
+                                      cells: r.entries
+                                          .map((e) => DataCell(
+                                                Text(
+                                                    _fmtCell(e.value,
+                                                        columnName: e.key),
+                                                    style: const TextStyle(
+                                                        fontSize: 11),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis),
+                                              ))
+                                          .toList(),
+                                    ))
+                                .toList(),
                           ),
                         ),
                       ),
@@ -311,7 +386,8 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
   }
 
   /// Drift stores datetime as `YYYY-MM-DD HH:MM:SS.000` (TEXT).
-  static final _driftTimeRe = RegExp(r'^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(:\d{2}(?:\.\d+)?)?$');
+  static final _driftTimeRe =
+      RegExp(r'^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(:\d{2}(?:\.\d+)?)?$');
 
   /// Column names that are likely to contain timestamps / dates.
   bool _isTimeColumn(String? col) {
@@ -333,8 +409,11 @@ class _DbInspectorScreenState extends State<DbInspectorScreen> {
   String _fmtCell(dynamic v, {String? columnName}) {
     if (v == null) return 'NULL';
     if (v is DateTime) {
-      final y = v.year, m = v.month.toString().padLeft(2, '0'), d = v.day.toString().padLeft(2, '0');
-      final hh = v.hour.toString().padLeft(2, '0'), mm = v.minute.toString().padLeft(2, '0');
+      final y = v.year,
+          m = v.month.toString().padLeft(2, '0'),
+          d = v.day.toString().padLeft(2, '0');
+      final hh = v.hour.toString().padLeft(2, '0'),
+          mm = v.minute.toString().padLeft(2, '0');
       return '$y-$m-$d $hh:$mm';
     }
     // Drift datetime string: "2025-06-22 08:30:00.000" or "2025-06-22 08:30:00"

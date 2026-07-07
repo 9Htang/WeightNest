@@ -11,7 +11,6 @@ import '../../plugins/plugins.dart';
 
 import 'bird_import_preview_dialog.dart';
 
-
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -58,7 +57,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // 工作时间
           workHoursAsync.when(
             loading: () => const Card(
-              child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+              child: SizedBox(
+                  height: 120,
+                  child: Center(child: CircularProgressIndicator())),
             ),
             error: (e, _) => const SizedBox.shrink(),
             data: (wh) => _WorkHoursCard(
@@ -96,7 +97,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(workHoursProvider);
     }
   }
-
 }
 
 /// 主题设置卡片（与插件卡片宽度一致）
@@ -124,17 +124,21 @@ class _ThemeCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(10),
                     color: theme.colorScheme.primaryContainer.withAlpha(120),
                   ),
-                  child: Icon(Icons.palette_outlined, size: 22, color: theme.colorScheme.primary),
+                  child: Icon(Icons.palette_outlined,
+                      size: 22, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('主题设置', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      Text('主题设置',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 2),
                       Text('切换应用外观，即时生效并自动保存',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
@@ -208,17 +212,21 @@ class _WorkHoursCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     color: theme.colorScheme.primaryContainer.withAlpha(120),
                   ),
-                  child: Icon(Icons.schedule, size: 22, color: theme.colorScheme.primary),
+                  child: Icon(Icons.schedule,
+                      size: 22, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('工作时间', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      Text('工作时间',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 2),
                       Text('设定每日工作时段，各插件将基于此安排任务',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
@@ -237,7 +245,8 @@ class _WorkHoursCard extends StatelessWidget {
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('~', style: TextStyle(fontSize: 20, color: Colors.grey)),
+                  child: Text('~',
+                      style: TextStyle(fontSize: 20, color: Colors.grey)),
                 ),
                 Expanded(
                   child: _TimeCard(
@@ -259,7 +268,9 @@ class _WorkHoursCard extends StatelessWidget {
                 child: const Row(children: [
                   Icon(Icons.nightlight_round, size: 16, color: Colors.blue),
                   SizedBox(width: 8),
-                  Expanded(child: Text('跨午夜模式，凌晨时间归入次日', style: TextStyle(fontSize: 12, color: Colors.blue))),
+                  Expanded(
+                      child: Text('跨午夜模式，凌晨时间归入次日',
+                          style: TextStyle(fontSize: 12, color: Colors.blue))),
                 ]),
               ),
             ],
@@ -294,7 +305,8 @@ class _TimeCard extends StatelessWidget {
   final String label;
   final String time;
   final VoidCallback onTap;
-  const _TimeCard({required this.label, required this.time, required this.onTap});
+  const _TimeCard(
+      {required this.label, required this.time, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -311,15 +323,17 @@ class _TimeCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            Text(label,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(time, style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )),
+                Text(time,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    )),
                 const SizedBox(width: 4),
                 Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
               ],
@@ -340,7 +354,7 @@ class _PluginList extends ConsumerStatefulWidget {
 class _PluginListState extends ConsumerState<_PluginList> {
   @override
   Widget build(BuildContext context) {
-    final plugins = pluginRegistry.plugins;
+    final plugins = pluginRegistry.plugins.where((p) => !p.isInternal).toList();
     final theme = Theme.of(context);
 
     return Column(
@@ -348,9 +362,12 @@ class _PluginListState extends ConsumerState<_PluginList> {
       children: [
         // Section header
         Row(children: [
-          Icon(Icons.extension_outlined, size: 22, color: theme.colorScheme.primary),
+          Icon(Icons.extension_outlined,
+              size: 22, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          Text('插件管理', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text('插件管理',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 4),
         Text('管理各功能模块的启用状态和设置',
@@ -371,7 +388,9 @@ class _PluginListState extends ConsumerState<_PluginList> {
                 plugin: p,
                 onToggle: (v) {
                   pluginRegistry.setEnabled(p.id, v);
-                  ref.read(pluginToggleVersionProvider.notifier).update((s) => s + 1);
+                  ref
+                      .read(pluginToggleVersionProvider.notifier)
+                      .update((s) => s + 1);
                   setState(() {});
                 },
               )),
@@ -409,7 +428,9 @@ class _PluginCard extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: enabled ? scheme.primaryContainer.withAlpha(120) : Colors.grey.shade100,
+                    color: enabled
+                        ? scheme.primaryContainer.withAlpha(120)
+                        : Colors.grey.shade100,
                   ),
                   child: Icon(
                     plugin.icon,
@@ -436,13 +457,15 @@ class _PluginCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(4),
                             color: Colors.grey.shade200,
                           ),
                           child: Text(plugin.id,
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.grey.shade500)),
                         ),
                       ]),
                     ],
@@ -453,12 +476,15 @@ class _PluginCard extends StatelessWidget {
                   IconButton(
                     icon: Icon(Icons.settings,
                         size: 20,
-                        color: enabled ? scheme.primary.withAlpha(180) : Colors.grey.shade400),
+                        color: enabled
+                            ? scheme.primary.withAlpha(180)
+                            : Colors.grey.shade400),
                     tooltip: '${plugin.displayName}设置',
                     onPressed: enabled
                         ? () => Navigator.push(
                               context,
-                              MaterialPageRoute(builder: plugin.settingsBuilder!),
+                              MaterialPageRoute(
+                                  builder: plugin.settingsBuilder!),
                             )
                         : null,
                     visualDensity: VisualDensity.compact,
@@ -476,7 +502,10 @@ class _PluginCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 52),
                 child: Text(plugin.description,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.3)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        height: 1.3)),
               ),
             ],
             // ── 功能标签 ──
@@ -488,11 +517,18 @@ class _PluginCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    ...plugin.pages.where((p) => p.showInSidebar).map((p) => _FeatureChip(
-                          icon: p.icon, label: p.title, enabled: enabled,
-                        )),
+                    ...plugin.pages
+                        .where((p) => p.showInSidebar)
+                        .map((p) => _FeatureChip(
+                              icon: p.icon,
+                              label: p.title,
+                              enabled: enabled,
+                            )),
                     ...plugin.quickActions.map((a) => _FeatureChip(
-                          icon: a.icon, label: a.label, enabled: enabled, isAction: true,
+                          icon: a.icon,
+                          label: a.label,
+                          enabled: enabled,
+                          isAction: true,
                         )),
                   ],
                 ),
@@ -530,7 +566,8 @@ class _FeatureChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         color: color.withAlpha(enabled ? 25 : 15),
-        border: Border.all(color: color.withAlpha(enabled ? 80 : 40), width: 0.5),
+        border:
+            Border.all(color: color.withAlpha(enabled ? 80 : 40), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -538,7 +575,8 @@ class _FeatureChip extends StatelessWidget {
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(label,
-              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+              style: TextStyle(
+                  fontSize: 11, color: color, fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -596,7 +634,8 @@ class _PremiumCard extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         isPro ? '数据备份与恢复已解锁' : '升级 Pro 解锁数据备份与恢复',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600),
                       ),
                     ],
                   ),
@@ -648,8 +687,7 @@ class _PremiumCard extends ConsumerWidget {
                   const Spacer(),
                 ],
               ),
-            ]
-            else
+            ] else
               // 升级按钮
               SizedBox(
                 width: double.infinity,
@@ -690,7 +728,9 @@ class _PremiumCard extends ConsumerWidget {
         subject: 'WeightNest 数据备份',
       );
       // 分享后删除临时文件
-      try { await backupFile.delete(); } catch (_) {}
+      try {
+        await backupFile.delete();
+      } catch (_) {}
     } else if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('备份失败，请重试')),
@@ -768,7 +808,6 @@ class _PremiumCard extends ConsumerWidget {
     }
   }
 
-
   Future<void> _importBirds(BuildContext context, WidgetRef ref) async {
     // 确认对话框
     final confirm = await showDialog<bool>(
@@ -825,7 +864,8 @@ Future<void> _showActivateDialog(BuildContext context, WidgetRef ref) async {
     );
 
     try {
-      final success = await ref.read(premiumStatusProvider.notifier).activate(code);
+      final success =
+          await ref.read(premiumStatusProvider.notifier).activate(code);
 
       // 关闭进度对话框
       if (context.mounted) Navigator.of(context).pop();
@@ -945,7 +985,9 @@ class _SectionHeader extends StatelessWidget {
     return Row(children: [
       Icon(icon, size: 22, color: theme.colorScheme.primary),
       const SizedBox(width: 8),
-      Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      Text(title,
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold)),
     ]);
   }
 }

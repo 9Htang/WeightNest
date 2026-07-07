@@ -1,70 +1,28 @@
-import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/core/app_clock.dart';
-import '../lib/database/database.dart';
-import '../lib/services/alert_service.dart';
-import '../lib/repositories/bird_repository.dart';
-import '../lib/repositories/weight_repository.dart';
-import '../lib/repositories/species_repository.dart';
+import '../../lib/core/app_clock.dart';
+import '../../lib/database/database.dart';
+import '../../lib/services/alert_service.dart';
+import '../../lib/repositories/weight_repository.dart';
+import '../test_helpers/test_factories.dart';
 
-/// ============================================
-/// 测试框架 —— Mock 数据库 + 数据工厂
-/// ============================================
-
-/// 内存数据库工厂
-AppDatabase createTestDb() => AppDatabase.test();
-
-/// 数据工厂：快速创建测试用品种
-Future<Specy> createTestSpecies(AppDatabase db, {
-  String name = '测试品种',
-  int nestlingEndDays = 45,
-  int juvenileEndDays = 120,
-}) async {
-  return db.createSpecies(name,
-      nestlingEndDays: nestlingEndDays, juvenileEndDays: juvenileEndDays);
-}
-
-/// 数据工厂：快速创建测试用鹦鹉
-Future<Bird> createTestBird(AppDatabase db, {
-  required int speciesId,
-  String name = '测试鹦鹉',
-  int daysAgo = 0,
-}) async {
-  return db.createBird(
-    name: name,
-    speciesId: speciesId,
-    birthDate: AppClock.now.subtract(Duration(days: daysAgo)),
-  );
-}
-
-/// 数据工厂：为鹦鹉添加一系列体重记录
-Future<void> addWeightSeries(AppDatabase db, int birdId,
-    List<({int hoursAgo, double grams})> entries) async {
-  for (final e in entries) {
-    await db.addWeight(
-      birdId: birdId,
-      weightG: e.grams,
-      recordedAt: AppClock.now.subtract(Duration(hours: e.hoursAgo)),
-    );
-  }
-}
-
-/// ============================================
-/// Alert Service 集成测试
-/// ============================================
+/// ── AlertService + Repository 跨层集成测试 ───────────────────────────────
+///
+/// 这是一组 vm 级（无头）集成测试，验证 AlertService 在真实内存 DB + 多插件
+/// 注册场景下的端到端告警检测，以及 WeightRepository 的时间覆盖/排序行为。
+///
+/// 注意：此处 *不是* Flutter `integration_test` 包的设备级测试。
+/// 设备级 E2E 流程见 integration_test/ 目录（待后续阶段补充）。
 
 void main() {
   late AppDatabase db;
   late AlertService alertService;
 
   setUp(() async {
-    db = createTestDb();
+    db = await setUpTestDb();
     alertService = AlertService(db);
   });
 
-  tearDown(() async {
-    await db.close();
-  });
+  tearDown(() => tearDownTestDb(db));
 
   group('雏鸟告警', () {
     late Bird bird;
@@ -76,7 +34,6 @@ void main() {
     });
 
     test('正常成长 → 不告警', () async {
-      // 48h内从10g连续成长到15g
       await addWeightSeries(db, bird.id, [
         (hoursAgo: 48, grams: 10),
         (hoursAgo: 36, grams: 12),
@@ -124,7 +81,8 @@ void main() {
     late Specy species;
 
     setUp(() async {
-      species = await createTestSpecies(db, nestlingEndDays: 30, juvenileEndDays: 90);
+      species =
+          await createTestSpecies(db, nestlingEndDays: 30, juvenileEndDays: 90);
       bird = await createTestBird(db, speciesId: species.id, daysAgo: 40);
     });
 
@@ -142,24 +100,27 @@ void main() {
     });
 
     test('慢性下降 → EMA趋势告警', () async {
-      // 7天从100急降至85，EMA趋势明显
+      // 10天从100降至80，EMA趋势 -8% > 7% 阈值
       final entries = <({int hoursAgo, double grams})>[];
-      for (int i = 0; i < 7; i++) {
-        entries.add((hoursAgo: (7 - i) * 24, grams: 100.0 - i * 2.5));
+      for (int i = 0; i < 10; i++) {
+        entries.add((
+          hoursAgo: (10 - i) * 24,
+          grams: 100.0 - i * (20.0 / 9.0) // 100, 97.78, 95.56, ... , 80
+        ));
       }
       await addWeightSeries(db, bird.id, entries);
       final alerts = await alertService.detectAll();
-      expect(alerts.any((a) => a.type == '慢性下降'), isTrue);
+      expect(alerts.any((a) => a.type == '体重持续下降'), isTrue);
     });
 
     test('急性下降 → danger 告警', () async {
       await addWeightSeries(db, bird.id, [
         (hoursAgo: 72, grams: 100),
         (hoursAgo: 24, grams: 100),
-        (hoursAgo: 1, grams: 88),
+        (hoursAgo: 1, grams: 80), // deviation -17% > 15% danger threshold
       ]);
       final alerts = await alertService.detectAll();
-      expect(alerts.any((a) => a.type == '急性下降'), isTrue);
+      expect(alerts.any((a) => a.type == '体重异常偏低'), isTrue);
     });
   });
 
@@ -168,30 +129,31 @@ void main() {
     late Specy species;
 
     setUp(() async {
-      species = await createTestSpecies(db, nestlingEndDays: 30, juvenileEndDays: 60);
+      species =
+          await createTestSpecies(db, nestlingEndDays: 30, juvenileEndDays: 60);
       bird = await createTestBird(db, speciesId: species.id, daysAgo: 180);
     });
 
     test('连续3次下降 → 下降告警', () async {
       await addWeightSeries(db, bird.id, [
-        (hoursAgo: 96, grams: 103),
-        (hoursAgo: 72, grams: 100),
-        (hoursAgo: 48, grams: 97),
-        (hoursAgo: 24, grams: 94),
+        (hoursAgo: 96, grams: 120),
+        (hoursAgo: 72, grams: 110),
+        (hoursAgo: 48, grams: 103),
+        (hoursAgo: 24, grams: 95), // deviation -14% > 10% warning threshold
       ]);
       final alerts = await alertService.detectAll();
-      expect(alerts.any((a) => a.type == '体重下降'), isTrue);
+      expect(alerts.any((a) => a.type == '体重偏低'), isTrue);
     });
 
     test('30日慢性下降 → 趋势告警', () async {
-      // 30天内从100降至80，EMA趋势应明显
+      // 30天内从100降至80.2，EMA趋势 -7.5% > 7% 阈值
       final entries = <({int hoursAgo, double grams})>[];
       for (int i = 0; i < 10; i++) {
         entries.add((hoursAgo: (30 - i * 3) * 24, grams: 100.0 - i * 2.2));
       }
       await addWeightSeries(db, bird.id, entries);
       final alerts = await alertService.detectAll();
-      expect(alerts.any((a) => a.type == '长期下降趋势'), isTrue);
+      expect(alerts.any((a) => a.type == '体重持续下降'), isTrue);
     });
   });
 
@@ -223,21 +185,21 @@ void main() {
     });
 
     test('同分钟内覆盖', () async {
-      final w1 = await db.addWeight(
+      await db.addWeight(
           birdId: bird.id, weightG: 10.0, recordedAt: AppClock.now);
-      final w2 = await db.addWeight(
+      await db.addWeight(
           birdId: bird.id, weightG: 11.0, recordedAt: AppClock.now);
-      // 第二次应该覆盖第一次（同分钟）
       final weights = await db.getByBird(bird.id);
       expect(weights.length, 1);
       expect(weights.first.weightG, 11.0);
     });
 
     test('不同分钟不覆盖', () async {
-      final w1 = await db.addWeight(
-          birdId: bird.id, weightG: 10.0,
+      await db.addWeight(
+          birdId: bird.id,
+          weightG: 10.0,
           recordedAt: AppClock.now.subtract(const Duration(minutes: 2)));
-      final w2 = await db.addWeight(
+      await db.addWeight(
           birdId: bird.id, weightG: 11.0, recordedAt: AppClock.now);
       final weights = await db.getByBird(bird.id);
       expect(weights.length, 2);

@@ -94,7 +94,8 @@ class GalleryStorageService {
   }
 
   /// Delete a single photo file and its paired video + thumbnail if present.
-  Future<void> deletePhoto(String relativePath, {String? videoPath, String? thumbnailPath}) async {
+  Future<void> deletePhoto(String relativePath,
+      {String? videoPath, String? thumbnailPath}) async {
     await ensureInitialized();
     final file = File(resolve(relativePath));
     if (await file.exists()) await file.delete();
@@ -143,7 +144,8 @@ class GalleryStorageService {
   }
 
   /// Compress a JPEG to a specific max dimension (for avatars).
-  Future<void> compressToSize(String absolutePath, {int maxSize = 512, int quality = 85}) async {
+  Future<void> compressToSize(String absolutePath,
+      {int maxSize = 512, int quality = 85}) async {
     try {
       final tmpPath = '$absolutePath.tmp';
       final result = await FlutterImageCompress.compressAndGetFile(

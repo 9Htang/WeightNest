@@ -3,12 +3,14 @@ import '../../lib/database/database.dart';
 import '../../lib/repositories/species_repository.dart';
 import '../../lib/repositories/bird_repository.dart';
 import '../../lib/repositories/weight_repository.dart';
+import '../test_helpers/test_factories.dart';
 
+@Tags(['smoke'])
 void main() {
   late AppDatabase db;
 
   setUp(() async {
-    db = AppDatabase.test();
+    db = await setUpTestDb();
     // Set up minimum required data: species → bird
     final species = await db.createSpecies('虎皮鹦鹉');
     await db.createBird(
@@ -23,7 +25,7 @@ void main() {
     );
   });
 
-  tearDown(() async => db.close());
+  tearDown(() => tearDownTestDb(db));
 
   // ── addWeight ──
 
@@ -81,9 +83,12 @@ void main() {
 
   group('getByBird', () {
     test('returns weights sorted by recorded_at DESC', () async {
-      await db.addWeight(birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
-      await db.addWeight(birdId: 1, weightG: 42.0, recordedAt: DateTime(2025, 1, 1, 9, 0));
-      await db.addWeight(birdId: 1, weightG: 41.0, recordedAt: DateTime(2025, 1, 1, 8, 30));
+      await db.addWeight(
+          birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 42.0, recordedAt: DateTime(2025, 1, 1, 9, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 41.0, recordedAt: DateTime(2025, 1, 1, 8, 30));
 
       final results = await db.getByBird(1);
       expect(results.length, 3);
@@ -101,8 +106,10 @@ void main() {
 
   group('getLatestByBird', () {
     test('returns the most recent weight record', () async {
-      await db.addWeight(birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
-      await db.addWeight(birdId: 1, weightG: 44.0, recordedAt: DateTime(2025, 1, 3, 12, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 44.0, recordedAt: DateTime(2025, 1, 3, 12, 0));
 
       final latest = await db.getLatestByBird(1);
       expect(latest, isNotNull);
@@ -119,10 +126,14 @@ void main() {
 
   group('getLatestByBirds', () {
     test('returns latest weight for each bird in one query', () async {
-      await db.addWeight(birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
-      await db.addWeight(birdId: 1, weightG: 42.0, recordedAt: DateTime(2025, 1, 2, 8, 0));
-      await db.addWeight(birdId: 2, weightG: 50.0, recordedAt: DateTime(2025, 1, 1, 10, 0));
-      await db.addWeight(birdId: 2, weightG: 52.0, recordedAt: DateTime(2025, 1, 3, 10, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 42.0, recordedAt: DateTime(2025, 1, 2, 8, 0));
+      await db.addWeight(
+          birdId: 2, weightG: 50.0, recordedAt: DateTime(2025, 1, 1, 10, 0));
+      await db.addWeight(
+          birdId: 2, weightG: 52.0, recordedAt: DateTime(2025, 1, 3, 10, 0));
 
       final result = await db.getLatestByBirds([1, 2]);
 
@@ -131,7 +142,8 @@ void main() {
     });
 
     test('returns null for birds with no weights', () async {
-      await db.addWeight(birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
+      await db.addWeight(
+          birdId: 1, weightG: 40.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
 
       final result = await db.getLatestByBirds([1, 2]);
 
@@ -149,9 +161,11 @@ void main() {
 
   group('checkWeightExists', () {
     test('returns true when a weight exists in the same minute', () async {
-      await db.addWeight(birdId: 1, weightG: 45.0, recordedAt: DateTime(2025, 1, 1, 8, 30));
+      await db.addWeight(
+          birdId: 1, weightG: 45.0, recordedAt: DateTime(2025, 1, 1, 8, 30));
 
-      final exists = await db.checkWeightExists(1, DateTime(2025, 1, 1, 8, 30, 45));
+      final exists =
+          await db.checkWeightExists(1, DateTime(2025, 1, 1, 8, 30, 45));
       expect(exists, isTrue);
     });
 
@@ -165,7 +179,8 @@ void main() {
 
   group('removeWeight', () {
     test('deletes a weight record by ID', () async {
-      final w = await db.addWeight(birdId: 1, weightG: 45.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
+      final w = await db.addWeight(
+          birdId: 1, weightG: 45.0, recordedAt: DateTime(2025, 1, 1, 8, 0));
       await db.removeWeight(w.id);
 
       final results = await db.getByBird(1);

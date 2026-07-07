@@ -12,7 +12,12 @@ class WorkerInfo {
   final String role;
   final bool isInitializing;
 
-  const WorkerInfo({this.userId, this.displayName = '未选择', this.username = '', this.role = '', this.isInitializing = false});
+  const WorkerInfo(
+      {this.userId,
+      this.displayName = '未选择',
+      this.username = '',
+      this.role = '',
+      this.isInitializing = false});
 
   bool get isSelected => userId != null;
 }
@@ -40,19 +45,22 @@ class WorkerNotifier extends StateNotifier<WorkerInfo> {
     final role = prefs.getString(_keyRole) ?? '';
     final username = prefs.getString(_keyUsername) ?? '';
     if (id != null && name != null) {
-      state = WorkerInfo(userId: id, displayName: name, username: username, role: role);
+      state = WorkerInfo(
+          userId: id, displayName: name, username: username, role: role);
     } else {
       state = const WorkerInfo();
     }
   }
 
-  Future<void> selectUser(int id, String name, String role, {String username = ''}) async {
+  Future<void> selectUser(int id, String name, String role,
+      {String username = ''}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyId, id);
     await prefs.setString(_keyName, name);
     await prefs.setString(_keyRole, role);
     await prefs.setString(_keyUsername, username);
-    state = WorkerInfo(userId: id, displayName: name, username: username, role: role);
+    state = WorkerInfo(
+        userId: id, displayName: name, username: username, role: role);
   }
 
   Future<void> clear() async {

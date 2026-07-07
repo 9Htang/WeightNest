@@ -337,13 +337,22 @@ class WeighGridNotifier extends StateNotifier<WeighGridState> {
   }
 
   Future<void> _loadAndSelectBird(int birdId) async {
-    final lastW = await _db.getLatestByBird(birdId);
+    // 乐观 UI：立即写入 selectedBirdId，让面板展开动画与 DB 查询并行。
+    // 查询未回填前 lastWeigh=null / weightText=''，面板会显示占位（见 WeighDisplay）。
     state = state.copyWith(
       selectedBirdId: birdId,
-      lastWeigh: lastW,
-      weightText: lastW != null ? lastW.weightG.toStringAsFixed(1) : '',
+      lastWeigh: null,
+      weightText: '',
       isFasting: true,
       message: null,
+    );
+    // 动画期间（约 250ms）并行查最新体重，完成后再回填输入态。
+    final lastW = await _db.getLatestByBird(birdId);
+    // 用户在查询期间可能已切到别的鸟或取消，丢弃过期结果。
+    if (state.selectedBirdId != birdId) return;
+    state = state.copyWith(
+      lastWeigh: lastW,
+      weightText: lastW != null ? lastW.weightG.toStringAsFixed(1) : '',
     );
   }
 

@@ -44,7 +44,9 @@ class WorkHoursConfig {
   List<TimeOfDay> distributeDoses(int doses) {
     if (doses <= 0) return [];
     if (doses == 1) {
-      final mid = (workStart.hour * 60 + workStart.minute + windowMinutes ~/ 2) % (24 * 60);
+      final mid =
+          (workStart.hour * 60 + workStart.minute + windowMinutes ~/ 2) %
+              (24 * 60);
       return [TimeOfDay(hour: mid ~/ 60, minute: mid % 60)];
     }
     final interval = windowMinutes / (doses - 1);
@@ -92,7 +94,8 @@ class WorkHoursConfig {
     final oh = prefs.getInt(_kOldStartHour);
     if (oh != null) {
       final config = WorkHoursConfig(
-        workStart: TimeOfDay(hour: oh, minute: prefs.getInt(_kOldStartMin) ?? 0),
+        workStart:
+            TimeOfDay(hour: oh, minute: prefs.getInt(_kOldStartMin) ?? 0),
         workEnd: TimeOfDay(
           hour: prefs.getInt(_kOldEndHour) ?? 22,
           minute: prefs.getInt(_kOldEndMin) ?? 0,

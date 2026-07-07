@@ -38,82 +38,90 @@ class _BirdExportDialogState extends ConsumerState<BirdExportDialog> {
                 ),
               )
             : birdsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('加载失败: $e')),
-          data: (birds) {
-            if (birds.isEmpty) {
-              return const Center(child: Text('暂无鹦鹉数据'));
-            }
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('加载失败: $e')),
+                data: (birds) {
+                  if (birds.isEmpty) {
+                    return const Center(child: Text('暂无鹦鹉数据'));
+                  }
 
-            final selectedCount = _selectedIds.where((id) => birds.any((b) => b.bird.id == id)).length;
+                  final selectedCount = _selectedIds
+                      .where((id) => birds.any((b) => b.bird.id == id))
+                      .length;
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 操作栏
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: _isExporting
-                          ? null
-                          : () {
-                              setState(() {
-                                if (selectedCount == birds.length) {
-                                  _selectedIds.clear();
-                                } else {
-                                  _selectedIds.addAll(birds.map((b) => b.bird.id));
-                                }
-                              });
-                            },
-                      child: Text(selectedCount == birds.length ? '取消全选' : '全选'),
-                    ),
-                    const Spacer(),
-                    Text('已选择 $selectedCount 只',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                  ],
-                ),
-                const Divider(),
-                // 鸟列表
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: birds.length,
-                    itemBuilder: (_, i) {
-                      final bwd = birds[i];
-                      final bird = bwd.bird;
-                      final isSelected = _selectedIds.contains(bird.id);
-                      return CheckboxListTile(
-                        value: isSelected,
-                        onChanged: _isExporting
-                            ? null
-                            : (v) {
-                                setState(() {
-                                  if (v == true) {
-                                    _selectedIds.add(bird.id);
-                                  } else {
-                                    _selectedIds.remove(bird.id);
-                                  }
-                                });
-                              },
-                        dense: true,
-                        title: Text(bird.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          [
-                            if (bird.ringNumber?.isNotEmpty == true) bird.ringNumber!,
-                            bwd.species.name,
-                          ].join(' · '),
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 操作栏
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: _isExporting
+                                ? null
+                                : () {
+                                    setState(() {
+                                      if (selectedCount == birds.length) {
+                                        _selectedIds.clear();
+                                      } else {
+                                        _selectedIds.addAll(
+                                            birds.map((b) => b.bird.id));
+                                      }
+                                    });
+                                  },
+                            child: Text(
+                                selectedCount == birds.length ? '取消全选' : '全选'),
+                          ),
+                          const Spacer(),
+                          Text('已选择 $selectedCount 只',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                      const Divider(),
+                      // 鸟列表
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: birds.length,
+                          itemBuilder: (_, i) {
+                            final bwd = birds[i];
+                            final bird = bwd.bird;
+                            final isSelected = _selectedIds.contains(bird.id);
+                            return CheckboxListTile(
+                              value: isSelected,
+                              onChanged: _isExporting
+                                  ? null
+                                  : (v) {
+                                      setState(() {
+                                        if (v == true) {
+                                          _selectedIds.add(bird.id);
+                                        } else {
+                                          _selectedIds.remove(bird.id);
+                                        }
+                                      });
+                                    },
+                              dense: true,
+                              title: Text(bird.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              subtitle: Text(
+                                [
+                                  if (bird.ringNumber?.isNotEmpty == true)
+                                    bird.ringNumber!,
+                                  bwd.species.name,
+                                ].join(' · '),
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(
@@ -121,7 +129,8 @@ class _BirdExportDialogState extends ConsumerState<BirdExportDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _isExporting || _selectedIds.isEmpty ? null : () => _doExport(),
+          onPressed:
+              _isExporting || _selectedIds.isEmpty ? null : () => _doExport(),
           child: const Text('导出'),
         ),
       ],
@@ -140,7 +149,8 @@ class _BirdExportDialogState extends ConsumerState<BirdExportDialog> {
     final db = ref.read(databaseProvider);
     debugPrint('[ExportDialog] 获取到 databaseProvider');
 
-    final file = await BirdExportService().exportBirds(_selectedIds.toList(), db);
+    final file =
+        await BirdExportService().exportBirds(_selectedIds.toList(), db);
     debugPrint('[ExportDialog] exportBirds 返回: ${file?.path ?? "null"}');
 
     if (!mounted) return;
@@ -154,7 +164,9 @@ class _BirdExportDialogState extends ConsumerState<BirdExportDialog> {
         subject: 'WeightNest 鹦鹉数据导出',
       );
       debugPrint('[ExportDialog] 分享完成，清理临时文件');
-      try { await file.delete(); } catch (_) {}
+      try {
+        await file.delete();
+      } catch (_) {}
     } else if (mounted) {
       debugPrint('[ExportDialog] 导出失败');
       ScaffoldMessenger.of(context).showSnackBar(

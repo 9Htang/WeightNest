@@ -63,12 +63,24 @@
 			<key>CFBundleTypeName</key>
 			<string>WeightNest Bird Export</string>
 			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
+			<string>Editor</key>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.weightnest.birdexport</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>WeightNest Nutrition Export</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.weightnest.nutritionexport</string>
 			</array>
 		</dict>
 	</array>
@@ -105,6 +117,23 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>wnbirds</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.weightnest.nutritionexport</string>
+			<key>UTTypeDescription</key>
+			<string>WeightNest Nutrition Export</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>wnnutrition</string>
 				</array>
 			</dict>
 		</dict>

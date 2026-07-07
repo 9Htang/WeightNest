@@ -59,9 +59,14 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       appBar: AppBar(
         title: const Text('日志查看器'),
         actions: [
-          IconButton(icon: const Icon(Icons.delete_sweep), tooltip: '清空', onPressed: () => setState(() => DebugLogSink.clear())),
           IconButton(
-            icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_top),
+              icon: const Icon(Icons.delete_sweep),
+              tooltip: '清空',
+              onPressed: () => setState(() => DebugLogSink.clear())),
+          IconButton(
+            icon: Icon(_autoScroll
+                ? Icons.vertical_align_bottom
+                : Icons.vertical_align_top),
             tooltip: _autoScroll ? '自动滚动: 开' : '自动滚动: 关',
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
@@ -79,10 +84,19 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 hintText: '搜索日志...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: _query.isNotEmpty || _tag.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { _searchCtl.clear(); setState(() { _query = ''; _tag = ''; }); })
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtl.clear();
+                          setState(() {
+                            _query = '';
+                            _tag = '';
+                          });
+                        })
                     : null,
                 border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                 isDense: true,
               ),
               onChanged: (v) => setState(() => _query = v.trim()),
@@ -95,14 +109,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               height: 42,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 itemCount: _availableTags.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 6),
                 itemBuilder: (_, i) {
                   final t = _availableTags[i];
                   final selected = _tag == t;
                   return ChoiceChip(
-                    label: Text(t, style: TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                    label: Text(t,
+                        style:
+                            TextStyle(fontSize: 11, fontFamily: 'monospace')),
                     selected: selected,
                     visualDensity: VisualDensity.compact,
                     onSelected: (_) => setState(() => _tag = selected ? '' : t),
@@ -119,7 +136,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 ? Center(
                     child: Text(
                       _query.isNotEmpty || _tag.isNotEmpty ? '无匹配日志' : '暂无日志',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(120)),
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface.withAlpha(120)),
                     ),
                   )
                 : ListView.builder(
@@ -129,7 +147,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     itemBuilder: (_, i) {
                       final e = entries[i];
                       final ts = e.timestamp;
-                      final time = '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}.${ts.millisecond.toString().padLeft(3, '0')}';
+                      final time =
+                          '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}.${ts.millisecond.toString().padLeft(3, '0')}';
 
                       Color? bg;
                       if (e.message.contains('[ERROR]')) {
@@ -142,12 +161,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                         onLongPress: () {
                           Clipboard.setData(ClipboardData(text: e.message));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已复制'), duration: Duration(seconds: 1)),
+                            const SnackBar(
+                                content: Text('已复制'),
+                                duration: Duration(seconds: 1)),
                           );
                         },
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           color: bg,
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,14 +179,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontFamily: 'monospace',
-                                  color: theme.colorScheme.onSurface.withAlpha(120),
+                                  color: theme.colorScheme.onSurface
+                                      .withAlpha(120),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   e.message,
-                                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                                  style: const TextStyle(
+                                      fontSize: 12, fontFamily: 'monospace'),
                                 ),
                               ),
                             ],
@@ -182,7 +206,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             color: theme.colorScheme.surfaceContainerLow,
             child: Text(
               '${entries.length} 条${_query.isNotEmpty || _tag.isNotEmpty ? " (已过滤)" : ""}  ·  缓冲区 ${DebugLogSink.entries.length}/${DebugLogSink.entries.length + 1} 条',
-              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withAlpha(120)),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurface.withAlpha(120)),
             ),
           ),
         ],

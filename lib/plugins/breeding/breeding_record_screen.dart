@@ -53,10 +53,11 @@ class _BreedingRecordDetailScreenState
     try {
       final pair = await db.getPairById(widget.pairId);
       if (pair == null) {
-        if (mounted) setState(() {
-          _error = '未找到该配对';
-          _loading = false;
-        });
+        if (mounted)
+          setState(() {
+            _error = '未找到该配对';
+            _loading = false;
+          });
         return;
       }
 
@@ -84,10 +85,11 @@ class _BreedingRecordDetailScreenState
         });
       }
     } catch (e) {
-      if (mounted) setState(() {
-        _error = '加载失败: $e';
-        _loading = false;
-      });
+      if (mounted)
+        setState(() {
+          _error = '加载失败: $e';
+          _loading = false;
+        });
     }
   }
 
@@ -185,7 +187,8 @@ class _BreedingRecordDetailScreenState
                 const SizedBox(width: 8),
                 Expanded(
                   child: _birdTile(
-                    icon: const Icon(Icons.female, color: Colors.pink, size: 20),
+                    icon:
+                        const Icon(Icons.female, color: Colors.pink, size: 20),
                     label: '母鸟',
                     birdId: _pair?.femaleBirdId,
                     birdName: _female?.name,
@@ -287,7 +290,8 @@ class _BreedingRecordDetailScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 Text(birdName ?? '未知',
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 15)),
@@ -301,9 +305,7 @@ class _BreedingRecordDetailScreenState
 
   Widget _buildStageIndicator() {
     const stages = ['配对', '产蛋', '孵化', '育雏', '已完结'];
-    final currentIdx = _record != null
-        ? stages.indexOf(_record!.stage)
-        : -1;
+    final currentIdx = _record != null ? stages.indexOf(_record!.stage) : -1;
 
     return Row(
       children: List.generate(stages.length, (i) {
@@ -407,16 +409,14 @@ class _BreedingRecordDetailScreenState
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text('请先开始繁育记录',
-                      style: TextStyle(color: Colors.grey)),
+                  child: Text('请先开始繁育记录', style: TextStyle(color: Colors.grey)),
                 ),
               )
             else if (_eggs.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text('暂无蛋的记录',
-                      style: TextStyle(color: Colors.grey)),
+                  child: Text('暂无蛋的记录', style: TextStyle(color: Colors.grey)),
                 ),
               )
             else
@@ -447,8 +447,8 @@ class _BreedingRecordDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加失败: $e'),
-              behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('添加失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -471,8 +471,7 @@ class _BreedingRecordDetailScreenState
                 value: selectedStatus,
                 decoration: const InputDecoration(labelText: '状态'),
                 items: ['孵化中', '已出壳', '未受精', '损坏']
-                    .map((s) =>
-                        DropdownMenuItem(value: s, child: Text(s)))
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                     .toList(),
                 onChanged: (v) {
                   setDlg(() {
@@ -612,16 +611,14 @@ class _BreedingRecordDetailScreenState
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text('请先开始繁育记录',
-                      style: TextStyle(color: Colors.grey)),
+                  child: Text('请先开始繁育记录', style: TextStyle(color: Colors.grey)),
                 ),
               )
             else if (_matingEvents.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text('暂无踩背记录',
-                      style: TextStyle(color: Colors.grey)),
+                  child: Text('暂无踩背记录', style: TextStyle(color: Colors.grey)),
                 ),
               )
             else
@@ -648,8 +645,8 @@ class _BreedingRecordDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加失败: $e'),
-              behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('添加失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -666,8 +663,8 @@ class _BreedingRecordDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e'),
-              behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('操作失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -681,8 +678,8 @@ class _BreedingRecordDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e'),
-              behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('操作失败: $e'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -716,14 +713,13 @@ class _BreedingRecordDetailScreenState
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             FilledButton(
               onPressed: selectedReason == null
                   ? null
                   : () async {
-                      await _db!.finishBreeding(_record!.id,
-                          reason: selectedReason);
+                      await _db!
+                          .finishBreeding(_record!.id, reason: selectedReason);
                       if (ctx.mounted) Navigator.pop(ctx);
                       _load();
                     },
@@ -744,12 +740,14 @@ class _BreedingRecordDetailScreenState
     if (db == null) return;
     final birdWithDetails = await db.getWithDetails(birdId);
     if (!mounted || birdWithDetails == null) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => BirdDetailScreen(
-        bird: birdWithDetails,
-        initialPluginId: 'breeding',
-      ),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BirdDetailScreen(
+            bird: birdWithDetails,
+            initialPluginId: 'breeding',
+          ),
+        ));
   }
 }
 
@@ -773,8 +771,9 @@ class _EggTile extends StatelessWidget {
     final theme = Theme.of(context);
     final statusColor = _eggStatusColor(egg.status);
     final laidStr = DateFormat('MM-dd').format(egg.laidDate);
-    final hatchStr =
-        egg.hatchDate != null ? DateFormat('MM-dd').format(egg.hatchDate!) : null;
+    final hatchStr = egg.hatchDate != null
+        ? DateFormat('MM-dd').format(egg.hatchDate!)
+        : null;
 
     return Card(
       margin: const EdgeInsets.only(top: 6),
@@ -790,8 +789,7 @@ class _EggTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Text('产蛋: $laidStr',
-                          style: theme.textTheme.bodyMedium),
+                      Text('产蛋: $laidStr', style: theme.textTheme.bodyMedium),
                       if (hatchStr != null) ...[
                         const SizedBox(width: 8),
                         Text('出壳: $hatchStr',
@@ -803,8 +801,7 @@ class _EggTile extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
                   color: statusColor.withAlpha(25),
@@ -857,8 +854,7 @@ class _MatingEventTile extends StatelessWidget {
         children: [
           Icon(Icons.favorite, size: 16, color: Colors.pink.shade300),
           const SizedBox(width: 8),
-          Text(dateStr,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w500)),
           if (event.notes != null && event.notes!.isNotEmpty) ...[
             const SizedBox(width: 8),
             Text(event.notes!,
@@ -935,7 +931,8 @@ class _AddChickDialogState extends State<_AddChickDialog> {
               value: _selectedSpeciesId,
               decoration: const InputDecoration(labelText: '品种'),
               items: widget.speciesList
-                  .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                  .map(
+                      (s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
                   .toList(),
               onChanged: (v) => setState(() => _selectedSpeciesId = v),
             ),
@@ -954,16 +951,18 @@ class _AddChickDialogState extends State<_AddChickDialog> {
             const SizedBox(height: 12),
             // 性别
             Row(
-              children: ['公', '母', '未知'].map((g) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
-                  child: ChoiceChip(
-                    label: Text(g),
-                    selected: _gender == g,
-                    onSelected: (v) => setState(() => _gender = g),
-                  ),
-                ),
-              )).toList(),
+              children: ['公', '母', '未知']
+                  .map((g) => Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: g != '未知' ? 8 : 0),
+                          child: ChoiceChip(
+                            label: Text(g),
+                            selected: _gender == g,
+                            onSelected: (v) => setState(() => _gender = g),
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 12),
             // 出生日期
@@ -993,13 +992,17 @@ class _AddChickDialogState extends State<_AddChickDialog> {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入名称'), behavior: SnackBarBehavior.floating),
+                const SnackBar(
+                    content: Text('请输入名称'),
+                    behavior: SnackBarBehavior.floating),
               );
               return;
             }
             if (_selectedSpeciesId == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请选择品种'), behavior: SnackBarBehavior.floating),
+                const SnackBar(
+                    content: Text('请选择品种'),
+                    behavior: SnackBarBehavior.floating),
               );
               return;
             }

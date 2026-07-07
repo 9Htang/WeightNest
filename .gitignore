@@ -41,6 +41,7 @@ app.*.map.json
 
 # Local runtime data
 /data/
+/temp/
 
 # Android Studio will place build artifacts here
 /android/app/debug

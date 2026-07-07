@@ -6,6 +6,7 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
 import '../../services/excel_export_service.dart';
+import '../../widgets/feather_icon.dart';
 import '../../screens/weigh/weigh_input_config.dart';
 import '../../theme/app_tokens.dart';
 import 'grid_color_config.dart';
@@ -329,7 +330,7 @@ class _SpeciesWeighRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(Icons.pets, size: 18, color: scheme.primary.withAlpha(a.heavy)),
+            FeatherIcon(size: 18, color: scheme.primary.withAlpha(a.heavy)),
             SizedBox(width: sp.sm + 2),
             Expanded(
               child: Text(species.name,

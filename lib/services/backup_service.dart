@@ -32,7 +32,8 @@ class BackupService {
 
       // 列出 appDir 中的所有文件（调试）
       final appDirListing = await appDir.list().toList();
-      debugPrint('createBackup: appDir contains ${appDirListing.length} entries:');
+      debugPrint(
+          'createBackup: appDir contains ${appDirListing.length} entries:');
       for (final e in appDirListing) {
         debugPrint('  ${e.path}');
       }
@@ -50,14 +51,16 @@ class BackupService {
         if (exists) {
           final dst = p.join(tempDir.path, f);
           await src.copy(dst);
-          debugPrint('createBackup: copied $f (${await File(dst).length()} bytes)');
+          debugPrint(
+              'createBackup: copied $f (${await File(dst).length()} bytes)');
         }
       }
 
       // 2. 复制 gallery 目录（递归）
       final galleryDir = Directory(p.join(appDir.path, 'gallery'));
       if (await galleryDir.exists()) {
-        await _copyDirectory(galleryDir, Directory(p.join(tempDir.path, 'gallery')));
+        await _copyDirectory(
+            galleryDir, Directory(p.join(tempDir.path, 'gallery')));
         debugPrint('createBackup: copied gallery/');
       } else {
         debugPrint('createBackup: gallery/ not found');
@@ -78,7 +81,8 @@ class BackupService {
 
       // 6. 写入临时文件，供分享
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final backupPath = p.join(tempDir.parent.path, 'weightnest_backup_$timestamp.$backupExtension');
+      final backupPath = p.join(
+          tempDir.parent.path, 'weightnest_backup_$timestamp.$backupExtension');
       final backupFile = File(backupPath);
       await backupFile.writeAsBytes(output);
 
@@ -167,7 +171,9 @@ class BackupService {
         if (await src.exists()) {
           // 先删除目标再复制，避免文件锁问题
           if (await dst.exists()) {
-            try { await dst.delete(); } catch (_) {}
+            try {
+              await dst.delete();
+            } catch (_) {}
           }
           await src.copy(dst.path);
           debugPrint('restoreFrom: replaced $f');
@@ -228,7 +234,8 @@ class BackupService {
     final manifestFile = File(p.join(dir.path, 'manifest.json'));
     if (!await manifestFile.exists()) return false;
 
-    final manifestJson = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
+    final manifestJson =
+        jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
     final files = manifestJson['files'] as Map<String, dynamic>?;
     if (files == null) return false;
 
@@ -249,7 +256,8 @@ class BackupService {
       if (entity is File) {
         await entity.copy(p.join(destination.path, p.basename(entity.path)));
       } else if (entity is Directory) {
-        await _copyDirectory(entity, Directory(p.join(destination.path, p.basename(entity.path))));
+        await _copyDirectory(entity,
+            Directory(p.join(destination.path, p.basename(entity.path))));
       }
     }
   }

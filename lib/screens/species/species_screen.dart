@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/species_repository.dart';
+import '../../widgets/feather_icon.dart';
+import '../../widgets/list/app_list_card.dart';
+import '../../widgets/list/empty_state.dart';
 
 /// 品种管理页面
 class SpeciesScreen extends ConsumerStatefulWidget {
@@ -24,34 +27,38 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
         onPressed: () => _showEditDialog(context, null),
         child: const Icon(Icons.add),
       ),
-
       body: spAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败: $e')),
         data: (spList) => spList.isEmpty
-            ? const Center(child: Text('暂无品种'))
+            ? EmptyState(
+                icon: const FeatherIcon(size: 56),
+                message: '暂无品种',
+                hint: '点击右下角 + 添加品种',
+              )
             : ListView.builder(
                 itemCount: spList.length,
                 itemBuilder: (context, i) {
                   final s = spList[i];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                    child: ListTile(
-                      title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        '雏鸟每${s.nestlingWeighIntervalDays}天 · 幼鸟每${s.juvenileWeighIntervalDays}天 · 成鸟每${s.adultWeighIntervalDays}天',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      trailing: PopupMenuButton(
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                          const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
-                        ],
-                        onSelected: (v) {
-                          if (v == 'edit') _showEditDialog(context, s);
-                          if (v == 'delete') _confirmDelete(context, s);
-                        },
-                      ),
+                  return AppListCard.tile(
+                    title: Text(s.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                      '雏鸟每${s.nestlingWeighIntervalDays}天 · 幼鸟每${s.juvenileWeighIntervalDays}天 · 成鸟每${s.adultWeighIntervalDays}天',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    trailing: PopupMenuButton(
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                        const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('删除',
+                                style: TextStyle(color: Colors.red))),
+                      ],
+                      onSelected: (v) {
+                        if (v == 'edit') _showEditDialog(context, s);
+                        if (v == 'delete') _confirmDelete(context, s);
+                      },
                     ),
                   );
                 },
@@ -86,7 +93,9 @@ class _SpeciesScreenState extends ConsumerState<SpeciesScreen> {
         title: const Text('确认删除'),
         content: Text('删除品种「${s.name}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -128,17 +137,28 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
   late final TextEditingController nestlingWICtrl;
   late final TextEditingController juvenileWICtrl;
   late final TextEditingController adultWICtrl;
+  late final TextEditingController minWeightGCtrl;
+  late final TextEditingController maxWeightGCtrl;
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
     nameCtrl = TextEditingController(text: e?.name ?? '');
-    nestlingEndCtrl = TextEditingController(text: '${e?.nestlingEndDays ?? 45}');
-    juvenileEndCtrl = TextEditingController(text: '${e?.juvenileEndDays ?? 120}');
-    nestlingWICtrl = TextEditingController(text: '${e?.nestlingWeighIntervalDays ?? 1}');
-    juvenileWICtrl = TextEditingController(text: '${e?.juvenileWeighIntervalDays ?? 3}');
-    adultWICtrl = TextEditingController(text: '${e?.adultWeighIntervalDays ?? 7}');
+    nestlingEndCtrl =
+        TextEditingController(text: '${e?.nestlingEndDays ?? 45}');
+    juvenileEndCtrl =
+        TextEditingController(text: '${e?.juvenileEndDays ?? 120}');
+    nestlingWICtrl =
+        TextEditingController(text: '${e?.nestlingWeighIntervalDays ?? 1}');
+    juvenileWICtrl =
+        TextEditingController(text: '${e?.juvenileWeighIntervalDays ?? 3}');
+    adultWICtrl =
+        TextEditingController(text: '${e?.adultWeighIntervalDays ?? 7}');
+    minWeightGCtrl =
+        TextEditingController(text: e?.minWeightG?.toString() ?? '');
+    maxWeightGCtrl =
+        TextEditingController(text: e?.maxWeightG?.toString() ?? '');
   }
 
   @override
@@ -149,6 +169,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
     nestlingWICtrl.dispose();
     juvenileWICtrl.dispose();
     adultWICtrl.dispose();
+    minWeightGCtrl.dispose();
+    maxWeightGCtrl.dispose();
     super.dispose();
   }
 
@@ -172,7 +194,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
               Expanded(
                 child: TextField(
                   controller: nestlingEndCtrl,
-                  decoration: const InputDecoration(labelText: '雏鸟结束(天)', isDense: true),
+                  decoration: const InputDecoration(
+                      labelText: '雏鸟结束(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -180,7 +203,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
               Expanded(
                 child: TextField(
                   controller: juvenileEndCtrl,
-                  decoration: const InputDecoration(labelText: '幼鸟结束(天)', isDense: true),
+                  decoration: const InputDecoration(
+                      labelText: '幼鸟结束(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -193,7 +217,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
               Expanded(
                 child: TextField(
                   controller: nestlingWICtrl,
-                  decoration: const InputDecoration(labelText: '雏鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '雏鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -201,7 +226,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
               Expanded(
                 child: TextField(
                   controller: juvenileWICtrl,
-                  decoration: const InputDecoration(labelText: '幼鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '幼鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -209,8 +235,40 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
               Expanded(
                 child: TextField(
                   controller: adultWICtrl,
-                  decoration: const InputDecoration(labelText: '成鸟(天)', isDense: true),
+                  decoration:
+                      const InputDecoration(labelText: '成鸟(天)', isDense: true),
                   keyboardType: TextInputType.number,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            const Text('正常体重范围 (选填，用于剂量安全校验)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: minWeightGCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '最低体重(g)',
+                    isDense: true,
+                    hintText: '如 20',
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: maxWeightGCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '最高体重(g)',
+                    isDense: true,
+                    hintText: '如 80',
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                 ),
               ),
             ]),
@@ -233,6 +291,8 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
             final nestlingWI = int.tryParse(nestlingWICtrl.text);
             final juvenileWI = int.tryParse(juvenileWICtrl.text);
             final adultWI = int.tryParse(adultWICtrl.text);
+            final minW = double.tryParse(minWeightGCtrl.text);
+            final maxW = double.tryParse(maxWeightGCtrl.text);
             final existing = widget.existing;
             final db = widget.db;
 
@@ -243,14 +303,18 @@ class _SpeciesEditDialogState extends State<_SpeciesEditDialog> {
                   juvenileEndDays: juvenileEnd,
                   nestlingWeighIntervalDays: nestlingWI,
                   juvenileWeighIntervalDays: juvenileWI,
-                  adultWeighIntervalDays: adultWI);
+                  adultWeighIntervalDays: adultWI,
+                  minWeightG: minW,
+                  maxWeightG: maxW);
             } else {
               await db.createSpecies(name,
                   nestlingEndDays: nestlingEnd ?? 45,
                   juvenileEndDays: juvenileEnd ?? 120,
                   nestlingWeighIntervalDays: nestlingWI ?? 1,
                   juvenileWeighIntervalDays: juvenileWI ?? 3,
-                  adultWeighIntervalDays: adultWI ?? 7);
+                  adultWeighIntervalDays: adultWI ?? 7,
+                  minWeightG: minW,
+                  maxWeightG: maxW);
             }
 
             if (context.mounted) Navigator.pop(context, true);

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:excel/excel.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../core/app_clock.dart';
 import '../database/database.dart';
@@ -45,14 +46,16 @@ class ExcelExportService {
     final data = <int, Map<int, String>>{}; // birdIndex → day → value
     for (int i = 0; i < birds.length; i++) {
       data[i] = {};
-      final weights = await _db.getByBirdInRange(birds[i].bird.id, from: monthStart, to: monthEnd);
+      final weights = await _db.getByBirdInRange(birds[i].bird.id,
+          from: monthStart, to: monthEnd);
       for (final w in weights) {
         // 体重数据格式：时间\n体重[+是否空腹]
         final fasting = w.isFasting ? '' : '*';
         final timeStr =
             '${w.recordedAt.hour.toString().padLeft(2, '0')}:${w.recordedAt.minute.toString().padLeft(2, '0')}\n${w.weightG.toStringAsFixed(1)}$fasting';
         final existing = data[i]![w.recordedAt.day];
-        data[i]![w.recordedAt.day] = existing != null ? '$existing\n$timeStr' : timeStr;
+        data[i]![w.recordedAt.day] =
+            existing != null ? '$existing\n$timeStr' : timeStr;
       }
     }
 
@@ -62,7 +65,10 @@ class ExcelExportService {
     final roomRow = <String>['房间'];
     final enclosureRow = <String>['容器'];
     for (final b in birds) {
-      ringRow.add((b.bird.ringNumber?.isNotEmpty == true ? b.bird.ringNumber : b.bird.name) ?? b.bird.name);
+      ringRow.add((b.bird.ringNumber?.isNotEmpty == true
+              ? b.bird.ringNumber
+              : b.bird.name) ??
+          b.bird.name);
       speciesRow.add(b.species.name);
       roomRow.add(b.room?.name ?? '');
       enclosureRow.add(b.enclosure?.name ?? '');
@@ -128,9 +134,11 @@ class ExcelExportService {
     return getApplicationDocumentsDirectory();
   }
 
-  void _writeRow(Sheet sheet, int row, List<dynamic> values, {bool bold = false}) {
+  void _writeRow(Sheet sheet, int row, List<dynamic> values,
+      {bool bold = false}) {
     for (int col = 0; col < values.length; col++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      final cell = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
       final v = values[col];
       if (v is int) {
         cell.value = IntCellValue(v);
@@ -147,4 +155,128 @@ class ExcelExportService {
       );
     }
   }
+
+  // ── 药品库与剂量规则导出 ──
+
+  /// Export drug library + dose rules to Excel.
+  Future<File?> exportDrugLibrary({
+    required List<dynamic> drugs,
+    required List<dynamic> allFormulations,
+    required List<dynamic> allDoseRules,
+  }) async {
+    final excel = Excel.createExcel();
+    final defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
+    excel.rename(defaultSheet, '药品库');
+
+    // Sheet 1: Drug Library
+    final drugSheet = excel['药品库'];
+    _writeRow(
+        drugSheet,
+        0,
+        [
+          '药品名称',
+          '商品名',
+          '有效成分',
+          '药物类别',
+          '剂型',
+          '保存方式',
+          '开封有效期(天)',
+          '浓度/规格',
+          '备注'
+        ],
+        bold: true);
+
+    int row = 1;
+    for (final drug in drugs) {
+      final drugId = (drug as dynamic).id as int;
+      final drugName = (drug).drugName as String;
+      final brandName = (drug).brandName as String?;
+      final activeIngredient = (drug).activeIngredient as String?;
+      final drugCategory = (drug).drugCategory as String;
+      final formulationType = (drug).formulationType as String;
+      final storageInstructions = (drug).storageInstructions as String?;
+      final openedExpiryDays = (drug).openedExpiryDays as int?;
+      final notes = (drug).notes as String?;
+
+      final forms = (allFormulations as List)
+          .where((f) => (f as dynamic).drugId == drugId)
+          .map((f) {
+        final form = f as dynamic;
+        final def = form.isDefault == true ? ' (默认)' : '';
+        return '${form.concentration}${form.unit}$def';
+      }).join(', ');
+
+      _writeRow(drugSheet, row++, [
+        drugName,
+        brandName ?? '',
+        activeIngredient ?? '',
+        drugCategory,
+        formulationType,
+        storageInstructions ?? '',
+        openedExpiryDays?.toString() ?? '',
+        forms,
+        notes ?? '',
+      ]);
+    }
+
+    drugSheet.setColumnWidth(0, 20);
+    drugSheet.setColumnWidth(1, 15);
+    drugSheet.setColumnWidth(2, 20);
+    drugSheet.setColumnWidth(3, 12);
+    drugSheet.setColumnWidth(4, 10);
+    drugSheet.setColumnWidth(5, 12);
+    drugSheet.setColumnWidth(6, 14);
+    drugSheet.setColumnWidth(7, 30);
+    drugSheet.setColumnWidth(8, 20);
+
+    // Sheet 2: Dose Rules
+    final ruleSheet = excel['剂量规则'];
+    _writeRow(ruleSheet, 0,
+        ['药品', '疾病', '品种', '剂量(mg/kg)', '每天次数', '疗程(天)', '给药途径', '备注'],
+        bold: true);
+
+    row = 1;
+    for (final r in allDoseRules) {
+      final rule = r as dynamic;
+      _writeRow(ruleSheet, row++, [
+        rule.drugName ?? '',
+        rule.diseaseName,
+        rule.speciesName ?? '通用',
+        rule.rule.mgKgDose.toString(),
+        rule.rule.timesPerDay.toString(),
+        rule.rule.durationDays.toString(),
+        rule.rule.administrationRoute,
+        rule.rule.notes ?? '',
+      ]);
+    }
+
+    ruleSheet.setColumnWidth(0, 20);
+    ruleSheet.setColumnWidth(1, 15);
+    ruleSheet.setColumnWidth(2, 12);
+    ruleSheet.setColumnWidth(3, 14);
+    ruleSheet.setColumnWidth(4, 10);
+    ruleSheet.setColumnWidth(5, 10);
+    ruleSheet.setColumnWidth(6, 12);
+    ruleSheet.setColumnWidth(7, 20);
+
+    final dir = await _getExportDir();
+    final file = File('${dir.path}/药品库与剂量规则.xlsx');
+    final bytes = excel.encode();
+    if (bytes == null) throw Exception('编码失败');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+}
+
+/// 格式化体重单元格：非空腹 → "HH:mm\n{weight}*"，空腹 → "HH:mm\n{weight}"。
+///
+/// 与 [ExcelExportService.exportMonthly] 内联格式化逻辑严格一致；
+/// 抽取为顶层纯函数以便单元测试验证格式规则。
+@visibleForTesting
+String formatWeightCell(double weightG, DateTime recordedAt,
+    {bool isFasting = false}) {
+  final fasting = isFasting ? '' : '*';
+  final timeStr =
+      '${recordedAt.hour.toString().padLeft(2, '0')}:${recordedAt.minute.toString().padLeft(2, '0')}';
+  return '$timeStr\n${weightG.toStringAsFixed(1)}$fasting';
 }

@@ -58,6 +58,14 @@ class BreedingPlugin extends FeaturePlugin {
           if (db == null) return null;
           return db.getActivePairForBird(birdId);
         },
+        // 返回该鸟当前活跃繁殖记录的阶段（'配对'/'产蛋'/'孵化'/'育雏'/'已完结'），
+        // 无活跃繁殖记录时返回 null。供营养插件推断生理阶段用。
+        'getActiveRecordStage': (int birdId) async {
+          final db = pluginRegistry.db;
+          if (db == null) return null;
+          final result = await db.getActiveRecordForBird(birdId);
+          return result?.$1.stage;
+        },
       };
 
   @override

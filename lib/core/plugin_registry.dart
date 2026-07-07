@@ -25,17 +25,38 @@ class PluginRegistry {
 
   AppDatabase? db;
 
+  // ── enabled-plugins cache ──
+  // `enabledPlugins` is read on every bird list tile build and in many other
+  // hot paths. Recomputing `_plugins.where(...).toList()` each call allocates a
+  // fresh list and iterates the full plugin set. Instead we cache the result
+  // and invalidate it whenever plugin state can change (register / setEnabled /
+  // reset). Callers must go through those methods to toggle plugins — there is
+  // no other public path that mutates `FeaturePlugin.enabled`.
+  List<FeaturePlugin> _enabledCache = const [];
+  bool _enabledDirty = true;
+
   List<FeaturePlugin> get plugins => List.unmodifiable(_plugins);
 
   /// Register a plugin — call once per plugin at startup.
   void register(FeaturePlugin plugin) {
     _plugins.add(plugin);
     plugin.registerEvents(eventBus);
+    _enabledDirty = true;
   }
 
   /// Set the database reference — call once after DB is initialized.
   void setDatabase(AppDatabase database) {
     db = database;
+  }
+
+  /// Reset to a clean state — clears all plugins, event handlers, and DB ref.
+  /// For testing only; not called in production.
+  void reset() {
+    _plugins.clear();
+    eventBus.clearAll();
+    db = null;
+    _enabledDirty = true;
+    _enabledCache = const [];
   }
 
   /// Get a plugin by ID.
@@ -55,17 +76,33 @@ class PluginRegistry {
   /// Enable or disable a plugin by ID.
   void setEnabled(String id, bool enabled) {
     for (final p in _plugins) {
-      if (p.id == id) { p.enabled = enabled; return; }
+      if (p.id == id) {
+        if (p.isInternal) return; // internal plugins can't be toggled
+        p.enabled = enabled;
+        _enabledDirty = true;
+        return;
+      }
     }
   }
 
   /// Only enabled plugins.
-  List<FeaturePlugin> get enabledPlugins =>
-      _plugins.where((p) => p.enabled).toList();
+  ///
+  /// Returns a cached unmodifiable list; recomputed only when plugin enable
+  /// state changes via [register], [setEnabled], or [reset]. The returned list
+  /// is safe to iterate and will not be mutated in place.
+  List<FeaturePlugin> get enabledPlugins {
+    if (_enabledDirty) {
+      _enabledCache = List.unmodifiable(
+        _plugins.where((p) => p.enabled),
+      );
+      _enabledDirty = false;
+    }
+    return _enabledCache;
+  }
 
   /// Plugins that have a settings page.
   Iterable<FeaturePlugin> get configurablePlugins =>
-      _plugins.where((p) => p.enabled && p.settingsBuilder != null);
+      enabledPlugins.where((p) => p.settingsBuilder != null);
 
   /// All database tables from enabled plugins.
   List<dynamic> get allTables =>
@@ -79,5 +116,4 @@ class PluginRegistry {
     }
     return map;
   }
-
 }

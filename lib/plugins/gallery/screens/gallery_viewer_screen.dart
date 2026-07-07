@@ -219,6 +219,14 @@ class _GalleryViewerScreenState extends State<GalleryViewerScreen> {
         child: Image.file(
           file,
           fit: BoxFit.contain,
+          // Cap the decoded resolution. A 4K (4000×3000) JPEG decodes to ~8MB
+          // of pixel data; the viewer never needs more than the screen, and
+          // InteractiveViewer's 4× max scale is satisfied well within 1920×1440.
+          // Images are already compressed to ≤1920px long edge on import, so
+          // this is a no-op for them and only protects against legacy
+          // full-res photos that predate compression.
+          cacheWidth: 1920,
+          cacheHeight: 1440,
           errorBuilder: (_, __, ___) => const Center(
             child: Icon(Icons.broken_image, size: 48, color: Colors.white38),
           ),
@@ -273,8 +281,8 @@ class _GalleryViewerScreenState extends State<GalleryViewerScreen> {
         // Play/pause indicator when paused
         if (!controller.value.isPlaying)
           const Center(
-            child: Icon(Icons.play_circle_fill,
-                size: 64, color: Colors.white54),
+            child:
+                Icon(Icons.play_circle_fill, size: 64, color: Colors.white54),
           ),
         // Mute / unmute toggle (on top so taps always reach it)
         Positioned(

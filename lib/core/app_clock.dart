@@ -40,8 +40,9 @@ class AppClock {
     await _saveOffset(offset);
   }
 
-  /// 恢复为真实时间，并清除持久化偏移。
+  /// 恢复为真实时间，并清除持久化偏移（debug 专用）。
   static Future<void> reset() async {
+    assert(kDebugMode, 'AppClock.reset only available in debug mode');
     _impl = _defaultImpl;
     await _clearOffset();
   }

@@ -43,9 +43,16 @@ class _PluginStatusScreenState extends ConsumerState<PluginStatusScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.displayName, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(p.displayName,
+                                style: theme.textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
                             const SizedBox(height: 2),
-                            Text(p.id, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withAlpha(120), fontFamily: 'monospace')),
+                            Text(p.id,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha(120),
+                                    fontFamily: 'monospace')),
                           ],
                         ),
                       ),
@@ -53,7 +60,9 @@ class _PluginStatusScreenState extends ConsumerState<PluginStatusScreen> {
                         value: p.enabled,
                         onChanged: (v) {
                           pluginRegistry.setEnabled(p.id, v);
-                          ref.read(pluginToggleVersionProvider.notifier).update((s) => s + 1);
+                          ref
+                              .read(pluginToggleVersionProvider.notifier)
+                              .update((s) => s + 1);
                           setState(() {});
                         },
                       ),
@@ -62,7 +71,11 @@ class _PluginStatusScreenState extends ConsumerState<PluginStatusScreen> {
                   if (p.description.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Text(p.description, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withAlpha(160))),
+                      child: Text(p.description,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  theme.colorScheme.onSurface.withAlpha(160))),
                     ),
                   const SizedBox(height: 6),
                   Wrap(
@@ -70,9 +83,14 @@ class _PluginStatusScreenState extends ConsumerState<PluginStatusScreen> {
                     runSpacing: 4,
                     children: [
                       _MetaChip(label: '${pages.length} 页面', icon: Icons.pages),
-                      _MetaChip(label: '${queries.length} 数据查询', icon: Icons.data_object),
-                      if (hasSettings) const _MetaChip(label: '设置页', icon: Icons.settings),
-                      if (!p.enabled) const _MetaChip(label: '已禁用', icon: Icons.block, error: true),
+                      _MetaChip(
+                          label: '${queries.length} 数据查询',
+                          icon: Icons.data_object),
+                      if (hasSettings)
+                        const _MetaChip(label: '设置页', icon: Icons.settings),
+                      if (!p.enabled)
+                        const _MetaChip(
+                            label: '已禁用', icon: Icons.block, error: true),
                     ],
                   ),
                 ],
@@ -90,7 +108,8 @@ class _MetaChip extends StatelessWidget {
   final IconData icon;
   final bool error;
 
-  const _MetaChip({required this.label, required this.icon, this.error = false});
+  const _MetaChip(
+      {required this.label, required this.icon, this.error = false});
 
   @override
   Widget build(BuildContext context) {

@@ -72,6 +72,18 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(7));
+  static const VerificationMeta _minWeightGMeta =
+      const VerificationMeta('minWeightG');
+  @override
+  late final GeneratedColumn<double> minWeightG = GeneratedColumn<double>(
+      'min_weight_g', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _maxWeightGMeta =
+      const VerificationMeta('maxWeightG');
+  @override
+  late final GeneratedColumn<double> maxWeightG = GeneratedColumn<double>(
+      'max_weight_g', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -104,6 +116,8 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
         nestlingWeighIntervalDays,
         juvenileWeighIntervalDays,
         adultWeighIntervalDays,
+        minWeightG,
+        maxWeightG,
         createdAt,
         updatedAt,
         deletedAt
@@ -165,6 +179,18 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
           adultWeighIntervalDays.isAcceptableOrUnknown(
               data['adult_weigh_interval_days']!, _adultWeighIntervalDaysMeta));
     }
+    if (data.containsKey('min_weight_g')) {
+      context.handle(
+          _minWeightGMeta,
+          minWeightG.isAcceptableOrUnknown(
+              data['min_weight_g']!, _minWeightGMeta));
+    }
+    if (data.containsKey('max_weight_g')) {
+      context.handle(
+          _maxWeightGMeta,
+          maxWeightG.isAcceptableOrUnknown(
+              data['max_weight_g']!, _maxWeightGMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -205,6 +231,10 @@ class $SpeciesTable extends Species with TableInfo<$SpeciesTable, Specy> {
       adultWeighIntervalDays: attachedDatabase.typeMapping.read(
           DriftSqlType.int,
           data['${effectivePrefix}adult_weigh_interval_days'])!,
+      minWeightG: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}min_weight_g']),
+      maxWeightG: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}max_weight_g']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -239,6 +269,12 @@ class Specy extends DataClass implements Insertable<Specy> {
 
   /// 成鸟称重间隔（天）
   final int adultWeighIntervalDays;
+
+  /// 品种最低正常体重（g），用于剂量计算安全校验
+  final double? minWeightG;
+
+  /// 品种最高正常体重（g）
+  final double? maxWeightG;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -251,6 +287,8 @@ class Specy extends DataClass implements Insertable<Specy> {
       required this.nestlingWeighIntervalDays,
       required this.juvenileWeighIntervalDays,
       required this.adultWeighIntervalDays,
+      this.minWeightG,
+      this.maxWeightG,
       required this.createdAt,
       required this.updatedAt,
       this.deletedAt});
@@ -267,6 +305,12 @@ class Specy extends DataClass implements Insertable<Specy> {
     map['juvenile_weigh_interval_days'] =
         Variable<int>(juvenileWeighIntervalDays);
     map['adult_weigh_interval_days'] = Variable<int>(adultWeighIntervalDays);
+    if (!nullToAbsent || minWeightG != null) {
+      map['min_weight_g'] = Variable<double>(minWeightG);
+    }
+    if (!nullToAbsent || maxWeightG != null) {
+      map['max_weight_g'] = Variable<double>(maxWeightG);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -285,6 +329,12 @@ class Specy extends DataClass implements Insertable<Specy> {
       nestlingWeighIntervalDays: Value(nestlingWeighIntervalDays),
       juvenileWeighIntervalDays: Value(juvenileWeighIntervalDays),
       adultWeighIntervalDays: Value(adultWeighIntervalDays),
+      minWeightG: minWeightG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minWeightG),
+      maxWeightG: maxWeightG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxWeightG),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -308,6 +358,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           serializer.fromJson<int>(json['juvenileWeighIntervalDays']),
       adultWeighIntervalDays:
           serializer.fromJson<int>(json['adultWeighIntervalDays']),
+      minWeightG: serializer.fromJson<double?>(json['minWeightG']),
+      maxWeightG: serializer.fromJson<double?>(json['maxWeightG']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -327,6 +379,8 @@ class Specy extends DataClass implements Insertable<Specy> {
       'juvenileWeighIntervalDays':
           serializer.toJson<int>(juvenileWeighIntervalDays),
       'adultWeighIntervalDays': serializer.toJson<int>(adultWeighIntervalDays),
+      'minWeightG': serializer.toJson<double?>(minWeightG),
+      'maxWeightG': serializer.toJson<double?>(maxWeightG),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -342,6 +396,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           int? nestlingWeighIntervalDays,
           int? juvenileWeighIntervalDays,
           int? adultWeighIntervalDays,
+          Value<double?> minWeightG = const Value.absent(),
+          Value<double?> maxWeightG = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
           Value<DateTime?> deletedAt = const Value.absent()}) =>
@@ -357,6 +413,8 @@ class Specy extends DataClass implements Insertable<Specy> {
             juvenileWeighIntervalDays ?? this.juvenileWeighIntervalDays,
         adultWeighIntervalDays:
             adultWeighIntervalDays ?? this.adultWeighIntervalDays,
+        minWeightG: minWeightG.present ? minWeightG.value : this.minWeightG,
+        maxWeightG: maxWeightG.present ? maxWeightG.value : this.maxWeightG,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -381,6 +439,10 @@ class Specy extends DataClass implements Insertable<Specy> {
       adultWeighIntervalDays: data.adultWeighIntervalDays.present
           ? data.adultWeighIntervalDays.value
           : this.adultWeighIntervalDays,
+      minWeightG:
+          data.minWeightG.present ? data.minWeightG.value : this.minWeightG,
+      maxWeightG:
+          data.maxWeightG.present ? data.maxWeightG.value : this.maxWeightG,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -398,6 +460,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           ..write('nestlingWeighIntervalDays: $nestlingWeighIntervalDays, ')
           ..write('juvenileWeighIntervalDays: $juvenileWeighIntervalDays, ')
           ..write('adultWeighIntervalDays: $adultWeighIntervalDays, ')
+          ..write('minWeightG: $minWeightG, ')
+          ..write('maxWeightG: $maxWeightG, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -415,6 +479,8 @@ class Specy extends DataClass implements Insertable<Specy> {
       nestlingWeighIntervalDays,
       juvenileWeighIntervalDays,
       adultWeighIntervalDays,
+      minWeightG,
+      maxWeightG,
       createdAt,
       updatedAt,
       deletedAt);
@@ -430,6 +496,8 @@ class Specy extends DataClass implements Insertable<Specy> {
           other.nestlingWeighIntervalDays == this.nestlingWeighIntervalDays &&
           other.juvenileWeighIntervalDays == this.juvenileWeighIntervalDays &&
           other.adultWeighIntervalDays == this.adultWeighIntervalDays &&
+          other.minWeightG == this.minWeightG &&
+          other.maxWeightG == this.maxWeightG &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -444,6 +512,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
   final Value<int> nestlingWeighIntervalDays;
   final Value<int> juvenileWeighIntervalDays;
   final Value<int> adultWeighIntervalDays;
+  final Value<double?> minWeightG;
+  final Value<double?> maxWeightG;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -456,6 +526,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     this.nestlingWeighIntervalDays = const Value.absent(),
     this.juvenileWeighIntervalDays = const Value.absent(),
     this.adultWeighIntervalDays = const Value.absent(),
+    this.minWeightG = const Value.absent(),
+    this.maxWeightG = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -469,6 +541,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     this.nestlingWeighIntervalDays = const Value.absent(),
     this.juvenileWeighIntervalDays = const Value.absent(),
     this.adultWeighIntervalDays = const Value.absent(),
+    this.minWeightG = const Value.absent(),
+    this.maxWeightG = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -483,6 +557,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
     Expression<int>? nestlingWeighIntervalDays,
     Expression<int>? juvenileWeighIntervalDays,
     Expression<int>? adultWeighIntervalDays,
+    Expression<double>? minWeightG,
+    Expression<double>? maxWeightG,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -499,6 +575,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
         'juvenile_weigh_interval_days': juvenileWeighIntervalDays,
       if (adultWeighIntervalDays != null)
         'adult_weigh_interval_days': adultWeighIntervalDays,
+      if (minWeightG != null) 'min_weight_g': minWeightG,
+      if (maxWeightG != null) 'max_weight_g': maxWeightG,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -514,6 +592,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
       Value<int>? nestlingWeighIntervalDays,
       Value<int>? juvenileWeighIntervalDays,
       Value<int>? adultWeighIntervalDays,
+      Value<double?>? minWeightG,
+      Value<double?>? maxWeightG,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<DateTime?>? deletedAt}) {
@@ -529,6 +609,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
           juvenileWeighIntervalDays ?? this.juvenileWeighIntervalDays,
       adultWeighIntervalDays:
           adultWeighIntervalDays ?? this.adultWeighIntervalDays,
+      minWeightG: minWeightG ?? this.minWeightG,
+      maxWeightG: maxWeightG ?? this.maxWeightG,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -565,6 +647,12 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
       map['adult_weigh_interval_days'] =
           Variable<int>(adultWeighIntervalDays.value);
     }
+    if (minWeightG.present) {
+      map['min_weight_g'] = Variable<double>(minWeightG.value);
+    }
+    if (maxWeightG.present) {
+      map['max_weight_g'] = Variable<double>(maxWeightG.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -588,6 +676,8 @@ class SpeciesCompanion extends UpdateCompanion<Specy> {
           ..write('nestlingWeighIntervalDays: $nestlingWeighIntervalDays, ')
           ..write('juvenileWeighIntervalDays: $juvenileWeighIntervalDays, ')
           ..write('adultWeighIntervalDays: $adultWeighIntervalDays, ')
+          ..write('minWeightG: $minWeightG, ')
+          ..write('maxWeightG: $maxWeightG, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -2013,6 +2103,14 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
       requiredDuringInsert: false,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("weaning_override" IN (0, 1))'));
+  static const VerificationMeta _stageOverrideMeta =
+      const VerificationMeta('stageOverride');
+  @override
+  late final GeneratedColumn<String> stageOverride = GeneratedColumn<String>(
+      'stage_override', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2065,6 +2163,7 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
         weighIntervalDays,
         manualBaselineG,
         weaningOverride,
+        stageOverride,
         status,
         notes,
         createdAt,
@@ -2150,6 +2249,12 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           weaningOverride.isAcceptableOrUnknown(
               data['weaning_override']!, _weaningOverrideMeta));
     }
+    if (data.containsKey('stage_override')) {
+      context.handle(
+          _stageOverrideMeta,
+          stageOverride.isAcceptableOrUnknown(
+              data['stage_override']!, _stageOverrideMeta));
+    }
     if (data.containsKey('status')) {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
@@ -2205,6 +2310,8 @@ class $BirdsTable extends Birds with TableInfo<$BirdsTable, Bird> {
           DriftSqlType.double, data['${effectivePrefix}manual_baseline_g']),
       weaningOverride: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}weaning_override']),
+      stageOverride: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stage_override']),
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       notes: attachedDatabase.typeMapping
@@ -2259,6 +2366,10 @@ class Bird extends DataClass implements Insertable<Bird> {
   /// 断奶期覆盖：NULL=自动检测，true=强制开启，false=强制关闭
   final bool? weaningOverride;
 
+  /// 生理阶段手动覆盖（NULL=自动推断，非空=强制使用该阶段）
+  /// 用于无法自动推断的场景，如换羽期；取值为 RecipeStage 常量
+  final String? stageOverride;
+
   /// 状态：正常/异常/已离舍
   final String status;
 
@@ -2281,6 +2392,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       this.weighIntervalDays,
       this.manualBaselineG,
       this.weaningOverride,
+      this.stageOverride,
       required this.status,
       this.notes,
       required this.createdAt,
@@ -2313,6 +2425,9 @@ class Bird extends DataClass implements Insertable<Bird> {
     }
     if (!nullToAbsent || weaningOverride != null) {
       map['weaning_override'] = Variable<bool>(weaningOverride);
+    }
+    if (!nullToAbsent || stageOverride != null) {
+      map['stage_override'] = Variable<String>(stageOverride);
     }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
@@ -2352,6 +2467,9 @@ class Bird extends DataClass implements Insertable<Bird> {
       weaningOverride: weaningOverride == null && nullToAbsent
           ? const Value.absent()
           : Value(weaningOverride),
+      stageOverride: stageOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stageOverride),
       status: Value(status),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
@@ -2380,6 +2498,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       weighIntervalDays: serializer.fromJson<int?>(json['weighIntervalDays']),
       manualBaselineG: serializer.fromJson<double?>(json['manualBaselineG']),
       weaningOverride: serializer.fromJson<bool?>(json['weaningOverride']),
+      stageOverride: serializer.fromJson<String?>(json['stageOverride']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -2404,6 +2523,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       'weighIntervalDays': serializer.toJson<int?>(weighIntervalDays),
       'manualBaselineG': serializer.toJson<double?>(manualBaselineG),
       'weaningOverride': serializer.toJson<bool?>(weaningOverride),
+      'stageOverride': serializer.toJson<String?>(stageOverride),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -2426,6 +2546,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           Value<int?> weighIntervalDays = const Value.absent(),
           Value<double?> manualBaselineG = const Value.absent(),
           Value<bool?> weaningOverride = const Value.absent(),
+          Value<String?> stageOverride = const Value.absent(),
           String? status,
           Value<String?> notes = const Value.absent(),
           DateTime? createdAt,
@@ -2451,6 +2572,8 @@ class Bird extends DataClass implements Insertable<Bird> {
         weaningOverride: weaningOverride.present
             ? weaningOverride.value
             : this.weaningOverride,
+        stageOverride:
+            stageOverride.present ? stageOverride.value : this.stageOverride,
         status: status ?? this.status,
         notes: notes.present ? notes.value : this.notes,
         createdAt: createdAt ?? this.createdAt,
@@ -2480,6 +2603,9 @@ class Bird extends DataClass implements Insertable<Bird> {
       weaningOverride: data.weaningOverride.present
           ? data.weaningOverride.value
           : this.weaningOverride,
+      stageOverride: data.stageOverride.present
+          ? data.stageOverride.value
+          : this.stageOverride,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -2504,6 +2630,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           ..write('weighIntervalDays: $weighIntervalDays, ')
           ..write('manualBaselineG: $manualBaselineG, ')
           ..write('weaningOverride: $weaningOverride, ')
+          ..write('stageOverride: $stageOverride, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -2528,6 +2655,7 @@ class Bird extends DataClass implements Insertable<Bird> {
       weighIntervalDays,
       manualBaselineG,
       weaningOverride,
+      stageOverride,
       status,
       notes,
       createdAt,
@@ -2550,6 +2678,7 @@ class Bird extends DataClass implements Insertable<Bird> {
           other.weighIntervalDays == this.weighIntervalDays &&
           other.manualBaselineG == this.manualBaselineG &&
           other.weaningOverride == this.weaningOverride &&
+          other.stageOverride == this.stageOverride &&
           other.status == this.status &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
@@ -2571,6 +2700,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
   final Value<int?> weighIntervalDays;
   final Value<double?> manualBaselineG;
   final Value<bool?> weaningOverride;
+  final Value<String?> stageOverride;
   final Value<String> status;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -2590,6 +2720,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.weighIntervalDays = const Value.absent(),
     this.manualBaselineG = const Value.absent(),
     this.weaningOverride = const Value.absent(),
+    this.stageOverride = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2610,6 +2741,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     this.weighIntervalDays = const Value.absent(),
     this.manualBaselineG = const Value.absent(),
     this.weaningOverride = const Value.absent(),
+    this.stageOverride = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2633,6 +2765,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     Expression<int>? weighIntervalDays,
     Expression<double>? manualBaselineG,
     Expression<bool>? weaningOverride,
+    Expression<String>? stageOverride,
     Expression<String>? status,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -2653,6 +2786,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       if (weighIntervalDays != null) 'weigh_interval_days': weighIntervalDays,
       if (manualBaselineG != null) 'manual_baseline_g': manualBaselineG,
       if (weaningOverride != null) 'weaning_override': weaningOverride,
+      if (stageOverride != null) 'stage_override': stageOverride,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -2675,6 +2809,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       Value<int?>? weighIntervalDays,
       Value<double?>? manualBaselineG,
       Value<bool?>? weaningOverride,
+      Value<String?>? stageOverride,
       Value<String>? status,
       Value<String?>? notes,
       Value<DateTime>? createdAt,
@@ -2694,6 +2829,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
       weighIntervalDays: weighIntervalDays ?? this.weighIntervalDays,
       manualBaselineG: manualBaselineG ?? this.manualBaselineG,
       weaningOverride: weaningOverride ?? this.weaningOverride,
+      stageOverride: stageOverride ?? this.stageOverride,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -2744,6 +2880,9 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
     if (weaningOverride.present) {
       map['weaning_override'] = Variable<bool>(weaningOverride.value);
     }
+    if (stageOverride.present) {
+      map['stage_override'] = Variable<String>(stageOverride.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -2778,6 +2917,7 @@ class BirdsCompanion extends UpdateCompanion<Bird> {
           ..write('weighIntervalDays: $weighIntervalDays, ')
           ..write('manualBaselineG: $manualBaselineG, ')
           ..write('weaningOverride: $weaningOverride, ')
+          ..write('stageOverride: $stageOverride, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -5110,6 +5250,1965 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }
 }
 
+class $DrugLibraryTable extends DrugLibrary
+    with TableInfo<$DrugLibraryTable, DrugLibraryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DrugLibraryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _drugNameMeta =
+      const VerificationMeta('drugName');
+  @override
+  late final GeneratedColumn<String> drugName = GeneratedColumn<String>(
+      'drug_name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _brandNameMeta =
+      const VerificationMeta('brandName');
+  @override
+  late final GeneratedColumn<String> brandName = GeneratedColumn<String>(
+      'brand_name', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _activeIngredientMeta =
+      const VerificationMeta('activeIngredient');
+  @override
+  late final GeneratedColumn<String> activeIngredient = GeneratedColumn<String>(
+      'active_ingredient', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 200),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _drugCategoryMeta =
+      const VerificationMeta('drugCategory');
+  @override
+  late final GeneratedColumn<String> drugCategory = GeneratedColumn<String>(
+      'drug_category', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('其他'));
+  static const VerificationMeta _formulationTypeMeta =
+      const VerificationMeta('formulationType');
+  @override
+  late final GeneratedColumn<String> formulationType = GeneratedColumn<String>(
+      'formulation_type', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('滴剂'));
+  static const VerificationMeta _storageInstructionsMeta =
+      const VerificationMeta('storageInstructions');
+  @override
+  late final GeneratedColumn<String> storageInstructions =
+      GeneratedColumn<String>('storage_instructions', aliasedName, true,
+          additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+          type: DriftSqlType.string,
+          requiredDuringInsert: false);
+  static const VerificationMeta _openedExpiryDaysMeta =
+      const VerificationMeta('openedExpiryDays');
+  @override
+  late final GeneratedColumn<int> openedExpiryDays = GeneratedColumn<int>(
+      'opened_expiry_days', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        drugName,
+        brandName,
+        activeIngredient,
+        drugCategory,
+        formulationType,
+        storageInstructions,
+        openedExpiryDays,
+        notes,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'drug_library';
+  @override
+  VerificationContext validateIntegrity(Insertable<DrugLibraryData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('drug_name')) {
+      context.handle(_drugNameMeta,
+          drugName.isAcceptableOrUnknown(data['drug_name']!, _drugNameMeta));
+    } else if (isInserting) {
+      context.missing(_drugNameMeta);
+    }
+    if (data.containsKey('brand_name')) {
+      context.handle(_brandNameMeta,
+          brandName.isAcceptableOrUnknown(data['brand_name']!, _brandNameMeta));
+    }
+    if (data.containsKey('active_ingredient')) {
+      context.handle(
+          _activeIngredientMeta,
+          activeIngredient.isAcceptableOrUnknown(
+              data['active_ingredient']!, _activeIngredientMeta));
+    }
+    if (data.containsKey('drug_category')) {
+      context.handle(
+          _drugCategoryMeta,
+          drugCategory.isAcceptableOrUnknown(
+              data['drug_category']!, _drugCategoryMeta));
+    }
+    if (data.containsKey('formulation_type')) {
+      context.handle(
+          _formulationTypeMeta,
+          formulationType.isAcceptableOrUnknown(
+              data['formulation_type']!, _formulationTypeMeta));
+    }
+    if (data.containsKey('storage_instructions')) {
+      context.handle(
+          _storageInstructionsMeta,
+          storageInstructions.isAcceptableOrUnknown(
+              data['storage_instructions']!, _storageInstructionsMeta));
+    }
+    if (data.containsKey('opened_expiry_days')) {
+      context.handle(
+          _openedExpiryDaysMeta,
+          openedExpiryDays.isAcceptableOrUnknown(
+              data['opened_expiry_days']!, _openedExpiryDaysMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DrugLibraryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DrugLibraryData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      drugName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}drug_name'])!,
+      brandName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}brand_name']),
+      activeIngredient: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}active_ingredient']),
+      drugCategory: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}drug_category'])!,
+      formulationType: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}formulation_type'])!,
+      storageInstructions: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}storage_instructions']),
+      openedExpiryDays: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}opened_expiry_days']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $DrugLibraryTable createAlias(String alias) {
+    return $DrugLibraryTable(attachedDatabase, alias);
+  }
+}
+
+class DrugLibraryData extends DataClass implements Insertable<DrugLibraryData> {
+  final int id;
+  final String uuid;
+
+  /// 药品名称
+  final String drugName;
+
+  /// 商品名
+  final String? brandName;
+
+  /// 有效成分
+  final String? activeIngredient;
+
+  /// 药物类别：抗生素/驱虫/维生素/益生菌/抗真菌/其他
+  final String drugCategory;
+
+  /// 剂型：滴剂/片剂/胶囊/粉剂/注射液
+  final String formulationType;
+
+  /// 保存方式
+  final String? storageInstructions;
+
+  /// 开封有效期（天）
+  final int? openedExpiryDays;
+
+  /// 备注
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const DrugLibraryData(
+      {required this.id,
+      required this.uuid,
+      required this.drugName,
+      this.brandName,
+      this.activeIngredient,
+      required this.drugCategory,
+      required this.formulationType,
+      this.storageInstructions,
+      this.openedExpiryDays,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['drug_name'] = Variable<String>(drugName);
+    if (!nullToAbsent || brandName != null) {
+      map['brand_name'] = Variable<String>(brandName);
+    }
+    if (!nullToAbsent || activeIngredient != null) {
+      map['active_ingredient'] = Variable<String>(activeIngredient);
+    }
+    map['drug_category'] = Variable<String>(drugCategory);
+    map['formulation_type'] = Variable<String>(formulationType);
+    if (!nullToAbsent || storageInstructions != null) {
+      map['storage_instructions'] = Variable<String>(storageInstructions);
+    }
+    if (!nullToAbsent || openedExpiryDays != null) {
+      map['opened_expiry_days'] = Variable<int>(openedExpiryDays);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  DrugLibraryCompanion toCompanion(bool nullToAbsent) {
+    return DrugLibraryCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      drugName: Value(drugName),
+      brandName: brandName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brandName),
+      activeIngredient: activeIngredient == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activeIngredient),
+      drugCategory: Value(drugCategory),
+      formulationType: Value(formulationType),
+      storageInstructions: storageInstructions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storageInstructions),
+      openedExpiryDays: openedExpiryDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openedExpiryDays),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory DrugLibraryData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DrugLibraryData(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      drugName: serializer.fromJson<String>(json['drugName']),
+      brandName: serializer.fromJson<String?>(json['brandName']),
+      activeIngredient: serializer.fromJson<String?>(json['activeIngredient']),
+      drugCategory: serializer.fromJson<String>(json['drugCategory']),
+      formulationType: serializer.fromJson<String>(json['formulationType']),
+      storageInstructions:
+          serializer.fromJson<String?>(json['storageInstructions']),
+      openedExpiryDays: serializer.fromJson<int?>(json['openedExpiryDays']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'drugName': serializer.toJson<String>(drugName),
+      'brandName': serializer.toJson<String?>(brandName),
+      'activeIngredient': serializer.toJson<String?>(activeIngredient),
+      'drugCategory': serializer.toJson<String>(drugCategory),
+      'formulationType': serializer.toJson<String>(formulationType),
+      'storageInstructions': serializer.toJson<String?>(storageInstructions),
+      'openedExpiryDays': serializer.toJson<int?>(openedExpiryDays),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  DrugLibraryData copyWith(
+          {int? id,
+          String? uuid,
+          String? drugName,
+          Value<String?> brandName = const Value.absent(),
+          Value<String?> activeIngredient = const Value.absent(),
+          String? drugCategory,
+          String? formulationType,
+          Value<String?> storageInstructions = const Value.absent(),
+          Value<int?> openedExpiryDays = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      DrugLibraryData(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        drugName: drugName ?? this.drugName,
+        brandName: brandName.present ? brandName.value : this.brandName,
+        activeIngredient: activeIngredient.present
+            ? activeIngredient.value
+            : this.activeIngredient,
+        drugCategory: drugCategory ?? this.drugCategory,
+        formulationType: formulationType ?? this.formulationType,
+        storageInstructions: storageInstructions.present
+            ? storageInstructions.value
+            : this.storageInstructions,
+        openedExpiryDays: openedExpiryDays.present
+            ? openedExpiryDays.value
+            : this.openedExpiryDays,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  DrugLibraryData copyWithCompanion(DrugLibraryCompanion data) {
+    return DrugLibraryData(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      drugName: data.drugName.present ? data.drugName.value : this.drugName,
+      brandName: data.brandName.present ? data.brandName.value : this.brandName,
+      activeIngredient: data.activeIngredient.present
+          ? data.activeIngredient.value
+          : this.activeIngredient,
+      drugCategory: data.drugCategory.present
+          ? data.drugCategory.value
+          : this.drugCategory,
+      formulationType: data.formulationType.present
+          ? data.formulationType.value
+          : this.formulationType,
+      storageInstructions: data.storageInstructions.present
+          ? data.storageInstructions.value
+          : this.storageInstructions,
+      openedExpiryDays: data.openedExpiryDays.present
+          ? data.openedExpiryDays.value
+          : this.openedExpiryDays,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DrugLibraryData(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('drugName: $drugName, ')
+          ..write('brandName: $brandName, ')
+          ..write('activeIngredient: $activeIngredient, ')
+          ..write('drugCategory: $drugCategory, ')
+          ..write('formulationType: $formulationType, ')
+          ..write('storageInstructions: $storageInstructions, ')
+          ..write('openedExpiryDays: $openedExpiryDays, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      uuid,
+      drugName,
+      brandName,
+      activeIngredient,
+      drugCategory,
+      formulationType,
+      storageInstructions,
+      openedExpiryDays,
+      notes,
+      createdAt,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DrugLibraryData &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.drugName == this.drugName &&
+          other.brandName == this.brandName &&
+          other.activeIngredient == this.activeIngredient &&
+          other.drugCategory == this.drugCategory &&
+          other.formulationType == this.formulationType &&
+          other.storageInstructions == this.storageInstructions &&
+          other.openedExpiryDays == this.openedExpiryDays &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class DrugLibraryCompanion extends UpdateCompanion<DrugLibraryData> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<String> drugName;
+  final Value<String?> brandName;
+  final Value<String?> activeIngredient;
+  final Value<String> drugCategory;
+  final Value<String> formulationType;
+  final Value<String?> storageInstructions;
+  final Value<int?> openedExpiryDays;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const DrugLibraryCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.drugName = const Value.absent(),
+    this.brandName = const Value.absent(),
+    this.activeIngredient = const Value.absent(),
+    this.drugCategory = const Value.absent(),
+    this.formulationType = const Value.absent(),
+    this.storageInstructions = const Value.absent(),
+    this.openedExpiryDays = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  DrugLibraryCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required String drugName,
+    this.brandName = const Value.absent(),
+    this.activeIngredient = const Value.absent(),
+    this.drugCategory = const Value.absent(),
+    this.formulationType = const Value.absent(),
+    this.storageInstructions = const Value.absent(),
+    this.openedExpiryDays = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        drugName = Value(drugName);
+  static Insertable<DrugLibraryData> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<String>? drugName,
+    Expression<String>? brandName,
+    Expression<String>? activeIngredient,
+    Expression<String>? drugCategory,
+    Expression<String>? formulationType,
+    Expression<String>? storageInstructions,
+    Expression<int>? openedExpiryDays,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (drugName != null) 'drug_name': drugName,
+      if (brandName != null) 'brand_name': brandName,
+      if (activeIngredient != null) 'active_ingredient': activeIngredient,
+      if (drugCategory != null) 'drug_category': drugCategory,
+      if (formulationType != null) 'formulation_type': formulationType,
+      if (storageInstructions != null)
+        'storage_instructions': storageInstructions,
+      if (openedExpiryDays != null) 'opened_expiry_days': openedExpiryDays,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  DrugLibraryCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<String>? drugName,
+      Value<String?>? brandName,
+      Value<String?>? activeIngredient,
+      Value<String>? drugCategory,
+      Value<String>? formulationType,
+      Value<String?>? storageInstructions,
+      Value<int?>? openedExpiryDays,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return DrugLibraryCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      drugName: drugName ?? this.drugName,
+      brandName: brandName ?? this.brandName,
+      activeIngredient: activeIngredient ?? this.activeIngredient,
+      drugCategory: drugCategory ?? this.drugCategory,
+      formulationType: formulationType ?? this.formulationType,
+      storageInstructions: storageInstructions ?? this.storageInstructions,
+      openedExpiryDays: openedExpiryDays ?? this.openedExpiryDays,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (drugName.present) {
+      map['drug_name'] = Variable<String>(drugName.value);
+    }
+    if (brandName.present) {
+      map['brand_name'] = Variable<String>(brandName.value);
+    }
+    if (activeIngredient.present) {
+      map['active_ingredient'] = Variable<String>(activeIngredient.value);
+    }
+    if (drugCategory.present) {
+      map['drug_category'] = Variable<String>(drugCategory.value);
+    }
+    if (formulationType.present) {
+      map['formulation_type'] = Variable<String>(formulationType.value);
+    }
+    if (storageInstructions.present) {
+      map['storage_instructions'] = Variable<String>(storageInstructions.value);
+    }
+    if (openedExpiryDays.present) {
+      map['opened_expiry_days'] = Variable<int>(openedExpiryDays.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DrugLibraryCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('drugName: $drugName, ')
+          ..write('brandName: $brandName, ')
+          ..write('activeIngredient: $activeIngredient, ')
+          ..write('drugCategory: $drugCategory, ')
+          ..write('formulationType: $formulationType, ')
+          ..write('storageInstructions: $storageInstructions, ')
+          ..write('openedExpiryDays: $openedExpiryDays, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DrugFormulationsTable extends DrugFormulations
+    with TableInfo<$DrugFormulationsTable, DrugFormulation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DrugFormulationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _drugIdMeta = const VerificationMeta('drugId');
+  @override
+  late final GeneratedColumn<int> drugId = GeneratedColumn<int>(
+      'drug_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES drug_library (id) ON DELETE CASCADE'));
+  static const VerificationMeta _concentrationMeta =
+      const VerificationMeta('concentration');
+  @override
+  late final GeneratedColumn<double> concentration = GeneratedColumn<double>(
+      'concentration', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+      'unit', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('mg/mL'));
+  static const VerificationMeta _isDefaultMeta =
+      const VerificationMeta('isDefault');
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+      'is_default', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_default" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+      'label', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, drugId, concentration, unit, isDefault, label, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'drug_formulations';
+  @override
+  VerificationContext validateIntegrity(Insertable<DrugFormulation> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('drug_id')) {
+      context.handle(_drugIdMeta,
+          drugId.isAcceptableOrUnknown(data['drug_id']!, _drugIdMeta));
+    } else if (isInserting) {
+      context.missing(_drugIdMeta);
+    }
+    if (data.containsKey('concentration')) {
+      context.handle(
+          _concentrationMeta,
+          concentration.isAcceptableOrUnknown(
+              data['concentration']!, _concentrationMeta));
+    } else if (isInserting) {
+      context.missing(_concentrationMeta);
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+          _unitMeta, unit.isAcceptableOrUnknown(data['unit']!, _unitMeta));
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(_isDefaultMeta,
+          isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta));
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+          _labelMeta, label.isAcceptableOrUnknown(data['label']!, _labelMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DrugFormulation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DrugFormulation(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      drugId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}drug_id'])!,
+      concentration: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}concentration'])!,
+      unit: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unit'])!,
+      isDefault: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_default'])!,
+      label: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}label']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $DrugFormulationsTable createAlias(String alias) {
+    return $DrugFormulationsTable(attachedDatabase, alias);
+  }
+}
+
+class DrugFormulation extends DataClass implements Insertable<DrugFormulation> {
+  final int id;
+
+  /// 关联药品
+  final int drugId;
+
+  /// 浓度数值
+  final double concentration;
+
+  /// 单位：mg/mL, mg/片, IU/mL, % 等
+  final String unit;
+
+  /// 是否默认规格
+  final bool isDefault;
+
+  /// 显示标签，如 "25mg/mL 装"
+  final String? label;
+  final DateTime createdAt;
+  const DrugFormulation(
+      {required this.id,
+      required this.drugId,
+      required this.concentration,
+      required this.unit,
+      required this.isDefault,
+      this.label,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['drug_id'] = Variable<int>(drugId);
+    map['concentration'] = Variable<double>(concentration);
+    map['unit'] = Variable<String>(unit);
+    map['is_default'] = Variable<bool>(isDefault);
+    if (!nullToAbsent || label != null) {
+      map['label'] = Variable<String>(label);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  DrugFormulationsCompanion toCompanion(bool nullToAbsent) {
+    return DrugFormulationsCompanion(
+      id: Value(id),
+      drugId: Value(drugId),
+      concentration: Value(concentration),
+      unit: Value(unit),
+      isDefault: Value(isDefault),
+      label:
+          label == null && nullToAbsent ? const Value.absent() : Value(label),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory DrugFormulation.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DrugFormulation(
+      id: serializer.fromJson<int>(json['id']),
+      drugId: serializer.fromJson<int>(json['drugId']),
+      concentration: serializer.fromJson<double>(json['concentration']),
+      unit: serializer.fromJson<String>(json['unit']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+      label: serializer.fromJson<String?>(json['label']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'drugId': serializer.toJson<int>(drugId),
+      'concentration': serializer.toJson<double>(concentration),
+      'unit': serializer.toJson<String>(unit),
+      'isDefault': serializer.toJson<bool>(isDefault),
+      'label': serializer.toJson<String?>(label),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  DrugFormulation copyWith(
+          {int? id,
+          int? drugId,
+          double? concentration,
+          String? unit,
+          bool? isDefault,
+          Value<String?> label = const Value.absent(),
+          DateTime? createdAt}) =>
+      DrugFormulation(
+        id: id ?? this.id,
+        drugId: drugId ?? this.drugId,
+        concentration: concentration ?? this.concentration,
+        unit: unit ?? this.unit,
+        isDefault: isDefault ?? this.isDefault,
+        label: label.present ? label.value : this.label,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  DrugFormulation copyWithCompanion(DrugFormulationsCompanion data) {
+    return DrugFormulation(
+      id: data.id.present ? data.id.value : this.id,
+      drugId: data.drugId.present ? data.drugId.value : this.drugId,
+      concentration: data.concentration.present
+          ? data.concentration.value
+          : this.concentration,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+      label: data.label.present ? data.label.value : this.label,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DrugFormulation(')
+          ..write('id: $id, ')
+          ..write('drugId: $drugId, ')
+          ..write('concentration: $concentration, ')
+          ..write('unit: $unit, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('label: $label, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, drugId, concentration, unit, isDefault, label, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DrugFormulation &&
+          other.id == this.id &&
+          other.drugId == this.drugId &&
+          other.concentration == this.concentration &&
+          other.unit == this.unit &&
+          other.isDefault == this.isDefault &&
+          other.label == this.label &&
+          other.createdAt == this.createdAt);
+}
+
+class DrugFormulationsCompanion extends UpdateCompanion<DrugFormulation> {
+  final Value<int> id;
+  final Value<int> drugId;
+  final Value<double> concentration;
+  final Value<String> unit;
+  final Value<bool> isDefault;
+  final Value<String?> label;
+  final Value<DateTime> createdAt;
+  const DrugFormulationsCompanion({
+    this.id = const Value.absent(),
+    this.drugId = const Value.absent(),
+    this.concentration = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.label = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  DrugFormulationsCompanion.insert({
+    this.id = const Value.absent(),
+    required int drugId,
+    required double concentration,
+    this.unit = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.label = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : drugId = Value(drugId),
+        concentration = Value(concentration);
+  static Insertable<DrugFormulation> custom({
+    Expression<int>? id,
+    Expression<int>? drugId,
+    Expression<double>? concentration,
+    Expression<String>? unit,
+    Expression<bool>? isDefault,
+    Expression<String>? label,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (drugId != null) 'drug_id': drugId,
+      if (concentration != null) 'concentration': concentration,
+      if (unit != null) 'unit': unit,
+      if (isDefault != null) 'is_default': isDefault,
+      if (label != null) 'label': label,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  DrugFormulationsCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? drugId,
+      Value<double>? concentration,
+      Value<String>? unit,
+      Value<bool>? isDefault,
+      Value<String?>? label,
+      Value<DateTime>? createdAt}) {
+    return DrugFormulationsCompanion(
+      id: id ?? this.id,
+      drugId: drugId ?? this.drugId,
+      concentration: concentration ?? this.concentration,
+      unit: unit ?? this.unit,
+      isDefault: isDefault ?? this.isDefault,
+      label: label ?? this.label,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (drugId.present) {
+      map['drug_id'] = Variable<int>(drugId.value);
+    }
+    if (concentration.present) {
+      map['concentration'] = Variable<double>(concentration.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DrugFormulationsCompanion(')
+          ..write('id: $id, ')
+          ..write('drugId: $drugId, ')
+          ..write('concentration: $concentration, ')
+          ..write('unit: $unit, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('label: $label, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DiseaseCatalogTable extends DiseaseCatalog
+    with TableInfo<$DiseaseCatalogTable, DiseaseCatalogData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiseaseCatalogTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _diseaseNameMeta =
+      const VerificationMeta('diseaseName');
+  @override
+  late final GeneratedColumn<String> diseaseName = GeneratedColumn<String>(
+      'disease_name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _descriptionMeta =
+      const VerificationMeta('description');
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+      'description', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, diseaseName, description, createdAt, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'disease_catalog';
+  @override
+  VerificationContext validateIntegrity(Insertable<DiseaseCatalogData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('disease_name')) {
+      context.handle(
+          _diseaseNameMeta,
+          diseaseName.isAcceptableOrUnknown(
+              data['disease_name']!, _diseaseNameMeta));
+    } else if (isInserting) {
+      context.missing(_diseaseNameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+          _descriptionMeta,
+          description.isAcceptableOrUnknown(
+              data['description']!, _descriptionMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DiseaseCatalogData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiseaseCatalogData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      diseaseName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}disease_name'])!,
+      description: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}description']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $DiseaseCatalogTable createAlias(String alias) {
+    return $DiseaseCatalogTable(attachedDatabase, alias);
+  }
+}
+
+class DiseaseCatalogData extends DataClass
+    implements Insertable<DiseaseCatalogData> {
+  final int id;
+  final String uuid;
+
+  /// 疾病名称
+  final String diseaseName;
+
+  /// 说明
+  final String? description;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const DiseaseCatalogData(
+      {required this.id,
+      required this.uuid,
+      required this.diseaseName,
+      this.description,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['disease_name'] = Variable<String>(diseaseName);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  DiseaseCatalogCompanion toCompanion(bool nullToAbsent) {
+    return DiseaseCatalogCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      diseaseName: Value(diseaseName),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory DiseaseCatalogData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiseaseCatalogData(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      diseaseName: serializer.fromJson<String>(json['diseaseName']),
+      description: serializer.fromJson<String?>(json['description']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'diseaseName': serializer.toJson<String>(diseaseName),
+      'description': serializer.toJson<String?>(description),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  DiseaseCatalogData copyWith(
+          {int? id,
+          String? uuid,
+          String? diseaseName,
+          Value<String?> description = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      DiseaseCatalogData(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        diseaseName: diseaseName ?? this.diseaseName,
+        description: description.present ? description.value : this.description,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  DiseaseCatalogData copyWithCompanion(DiseaseCatalogCompanion data) {
+    return DiseaseCatalogData(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      diseaseName:
+          data.diseaseName.present ? data.diseaseName.value : this.diseaseName,
+      description:
+          data.description.present ? data.description.value : this.description,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiseaseCatalogData(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('diseaseName: $diseaseName, ')
+          ..write('description: $description, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, uuid, diseaseName, description, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiseaseCatalogData &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.diseaseName == this.diseaseName &&
+          other.description == this.description &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class DiseaseCatalogCompanion extends UpdateCompanion<DiseaseCatalogData> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<String> diseaseName;
+  final Value<String?> description;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const DiseaseCatalogCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.diseaseName = const Value.absent(),
+    this.description = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  DiseaseCatalogCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required String diseaseName,
+    this.description = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        diseaseName = Value(diseaseName);
+  static Insertable<DiseaseCatalogData> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<String>? diseaseName,
+    Expression<String>? description,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (diseaseName != null) 'disease_name': diseaseName,
+      if (description != null) 'description': description,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  DiseaseCatalogCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<String>? diseaseName,
+      Value<String?>? description,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return DiseaseCatalogCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      diseaseName: diseaseName ?? this.diseaseName,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (diseaseName.present) {
+      map['disease_name'] = Variable<String>(diseaseName.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiseaseCatalogCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('diseaseName: $diseaseName, ')
+          ..write('description: $description, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DoseRulesTable extends DoseRules
+    with TableInfo<$DoseRulesTable, DoseRule> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DoseRulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _drugIdMeta = const VerificationMeta('drugId');
+  @override
+  late final GeneratedColumn<int> drugId = GeneratedColumn<int>(
+      'drug_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES drug_library (id) ON DELETE CASCADE'));
+  static const VerificationMeta _diseaseIdMeta =
+      const VerificationMeta('diseaseId');
+  @override
+  late final GeneratedColumn<int> diseaseId = GeneratedColumn<int>(
+      'disease_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES disease_catalog (id) ON DELETE CASCADE'));
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _mgKgDoseMeta =
+      const VerificationMeta('mgKgDose');
+  @override
+  late final GeneratedColumn<double> mgKgDose = GeneratedColumn<double>(
+      'mg_kg_dose', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _timesPerDayMeta =
+      const VerificationMeta('timesPerDay');
+  @override
+  late final GeneratedColumn<int> timesPerDay = GeneratedColumn<int>(
+      'times_per_day', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _durationDaysMeta =
+      const VerificationMeta('durationDays');
+  @override
+  late final GeneratedColumn<int> durationDays = GeneratedColumn<int>(
+      'duration_days', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _administrationRouteMeta =
+      const VerificationMeta('administrationRoute');
+  @override
+  late final GeneratedColumn<String> administrationRoute =
+      GeneratedColumn<String>('administration_route', aliasedName, false,
+          additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('口服'));
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        drugId,
+        diseaseId,
+        speciesId,
+        mgKgDose,
+        timesPerDay,
+        durationDays,
+        administrationRoute,
+        notes,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'dose_rules';
+  @override
+  VerificationContext validateIntegrity(Insertable<DoseRule> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('drug_id')) {
+      context.handle(_drugIdMeta,
+          drugId.isAcceptableOrUnknown(data['drug_id']!, _drugIdMeta));
+    } else if (isInserting) {
+      context.missing(_drugIdMeta);
+    }
+    if (data.containsKey('disease_id')) {
+      context.handle(_diseaseIdMeta,
+          diseaseId.isAcceptableOrUnknown(data['disease_id']!, _diseaseIdMeta));
+    } else if (isInserting) {
+      context.missing(_diseaseIdMeta);
+    }
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    }
+    if (data.containsKey('mg_kg_dose')) {
+      context.handle(_mgKgDoseMeta,
+          mgKgDose.isAcceptableOrUnknown(data['mg_kg_dose']!, _mgKgDoseMeta));
+    } else if (isInserting) {
+      context.missing(_mgKgDoseMeta);
+    }
+    if (data.containsKey('times_per_day')) {
+      context.handle(
+          _timesPerDayMeta,
+          timesPerDay.isAcceptableOrUnknown(
+              data['times_per_day']!, _timesPerDayMeta));
+    } else if (isInserting) {
+      context.missing(_timesPerDayMeta);
+    }
+    if (data.containsKey('duration_days')) {
+      context.handle(
+          _durationDaysMeta,
+          durationDays.isAcceptableOrUnknown(
+              data['duration_days']!, _durationDaysMeta));
+    } else if (isInserting) {
+      context.missing(_durationDaysMeta);
+    }
+    if (data.containsKey('administration_route')) {
+      context.handle(
+          _administrationRouteMeta,
+          administrationRoute.isAcceptableOrUnknown(
+              data['administration_route']!, _administrationRouteMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DoseRule map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DoseRule(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      drugId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}drug_id'])!,
+      diseaseId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}disease_id'])!,
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id']),
+      mgKgDose: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}mg_kg_dose'])!,
+      timesPerDay: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}times_per_day'])!,
+      durationDays: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}duration_days'])!,
+      administrationRoute: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}administration_route'])!,
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $DoseRulesTable createAlias(String alias) {
+    return $DoseRulesTable(attachedDatabase, alias);
+  }
+}
+
+class DoseRule extends DataClass implements Insertable<DoseRule> {
+  final int id;
+
+  /// 关联药品
+  final int drugId;
+
+  /// 关联疾病
+  final int diseaseId;
+
+  /// 关联品种（null = 通用规则）
+  final int? speciesId;
+
+  /// 剂量 (mg/kg)
+  final double mgKgDose;
+
+  /// 每日次数
+  final int timesPerDay;
+
+  /// 疗程天数
+  final int durationDays;
+
+  /// 给药途径：口服/注射/外用/滴眼/其他
+  final String administrationRoute;
+
+  /// 备注（来源：兽医/教材/文献）
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const DoseRule(
+      {required this.id,
+      required this.drugId,
+      required this.diseaseId,
+      this.speciesId,
+      required this.mgKgDose,
+      required this.timesPerDay,
+      required this.durationDays,
+      required this.administrationRoute,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['drug_id'] = Variable<int>(drugId);
+    map['disease_id'] = Variable<int>(diseaseId);
+    if (!nullToAbsent || speciesId != null) {
+      map['species_id'] = Variable<int>(speciesId);
+    }
+    map['mg_kg_dose'] = Variable<double>(mgKgDose);
+    map['times_per_day'] = Variable<int>(timesPerDay);
+    map['duration_days'] = Variable<int>(durationDays);
+    map['administration_route'] = Variable<String>(administrationRoute);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  DoseRulesCompanion toCompanion(bool nullToAbsent) {
+    return DoseRulesCompanion(
+      id: Value(id),
+      drugId: Value(drugId),
+      diseaseId: Value(diseaseId),
+      speciesId: speciesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speciesId),
+      mgKgDose: Value(mgKgDose),
+      timesPerDay: Value(timesPerDay),
+      durationDays: Value(durationDays),
+      administrationRoute: Value(administrationRoute),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory DoseRule.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DoseRule(
+      id: serializer.fromJson<int>(json['id']),
+      drugId: serializer.fromJson<int>(json['drugId']),
+      diseaseId: serializer.fromJson<int>(json['diseaseId']),
+      speciesId: serializer.fromJson<int?>(json['speciesId']),
+      mgKgDose: serializer.fromJson<double>(json['mgKgDose']),
+      timesPerDay: serializer.fromJson<int>(json['timesPerDay']),
+      durationDays: serializer.fromJson<int>(json['durationDays']),
+      administrationRoute:
+          serializer.fromJson<String>(json['administrationRoute']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'drugId': serializer.toJson<int>(drugId),
+      'diseaseId': serializer.toJson<int>(diseaseId),
+      'speciesId': serializer.toJson<int?>(speciesId),
+      'mgKgDose': serializer.toJson<double>(mgKgDose),
+      'timesPerDay': serializer.toJson<int>(timesPerDay),
+      'durationDays': serializer.toJson<int>(durationDays),
+      'administrationRoute': serializer.toJson<String>(administrationRoute),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  DoseRule copyWith(
+          {int? id,
+          int? drugId,
+          int? diseaseId,
+          Value<int?> speciesId = const Value.absent(),
+          double? mgKgDose,
+          int? timesPerDay,
+          int? durationDays,
+          String? administrationRoute,
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
+      DoseRule(
+        id: id ?? this.id,
+        drugId: drugId ?? this.drugId,
+        diseaseId: diseaseId ?? this.diseaseId,
+        speciesId: speciesId.present ? speciesId.value : this.speciesId,
+        mgKgDose: mgKgDose ?? this.mgKgDose,
+        timesPerDay: timesPerDay ?? this.timesPerDay,
+        durationDays: durationDays ?? this.durationDays,
+        administrationRoute: administrationRoute ?? this.administrationRoute,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  DoseRule copyWithCompanion(DoseRulesCompanion data) {
+    return DoseRule(
+      id: data.id.present ? data.id.value : this.id,
+      drugId: data.drugId.present ? data.drugId.value : this.drugId,
+      diseaseId: data.diseaseId.present ? data.diseaseId.value : this.diseaseId,
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      mgKgDose: data.mgKgDose.present ? data.mgKgDose.value : this.mgKgDose,
+      timesPerDay:
+          data.timesPerDay.present ? data.timesPerDay.value : this.timesPerDay,
+      durationDays: data.durationDays.present
+          ? data.durationDays.value
+          : this.durationDays,
+      administrationRoute: data.administrationRoute.present
+          ? data.administrationRoute.value
+          : this.administrationRoute,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DoseRule(')
+          ..write('id: $id, ')
+          ..write('drugId: $drugId, ')
+          ..write('diseaseId: $diseaseId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('mgKgDose: $mgKgDose, ')
+          ..write('timesPerDay: $timesPerDay, ')
+          ..write('durationDays: $durationDays, ')
+          ..write('administrationRoute: $administrationRoute, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      drugId,
+      diseaseId,
+      speciesId,
+      mgKgDose,
+      timesPerDay,
+      durationDays,
+      administrationRoute,
+      notes,
+      createdAt,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DoseRule &&
+          other.id == this.id &&
+          other.drugId == this.drugId &&
+          other.diseaseId == this.diseaseId &&
+          other.speciesId == this.speciesId &&
+          other.mgKgDose == this.mgKgDose &&
+          other.timesPerDay == this.timesPerDay &&
+          other.durationDays == this.durationDays &&
+          other.administrationRoute == this.administrationRoute &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class DoseRulesCompanion extends UpdateCompanion<DoseRule> {
+  final Value<int> id;
+  final Value<int> drugId;
+  final Value<int> diseaseId;
+  final Value<int?> speciesId;
+  final Value<double> mgKgDose;
+  final Value<int> timesPerDay;
+  final Value<int> durationDays;
+  final Value<String> administrationRoute;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const DoseRulesCompanion({
+    this.id = const Value.absent(),
+    this.drugId = const Value.absent(),
+    this.diseaseId = const Value.absent(),
+    this.speciesId = const Value.absent(),
+    this.mgKgDose = const Value.absent(),
+    this.timesPerDay = const Value.absent(),
+    this.durationDays = const Value.absent(),
+    this.administrationRoute = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  DoseRulesCompanion.insert({
+    this.id = const Value.absent(),
+    required int drugId,
+    required int diseaseId,
+    this.speciesId = const Value.absent(),
+    required double mgKgDose,
+    required int timesPerDay,
+    required int durationDays,
+    this.administrationRoute = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : drugId = Value(drugId),
+        diseaseId = Value(diseaseId),
+        mgKgDose = Value(mgKgDose),
+        timesPerDay = Value(timesPerDay),
+        durationDays = Value(durationDays);
+  static Insertable<DoseRule> custom({
+    Expression<int>? id,
+    Expression<int>? drugId,
+    Expression<int>? diseaseId,
+    Expression<int>? speciesId,
+    Expression<double>? mgKgDose,
+    Expression<int>? timesPerDay,
+    Expression<int>? durationDays,
+    Expression<String>? administrationRoute,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (drugId != null) 'drug_id': drugId,
+      if (diseaseId != null) 'disease_id': diseaseId,
+      if (speciesId != null) 'species_id': speciesId,
+      if (mgKgDose != null) 'mg_kg_dose': mgKgDose,
+      if (timesPerDay != null) 'times_per_day': timesPerDay,
+      if (durationDays != null) 'duration_days': durationDays,
+      if (administrationRoute != null)
+        'administration_route': administrationRoute,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  DoseRulesCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? drugId,
+      Value<int>? diseaseId,
+      Value<int?>? speciesId,
+      Value<double>? mgKgDose,
+      Value<int>? timesPerDay,
+      Value<int>? durationDays,
+      Value<String>? administrationRoute,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
+    return DoseRulesCompanion(
+      id: id ?? this.id,
+      drugId: drugId ?? this.drugId,
+      diseaseId: diseaseId ?? this.diseaseId,
+      speciesId: speciesId ?? this.speciesId,
+      mgKgDose: mgKgDose ?? this.mgKgDose,
+      timesPerDay: timesPerDay ?? this.timesPerDay,
+      durationDays: durationDays ?? this.durationDays,
+      administrationRoute: administrationRoute ?? this.administrationRoute,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (drugId.present) {
+      map['drug_id'] = Variable<int>(drugId.value);
+    }
+    if (diseaseId.present) {
+      map['disease_id'] = Variable<int>(diseaseId.value);
+    }
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (mgKgDose.present) {
+      map['mg_kg_dose'] = Variable<double>(mgKgDose.value);
+    }
+    if (timesPerDay.present) {
+      map['times_per_day'] = Variable<int>(timesPerDay.value);
+    }
+    if (durationDays.present) {
+      map['duration_days'] = Variable<int>(durationDays.value);
+    }
+    if (administrationRoute.present) {
+      map['administration_route'] = Variable<String>(administrationRoute.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DoseRulesCompanion(')
+          ..write('id: $id, ')
+          ..write('drugId: $drugId, ')
+          ..write('diseaseId: $diseaseId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('mgKgDose: $mgKgDose, ')
+          ..write('timesPerDay: $timesPerDay, ')
+          ..write('durationDays: $durationDays, ')
+          ..write('administrationRoute: $administrationRoute, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $MedicationsTable extends Medications
     with TableInfo<$MedicationsTable, Medication> {
   @override
@@ -5140,25 +7239,58 @@ class $MedicationsTable extends Medications
       requiredDuringInsert: true,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES birds (id) ON DELETE CASCADE'));
-  static const VerificationMeta _drugNameMeta =
-      const VerificationMeta('drugName');
+  static const VerificationMeta _drugLibraryIdMeta =
+      const VerificationMeta('drugLibraryId');
   @override
-  late final GeneratedColumn<String> drugName = GeneratedColumn<String>(
-      'drug_name', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _drugTypeMeta =
-      const VerificationMeta('drugType');
+  late final GeneratedColumn<int> drugLibraryId = GeneratedColumn<int>(
+      'drug_library_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES drug_library (id) ON DELETE CASCADE'));
+  static const VerificationMeta _formulationIdMeta =
+      const VerificationMeta('formulationId');
   @override
-  late final GeneratedColumn<String> drugType = GeneratedColumn<String>(
-      'drug_type', aliasedName, false,
-      type: DriftSqlType.string,
+  late final GeneratedColumn<int> formulationId = GeneratedColumn<int>(
+      'formulation_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES drug_formulations (id) ON DELETE CASCADE'));
+  static const VerificationMeta _diseaseCatalogIdMeta =
+      const VerificationMeta('diseaseCatalogId');
+  @override
+  late final GeneratedColumn<int> diseaseCatalogId = GeneratedColumn<int>(
+      'disease_catalog_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES disease_catalog (id) ON DELETE CASCADE'));
+  static const VerificationMeta _doseRuleIdMeta =
+      const VerificationMeta('doseRuleId');
+  @override
+  late final GeneratedColumn<int> doseRuleId = GeneratedColumn<int>(
+      'dose_rule_id', aliasedName, true,
+      type: DriftSqlType.int,
       requiredDuringInsert: false,
-      defaultValue: const Constant('其他'));
-  static const VerificationMeta _dosageMeta = const VerificationMeta('dosage');
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES dose_rules (id) ON DELETE SET NULL'));
+  static const VerificationMeta _calculatedDosageMeta =
+      const VerificationMeta('calculatedDosage');
   @override
-  late final GeneratedColumn<String> dosage = GeneratedColumn<String>(
-      'dosage', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+  late final GeneratedColumn<String> calculatedDosage = GeneratedColumn<String>(
+      'calculated_dosage', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _manualDosageMeta =
+      const VerificationMeta('manualDosage');
+  @override
+  late final GeneratedColumn<String> manualDosage = GeneratedColumn<String>(
+      'manual_dosage', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
   static const VerificationMeta _timesPerDayMeta =
       const VerificationMeta('timesPerDay');
   @override
@@ -5183,7 +7315,9 @@ class $MedicationsTable extends Medications
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
       'notes', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
   static const VerificationMeta _activeMeta = const VerificationMeta('active');
   @override
   late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
@@ -5193,6 +7327,20 @@ class $MedicationsTable extends Medications
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("active" IN (0, 1))'),
       defaultValue: const Constant(true));
+  static const VerificationMeta _stopReasonMeta =
+      const VerificationMeta('stopReason');
+  @override
+  late final GeneratedColumn<String> stopReason = GeneratedColumn<String>(
+      'stop_reason', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _actualStopDateMeta =
+      const VerificationMeta('actualStopDate');
+  @override
+  late final GeneratedColumn<DateTime> actualStopDate =
+      GeneratedColumn<DateTime>('actual_stop_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -5214,14 +7362,19 @@ class $MedicationsTable extends Medications
         id,
         uuid,
         birdId,
-        drugName,
-        drugType,
-        dosage,
+        drugLibraryId,
+        formulationId,
+        diseaseCatalogId,
+        doseRuleId,
+        calculatedDosage,
+        manualDosage,
         timesPerDay,
         startDate,
         endDate,
         notes,
         active,
+        stopReason,
+        actualStopDate,
         createdAt,
         updatedAt
       ];
@@ -5250,21 +7403,49 @@ class $MedicationsTable extends Medications
     } else if (isInserting) {
       context.missing(_birdIdMeta);
     }
-    if (data.containsKey('drug_name')) {
-      context.handle(_drugNameMeta,
-          drugName.isAcceptableOrUnknown(data['drug_name']!, _drugNameMeta));
+    if (data.containsKey('drug_library_id')) {
+      context.handle(
+          _drugLibraryIdMeta,
+          drugLibraryId.isAcceptableOrUnknown(
+              data['drug_library_id']!, _drugLibraryIdMeta));
     } else if (isInserting) {
-      context.missing(_drugNameMeta);
+      context.missing(_drugLibraryIdMeta);
     }
-    if (data.containsKey('drug_type')) {
-      context.handle(_drugTypeMeta,
-          drugType.isAcceptableOrUnknown(data['drug_type']!, _drugTypeMeta));
-    }
-    if (data.containsKey('dosage')) {
-      context.handle(_dosageMeta,
-          dosage.isAcceptableOrUnknown(data['dosage']!, _dosageMeta));
+    if (data.containsKey('formulation_id')) {
+      context.handle(
+          _formulationIdMeta,
+          formulationId.isAcceptableOrUnknown(
+              data['formulation_id']!, _formulationIdMeta));
     } else if (isInserting) {
-      context.missing(_dosageMeta);
+      context.missing(_formulationIdMeta);
+    }
+    if (data.containsKey('disease_catalog_id')) {
+      context.handle(
+          _diseaseCatalogIdMeta,
+          diseaseCatalogId.isAcceptableOrUnknown(
+              data['disease_catalog_id']!, _diseaseCatalogIdMeta));
+    } else if (isInserting) {
+      context.missing(_diseaseCatalogIdMeta);
+    }
+    if (data.containsKey('dose_rule_id')) {
+      context.handle(
+          _doseRuleIdMeta,
+          doseRuleId.isAcceptableOrUnknown(
+              data['dose_rule_id']!, _doseRuleIdMeta));
+    }
+    if (data.containsKey('calculated_dosage')) {
+      context.handle(
+          _calculatedDosageMeta,
+          calculatedDosage.isAcceptableOrUnknown(
+              data['calculated_dosage']!, _calculatedDosageMeta));
+    } else if (isInserting) {
+      context.missing(_calculatedDosageMeta);
+    }
+    if (data.containsKey('manual_dosage')) {
+      context.handle(
+          _manualDosageMeta,
+          manualDosage.isAcceptableOrUnknown(
+              data['manual_dosage']!, _manualDosageMeta));
     }
     if (data.containsKey('times_per_day')) {
       context.handle(
@@ -5290,6 +7471,18 @@ class $MedicationsTable extends Medications
       context.handle(_activeMeta,
           active.isAcceptableOrUnknown(data['active']!, _activeMeta));
     }
+    if (data.containsKey('stop_reason')) {
+      context.handle(
+          _stopReasonMeta,
+          stopReason.isAcceptableOrUnknown(
+              data['stop_reason']!, _stopReasonMeta));
+    }
+    if (data.containsKey('actual_stop_date')) {
+      context.handle(
+          _actualStopDateMeta,
+          actualStopDate.isAcceptableOrUnknown(
+              data['actual_stop_date']!, _actualStopDateMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -5313,12 +7506,18 @@ class $MedicationsTable extends Medications
           .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
       birdId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}bird_id'])!,
-      drugName: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}drug_name'])!,
-      drugType: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}drug_type'])!,
-      dosage: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}dosage'])!,
+      drugLibraryId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}drug_library_id'])!,
+      formulationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}formulation_id'])!,
+      diseaseCatalogId: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}disease_catalog_id'])!,
+      doseRuleId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}dose_rule_id']),
+      calculatedDosage: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}calculated_dosage'])!,
+      manualDosage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}manual_dosage']),
       timesPerDay: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}times_per_day'])!,
       startDate: attachedDatabase.typeMapping
@@ -5329,6 +7528,10 @@ class $MedicationsTable extends Medications
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
       active: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}active'])!,
+      stopReason: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stop_reason']),
+      actualStopDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}actual_stop_date']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -5348,23 +7551,30 @@ class Medication extends DataClass implements Insertable<Medication> {
 
   /// 鹦鹉 ID
   final int birdId;
+  final int drugLibraryId;
 
-  /// 药品名称
-  final String drugName;
+  /// 关联药品规格
+  final int formulationId;
 
-  /// 药品类型：抗生素/驱虫/维生素/其他
-  final String drugType;
+  /// 关联疾病
+  final int diseaseCatalogId;
 
-  /// 剂量（如 "0.5ml", "1片", "2滴"）
-  final String dosage;
+  /// 关联剂量规则（可选，无规则时手动填写剂量）
+  final int? doseRuleId;
 
-  /// 每天次数（1/2/3）
+  /// 计算出的给药体积，如 "0.35ml"
+  final String calculatedDosage;
+
+  /// 手动填写的剂量（无剂量规则时使用）
+  final String? manualDosage;
+
+  /// 每天次数
   final int timesPerDay;
 
   /// 开始日期
   final DateTime startDate;
 
-  /// 结束日期（null=持续）
+  /// 结束日期（null = 长期）
   final DateTime? endDate;
 
   /// 备注
@@ -5372,20 +7582,31 @@ class Medication extends DataClass implements Insertable<Medication> {
 
   /// 是否启用
   final bool active;
+
+  /// 停药原因
+  final String? stopReason;
+
+  /// 实际停药日期
+  final DateTime? actualStopDate;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Medication(
       {required this.id,
       required this.uuid,
       required this.birdId,
-      required this.drugName,
-      required this.drugType,
-      required this.dosage,
+      required this.drugLibraryId,
+      required this.formulationId,
+      required this.diseaseCatalogId,
+      this.doseRuleId,
+      required this.calculatedDosage,
+      this.manualDosage,
       required this.timesPerDay,
       required this.startDate,
       this.endDate,
       this.notes,
       required this.active,
+      this.stopReason,
+      this.actualStopDate,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -5394,9 +7615,16 @@ class Medication extends DataClass implements Insertable<Medication> {
     map['id'] = Variable<int>(id);
     map['uuid'] = Variable<String>(uuid);
     map['bird_id'] = Variable<int>(birdId);
-    map['drug_name'] = Variable<String>(drugName);
-    map['drug_type'] = Variable<String>(drugType);
-    map['dosage'] = Variable<String>(dosage);
+    map['drug_library_id'] = Variable<int>(drugLibraryId);
+    map['formulation_id'] = Variable<int>(formulationId);
+    map['disease_catalog_id'] = Variable<int>(diseaseCatalogId);
+    if (!nullToAbsent || doseRuleId != null) {
+      map['dose_rule_id'] = Variable<int>(doseRuleId);
+    }
+    map['calculated_dosage'] = Variable<String>(calculatedDosage);
+    if (!nullToAbsent || manualDosage != null) {
+      map['manual_dosage'] = Variable<String>(manualDosage);
+    }
     map['times_per_day'] = Variable<int>(timesPerDay);
     map['start_date'] = Variable<DateTime>(startDate);
     if (!nullToAbsent || endDate != null) {
@@ -5406,6 +7634,12 @@ class Medication extends DataClass implements Insertable<Medication> {
       map['notes'] = Variable<String>(notes);
     }
     map['active'] = Variable<bool>(active);
+    if (!nullToAbsent || stopReason != null) {
+      map['stop_reason'] = Variable<String>(stopReason);
+    }
+    if (!nullToAbsent || actualStopDate != null) {
+      map['actual_stop_date'] = Variable<DateTime>(actualStopDate);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -5416,9 +7650,16 @@ class Medication extends DataClass implements Insertable<Medication> {
       id: Value(id),
       uuid: Value(uuid),
       birdId: Value(birdId),
-      drugName: Value(drugName),
-      drugType: Value(drugType),
-      dosage: Value(dosage),
+      drugLibraryId: Value(drugLibraryId),
+      formulationId: Value(formulationId),
+      diseaseCatalogId: Value(diseaseCatalogId),
+      doseRuleId: doseRuleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doseRuleId),
+      calculatedDosage: Value(calculatedDosage),
+      manualDosage: manualDosage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manualDosage),
       timesPerDay: Value(timesPerDay),
       startDate: Value(startDate),
       endDate: endDate == null && nullToAbsent
@@ -5427,6 +7668,12 @@ class Medication extends DataClass implements Insertable<Medication> {
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       active: Value(active),
+      stopReason: stopReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stopReason),
+      actualStopDate: actualStopDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actualStopDate),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -5439,14 +7686,19 @@ class Medication extends DataClass implements Insertable<Medication> {
       id: serializer.fromJson<int>(json['id']),
       uuid: serializer.fromJson<String>(json['uuid']),
       birdId: serializer.fromJson<int>(json['birdId']),
-      drugName: serializer.fromJson<String>(json['drugName']),
-      drugType: serializer.fromJson<String>(json['drugType']),
-      dosage: serializer.fromJson<String>(json['dosage']),
+      drugLibraryId: serializer.fromJson<int>(json['drugLibraryId']),
+      formulationId: serializer.fromJson<int>(json['formulationId']),
+      diseaseCatalogId: serializer.fromJson<int>(json['diseaseCatalogId']),
+      doseRuleId: serializer.fromJson<int?>(json['doseRuleId']),
+      calculatedDosage: serializer.fromJson<String>(json['calculatedDosage']),
+      manualDosage: serializer.fromJson<String?>(json['manualDosage']),
       timesPerDay: serializer.fromJson<int>(json['timesPerDay']),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       notes: serializer.fromJson<String?>(json['notes']),
       active: serializer.fromJson<bool>(json['active']),
+      stopReason: serializer.fromJson<String?>(json['stopReason']),
+      actualStopDate: serializer.fromJson<DateTime?>(json['actualStopDate']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -5458,14 +7710,19 @@ class Medication extends DataClass implements Insertable<Medication> {
       'id': serializer.toJson<int>(id),
       'uuid': serializer.toJson<String>(uuid),
       'birdId': serializer.toJson<int>(birdId),
-      'drugName': serializer.toJson<String>(drugName),
-      'drugType': serializer.toJson<String>(drugType),
-      'dosage': serializer.toJson<String>(dosage),
+      'drugLibraryId': serializer.toJson<int>(drugLibraryId),
+      'formulationId': serializer.toJson<int>(formulationId),
+      'diseaseCatalogId': serializer.toJson<int>(diseaseCatalogId),
+      'doseRuleId': serializer.toJson<int?>(doseRuleId),
+      'calculatedDosage': serializer.toJson<String>(calculatedDosage),
+      'manualDosage': serializer.toJson<String?>(manualDosage),
       'timesPerDay': serializer.toJson<int>(timesPerDay),
       'startDate': serializer.toJson<DateTime>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
       'notes': serializer.toJson<String?>(notes),
       'active': serializer.toJson<bool>(active),
+      'stopReason': serializer.toJson<String?>(stopReason),
+      'actualStopDate': serializer.toJson<DateTime?>(actualStopDate),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -5475,28 +7732,40 @@ class Medication extends DataClass implements Insertable<Medication> {
           {int? id,
           String? uuid,
           int? birdId,
-          String? drugName,
-          String? drugType,
-          String? dosage,
+          int? drugLibraryId,
+          int? formulationId,
+          int? diseaseCatalogId,
+          Value<int?> doseRuleId = const Value.absent(),
+          String? calculatedDosage,
+          Value<String?> manualDosage = const Value.absent(),
           int? timesPerDay,
           DateTime? startDate,
           Value<DateTime?> endDate = const Value.absent(),
           Value<String?> notes = const Value.absent(),
           bool? active,
+          Value<String?> stopReason = const Value.absent(),
+          Value<DateTime?> actualStopDate = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       Medication(
         id: id ?? this.id,
         uuid: uuid ?? this.uuid,
         birdId: birdId ?? this.birdId,
-        drugName: drugName ?? this.drugName,
-        drugType: drugType ?? this.drugType,
-        dosage: dosage ?? this.dosage,
+        drugLibraryId: drugLibraryId ?? this.drugLibraryId,
+        formulationId: formulationId ?? this.formulationId,
+        diseaseCatalogId: diseaseCatalogId ?? this.diseaseCatalogId,
+        doseRuleId: doseRuleId.present ? doseRuleId.value : this.doseRuleId,
+        calculatedDosage: calculatedDosage ?? this.calculatedDosage,
+        manualDosage:
+            manualDosage.present ? manualDosage.value : this.manualDosage,
         timesPerDay: timesPerDay ?? this.timesPerDay,
         startDate: startDate ?? this.startDate,
         endDate: endDate.present ? endDate.value : this.endDate,
         notes: notes.present ? notes.value : this.notes,
         active: active ?? this.active,
+        stopReason: stopReason.present ? stopReason.value : this.stopReason,
+        actualStopDate:
+            actualStopDate.present ? actualStopDate.value : this.actualStopDate,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -5505,15 +7774,34 @@ class Medication extends DataClass implements Insertable<Medication> {
       id: data.id.present ? data.id.value : this.id,
       uuid: data.uuid.present ? data.uuid.value : this.uuid,
       birdId: data.birdId.present ? data.birdId.value : this.birdId,
-      drugName: data.drugName.present ? data.drugName.value : this.drugName,
-      drugType: data.drugType.present ? data.drugType.value : this.drugType,
-      dosage: data.dosage.present ? data.dosage.value : this.dosage,
+      drugLibraryId: data.drugLibraryId.present
+          ? data.drugLibraryId.value
+          : this.drugLibraryId,
+      formulationId: data.formulationId.present
+          ? data.formulationId.value
+          : this.formulationId,
+      diseaseCatalogId: data.diseaseCatalogId.present
+          ? data.diseaseCatalogId.value
+          : this.diseaseCatalogId,
+      doseRuleId:
+          data.doseRuleId.present ? data.doseRuleId.value : this.doseRuleId,
+      calculatedDosage: data.calculatedDosage.present
+          ? data.calculatedDosage.value
+          : this.calculatedDosage,
+      manualDosage: data.manualDosage.present
+          ? data.manualDosage.value
+          : this.manualDosage,
       timesPerDay:
           data.timesPerDay.present ? data.timesPerDay.value : this.timesPerDay,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       notes: data.notes.present ? data.notes.value : this.notes,
       active: data.active.present ? data.active.value : this.active,
+      stopReason:
+          data.stopReason.present ? data.stopReason.value : this.stopReason,
+      actualStopDate: data.actualStopDate.present
+          ? data.actualStopDate.value
+          : this.actualStopDate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -5525,14 +7813,19 @@ class Medication extends DataClass implements Insertable<Medication> {
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
           ..write('birdId: $birdId, ')
-          ..write('drugName: $drugName, ')
-          ..write('drugType: $drugType, ')
-          ..write('dosage: $dosage, ')
+          ..write('drugLibraryId: $drugLibraryId, ')
+          ..write('formulationId: $formulationId, ')
+          ..write('diseaseCatalogId: $diseaseCatalogId, ')
+          ..write('doseRuleId: $doseRuleId, ')
+          ..write('calculatedDosage: $calculatedDosage, ')
+          ..write('manualDosage: $manualDosage, ')
           ..write('timesPerDay: $timesPerDay, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('notes: $notes, ')
           ..write('active: $active, ')
+          ..write('stopReason: $stopReason, ')
+          ..write('actualStopDate: $actualStopDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -5540,8 +7833,25 @@ class Medication extends DataClass implements Insertable<Medication> {
   }
 
   @override
-  int get hashCode => Object.hash(id, uuid, birdId, drugName, drugType, dosage,
-      timesPerDay, startDate, endDate, notes, active, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+      id,
+      uuid,
+      birdId,
+      drugLibraryId,
+      formulationId,
+      diseaseCatalogId,
+      doseRuleId,
+      calculatedDosage,
+      manualDosage,
+      timesPerDay,
+      startDate,
+      endDate,
+      notes,
+      active,
+      stopReason,
+      actualStopDate,
+      createdAt,
+      updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5549,14 +7859,19 @@ class Medication extends DataClass implements Insertable<Medication> {
           other.id == this.id &&
           other.uuid == this.uuid &&
           other.birdId == this.birdId &&
-          other.drugName == this.drugName &&
-          other.drugType == this.drugType &&
-          other.dosage == this.dosage &&
+          other.drugLibraryId == this.drugLibraryId &&
+          other.formulationId == this.formulationId &&
+          other.diseaseCatalogId == this.diseaseCatalogId &&
+          other.doseRuleId == this.doseRuleId &&
+          other.calculatedDosage == this.calculatedDosage &&
+          other.manualDosage == this.manualDosage &&
           other.timesPerDay == this.timesPerDay &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.notes == this.notes &&
           other.active == this.active &&
+          other.stopReason == this.stopReason &&
+          other.actualStopDate == this.actualStopDate &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -5565,28 +7880,38 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
   final Value<int> id;
   final Value<String> uuid;
   final Value<int> birdId;
-  final Value<String> drugName;
-  final Value<String> drugType;
-  final Value<String> dosage;
+  final Value<int> drugLibraryId;
+  final Value<int> formulationId;
+  final Value<int> diseaseCatalogId;
+  final Value<int?> doseRuleId;
+  final Value<String> calculatedDosage;
+  final Value<String?> manualDosage;
   final Value<int> timesPerDay;
   final Value<DateTime> startDate;
   final Value<DateTime?> endDate;
   final Value<String?> notes;
   final Value<bool> active;
+  final Value<String?> stopReason;
+  final Value<DateTime?> actualStopDate;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const MedicationsCompanion({
     this.id = const Value.absent(),
     this.uuid = const Value.absent(),
     this.birdId = const Value.absent(),
-    this.drugName = const Value.absent(),
-    this.drugType = const Value.absent(),
-    this.dosage = const Value.absent(),
+    this.drugLibraryId = const Value.absent(),
+    this.formulationId = const Value.absent(),
+    this.diseaseCatalogId = const Value.absent(),
+    this.doseRuleId = const Value.absent(),
+    this.calculatedDosage = const Value.absent(),
+    this.manualDosage = const Value.absent(),
     this.timesPerDay = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.notes = const Value.absent(),
     this.active = const Value.absent(),
+    this.stopReason = const Value.absent(),
+    this.actualStopDate = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -5594,33 +7919,45 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
     this.id = const Value.absent(),
     required String uuid,
     required int birdId,
-    required String drugName,
-    this.drugType = const Value.absent(),
-    required String dosage,
+    required int drugLibraryId,
+    required int formulationId,
+    required int diseaseCatalogId,
+    this.doseRuleId = const Value.absent(),
+    required String calculatedDosage,
+    this.manualDosage = const Value.absent(),
     this.timesPerDay = const Value.absent(),
     required DateTime startDate,
     this.endDate = const Value.absent(),
     this.notes = const Value.absent(),
     this.active = const Value.absent(),
+    this.stopReason = const Value.absent(),
+    this.actualStopDate = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   })  : uuid = Value(uuid),
         birdId = Value(birdId),
-        drugName = Value(drugName),
-        dosage = Value(dosage),
+        drugLibraryId = Value(drugLibraryId),
+        formulationId = Value(formulationId),
+        diseaseCatalogId = Value(diseaseCatalogId),
+        calculatedDosage = Value(calculatedDosage),
         startDate = Value(startDate);
   static Insertable<Medication> custom({
     Expression<int>? id,
     Expression<String>? uuid,
     Expression<int>? birdId,
-    Expression<String>? drugName,
-    Expression<String>? drugType,
-    Expression<String>? dosage,
+    Expression<int>? drugLibraryId,
+    Expression<int>? formulationId,
+    Expression<int>? diseaseCatalogId,
+    Expression<int>? doseRuleId,
+    Expression<String>? calculatedDosage,
+    Expression<String>? manualDosage,
     Expression<int>? timesPerDay,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<String>? notes,
     Expression<bool>? active,
+    Expression<String>? stopReason,
+    Expression<DateTime>? actualStopDate,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -5628,14 +7965,19 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
       if (id != null) 'id': id,
       if (uuid != null) 'uuid': uuid,
       if (birdId != null) 'bird_id': birdId,
-      if (drugName != null) 'drug_name': drugName,
-      if (drugType != null) 'drug_type': drugType,
-      if (dosage != null) 'dosage': dosage,
+      if (drugLibraryId != null) 'drug_library_id': drugLibraryId,
+      if (formulationId != null) 'formulation_id': formulationId,
+      if (diseaseCatalogId != null) 'disease_catalog_id': diseaseCatalogId,
+      if (doseRuleId != null) 'dose_rule_id': doseRuleId,
+      if (calculatedDosage != null) 'calculated_dosage': calculatedDosage,
+      if (manualDosage != null) 'manual_dosage': manualDosage,
       if (timesPerDay != null) 'times_per_day': timesPerDay,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (notes != null) 'notes': notes,
       if (active != null) 'active': active,
+      if (stopReason != null) 'stop_reason': stopReason,
+      if (actualStopDate != null) 'actual_stop_date': actualStopDate,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -5645,28 +7987,38 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
       {Value<int>? id,
       Value<String>? uuid,
       Value<int>? birdId,
-      Value<String>? drugName,
-      Value<String>? drugType,
-      Value<String>? dosage,
+      Value<int>? drugLibraryId,
+      Value<int>? formulationId,
+      Value<int>? diseaseCatalogId,
+      Value<int?>? doseRuleId,
+      Value<String>? calculatedDosage,
+      Value<String?>? manualDosage,
       Value<int>? timesPerDay,
       Value<DateTime>? startDate,
       Value<DateTime?>? endDate,
       Value<String?>? notes,
       Value<bool>? active,
+      Value<String?>? stopReason,
+      Value<DateTime?>? actualStopDate,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
     return MedicationsCompanion(
       id: id ?? this.id,
       uuid: uuid ?? this.uuid,
       birdId: birdId ?? this.birdId,
-      drugName: drugName ?? this.drugName,
-      drugType: drugType ?? this.drugType,
-      dosage: dosage ?? this.dosage,
+      drugLibraryId: drugLibraryId ?? this.drugLibraryId,
+      formulationId: formulationId ?? this.formulationId,
+      diseaseCatalogId: diseaseCatalogId ?? this.diseaseCatalogId,
+      doseRuleId: doseRuleId ?? this.doseRuleId,
+      calculatedDosage: calculatedDosage ?? this.calculatedDosage,
+      manualDosage: manualDosage ?? this.manualDosage,
       timesPerDay: timesPerDay ?? this.timesPerDay,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       notes: notes ?? this.notes,
       active: active ?? this.active,
+      stopReason: stopReason ?? this.stopReason,
+      actualStopDate: actualStopDate ?? this.actualStopDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -5684,14 +8036,23 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
     if (birdId.present) {
       map['bird_id'] = Variable<int>(birdId.value);
     }
-    if (drugName.present) {
-      map['drug_name'] = Variable<String>(drugName.value);
+    if (drugLibraryId.present) {
+      map['drug_library_id'] = Variable<int>(drugLibraryId.value);
     }
-    if (drugType.present) {
-      map['drug_type'] = Variable<String>(drugType.value);
+    if (formulationId.present) {
+      map['formulation_id'] = Variable<int>(formulationId.value);
     }
-    if (dosage.present) {
-      map['dosage'] = Variable<String>(dosage.value);
+    if (diseaseCatalogId.present) {
+      map['disease_catalog_id'] = Variable<int>(diseaseCatalogId.value);
+    }
+    if (doseRuleId.present) {
+      map['dose_rule_id'] = Variable<int>(doseRuleId.value);
+    }
+    if (calculatedDosage.present) {
+      map['calculated_dosage'] = Variable<String>(calculatedDosage.value);
+    }
+    if (manualDosage.present) {
+      map['manual_dosage'] = Variable<String>(manualDosage.value);
     }
     if (timesPerDay.present) {
       map['times_per_day'] = Variable<int>(timesPerDay.value);
@@ -5708,6 +8069,12 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
     }
+    if (stopReason.present) {
+      map['stop_reason'] = Variable<String>(stopReason.value);
+    }
+    if (actualStopDate.present) {
+      map['actual_stop_date'] = Variable<DateTime>(actualStopDate.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -5723,16 +8090,1362 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
           ..write('birdId: $birdId, ')
-          ..write('drugName: $drugName, ')
-          ..write('drugType: $drugType, ')
-          ..write('dosage: $dosage, ')
+          ..write('drugLibraryId: $drugLibraryId, ')
+          ..write('formulationId: $formulationId, ')
+          ..write('diseaseCatalogId: $diseaseCatalogId, ')
+          ..write('doseRuleId: $doseRuleId, ')
+          ..write('calculatedDosage: $calculatedDosage, ')
+          ..write('manualDosage: $manualDosage, ')
           ..write('timesPerDay: $timesPerDay, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('notes: $notes, ')
           ..write('active: $active, ')
+          ..write('stopReason: $stopReason, ')
+          ..write('actualStopDate: $actualStopDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FeedingRecordsTable extends FeedingRecords
+    with TableInfo<$FeedingRecordsTable, FeedingRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedingRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _medicationIdMeta =
+      const VerificationMeta('medicationId');
+  @override
+  late final GeneratedColumn<int> medicationId = GeneratedColumn<int>(
+      'medication_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES medications (id) ON DELETE CASCADE'));
+  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+  @override
+  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
+      'bird_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE CASCADE'));
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<int> taskId = GeneratedColumn<int>(
+      'task_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _feedingStatusMeta =
+      const VerificationMeta('feedingStatus');
+  @override
+  late final GeneratedColumn<String> feedingStatus = GeneratedColumn<String>(
+      'feeding_status', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 10),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _fedAtMeta = const VerificationMeta('fedAt');
+  @override
+  late final GeneratedColumn<DateTime> fedAt = GeneratedColumn<DateTime>(
+      'fed_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _fedByMeta = const VerificationMeta('fedBy');
+  @override
+  late final GeneratedColumn<int> fedBy = GeneratedColumn<int>(
+      'fed_by', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 200),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        medicationId,
+        birdId,
+        taskId,
+        feedingStatus,
+        fedAt,
+        fedBy,
+        notes,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feeding_records';
+  @override
+  VerificationContext validateIntegrity(Insertable<FeedingRecord> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('medication_id')) {
+      context.handle(
+          _medicationIdMeta,
+          medicationId.isAcceptableOrUnknown(
+              data['medication_id']!, _medicationIdMeta));
+    } else if (isInserting) {
+      context.missing(_medicationIdMeta);
+    }
+    if (data.containsKey('bird_id')) {
+      context.handle(_birdIdMeta,
+          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
+    } else if (isInserting) {
+      context.missing(_birdIdMeta);
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(_taskIdMeta,
+          taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta));
+    }
+    if (data.containsKey('feeding_status')) {
+      context.handle(
+          _feedingStatusMeta,
+          feedingStatus.isAcceptableOrUnknown(
+              data['feeding_status']!, _feedingStatusMeta));
+    } else if (isInserting) {
+      context.missing(_feedingStatusMeta);
+    }
+    if (data.containsKey('fed_at')) {
+      context.handle(
+          _fedAtMeta, fedAt.isAcceptableOrUnknown(data['fed_at']!, _fedAtMeta));
+    } else if (isInserting) {
+      context.missing(_fedAtMeta);
+    }
+    if (data.containsKey('fed_by')) {
+      context.handle(
+          _fedByMeta, fedBy.isAcceptableOrUnknown(data['fed_by']!, _fedByMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedingRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedingRecord(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      medicationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}medication_id'])!,
+      birdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bird_id'])!,
+      taskId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}task_id']),
+      feedingStatus: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}feeding_status'])!,
+      fedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}fed_at'])!,
+      fedBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}fed_by']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FeedingRecordsTable createAlias(String alias) {
+    return $FeedingRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class FeedingRecord extends DataClass implements Insertable<FeedingRecord> {
+  final int id;
+
+  /// 关联喂药方案
+  final int medicationId;
+
+  /// 关联鹦鹉（冗余）
+  final int birdId;
+
+  /// 关联任务
+  final int? taskId;
+
+  /// 喂药状态：已喂/吐出/漏喂/补喂/拒绝
+  final String feedingStatus;
+
+  /// 喂药时间
+  final DateTime fedAt;
+
+  /// 操作人
+  final int? fedBy;
+
+  /// 备注
+  final String? notes;
+  final DateTime createdAt;
+  const FeedingRecord(
+      {required this.id,
+      required this.medicationId,
+      required this.birdId,
+      this.taskId,
+      required this.feedingStatus,
+      required this.fedAt,
+      this.fedBy,
+      this.notes,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['medication_id'] = Variable<int>(medicationId);
+    map['bird_id'] = Variable<int>(birdId);
+    if (!nullToAbsent || taskId != null) {
+      map['task_id'] = Variable<int>(taskId);
+    }
+    map['feeding_status'] = Variable<String>(feedingStatus);
+    map['fed_at'] = Variable<DateTime>(fedAt);
+    if (!nullToAbsent || fedBy != null) {
+      map['fed_by'] = Variable<int>(fedBy);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FeedingRecordsCompanion toCompanion(bool nullToAbsent) {
+    return FeedingRecordsCompanion(
+      id: Value(id),
+      medicationId: Value(medicationId),
+      birdId: Value(birdId),
+      taskId:
+          taskId == null && nullToAbsent ? const Value.absent() : Value(taskId),
+      feedingStatus: Value(feedingStatus),
+      fedAt: Value(fedAt),
+      fedBy:
+          fedBy == null && nullToAbsent ? const Value.absent() : Value(fedBy),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FeedingRecord.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedingRecord(
+      id: serializer.fromJson<int>(json['id']),
+      medicationId: serializer.fromJson<int>(json['medicationId']),
+      birdId: serializer.fromJson<int>(json['birdId']),
+      taskId: serializer.fromJson<int?>(json['taskId']),
+      feedingStatus: serializer.fromJson<String>(json['feedingStatus']),
+      fedAt: serializer.fromJson<DateTime>(json['fedAt']),
+      fedBy: serializer.fromJson<int?>(json['fedBy']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'medicationId': serializer.toJson<int>(medicationId),
+      'birdId': serializer.toJson<int>(birdId),
+      'taskId': serializer.toJson<int?>(taskId),
+      'feedingStatus': serializer.toJson<String>(feedingStatus),
+      'fedAt': serializer.toJson<DateTime>(fedAt),
+      'fedBy': serializer.toJson<int?>(fedBy),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FeedingRecord copyWith(
+          {int? id,
+          int? medicationId,
+          int? birdId,
+          Value<int?> taskId = const Value.absent(),
+          String? feedingStatus,
+          DateTime? fedAt,
+          Value<int?> fedBy = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt}) =>
+      FeedingRecord(
+        id: id ?? this.id,
+        medicationId: medicationId ?? this.medicationId,
+        birdId: birdId ?? this.birdId,
+        taskId: taskId.present ? taskId.value : this.taskId,
+        feedingStatus: feedingStatus ?? this.feedingStatus,
+        fedAt: fedAt ?? this.fedAt,
+        fedBy: fedBy.present ? fedBy.value : this.fedBy,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FeedingRecord copyWithCompanion(FeedingRecordsCompanion data) {
+    return FeedingRecord(
+      id: data.id.present ? data.id.value : this.id,
+      medicationId: data.medicationId.present
+          ? data.medicationId.value
+          : this.medicationId,
+      birdId: data.birdId.present ? data.birdId.value : this.birdId,
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      feedingStatus: data.feedingStatus.present
+          ? data.feedingStatus.value
+          : this.feedingStatus,
+      fedAt: data.fedAt.present ? data.fedAt.value : this.fedAt,
+      fedBy: data.fedBy.present ? data.fedBy.value : this.fedBy,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingRecord(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('birdId: $birdId, ')
+          ..write('taskId: $taskId, ')
+          ..write('feedingStatus: $feedingStatus, ')
+          ..write('fedAt: $fedAt, ')
+          ..write('fedBy: $fedBy, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, medicationId, birdId, taskId,
+      feedingStatus, fedAt, fedBy, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedingRecord &&
+          other.id == this.id &&
+          other.medicationId == this.medicationId &&
+          other.birdId == this.birdId &&
+          other.taskId == this.taskId &&
+          other.feedingStatus == this.feedingStatus &&
+          other.fedAt == this.fedAt &&
+          other.fedBy == this.fedBy &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class FeedingRecordsCompanion extends UpdateCompanion<FeedingRecord> {
+  final Value<int> id;
+  final Value<int> medicationId;
+  final Value<int> birdId;
+  final Value<int?> taskId;
+  final Value<String> feedingStatus;
+  final Value<DateTime> fedAt;
+  final Value<int?> fedBy;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  const FeedingRecordsCompanion({
+    this.id = const Value.absent(),
+    this.medicationId = const Value.absent(),
+    this.birdId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.feedingStatus = const Value.absent(),
+    this.fedAt = const Value.absent(),
+    this.fedBy = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FeedingRecordsCompanion.insert({
+    this.id = const Value.absent(),
+    required int medicationId,
+    required int birdId,
+    this.taskId = const Value.absent(),
+    required String feedingStatus,
+    required DateTime fedAt,
+    this.fedBy = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : medicationId = Value(medicationId),
+        birdId = Value(birdId),
+        feedingStatus = Value(feedingStatus),
+        fedAt = Value(fedAt);
+  static Insertable<FeedingRecord> custom({
+    Expression<int>? id,
+    Expression<int>? medicationId,
+    Expression<int>? birdId,
+    Expression<int>? taskId,
+    Expression<String>? feedingStatus,
+    Expression<DateTime>? fedAt,
+    Expression<int>? fedBy,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (medicationId != null) 'medication_id': medicationId,
+      if (birdId != null) 'bird_id': birdId,
+      if (taskId != null) 'task_id': taskId,
+      if (feedingStatus != null) 'feeding_status': feedingStatus,
+      if (fedAt != null) 'fed_at': fedAt,
+      if (fedBy != null) 'fed_by': fedBy,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FeedingRecordsCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? medicationId,
+      Value<int>? birdId,
+      Value<int?>? taskId,
+      Value<String>? feedingStatus,
+      Value<DateTime>? fedAt,
+      Value<int?>? fedBy,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt}) {
+    return FeedingRecordsCompanion(
+      id: id ?? this.id,
+      medicationId: medicationId ?? this.medicationId,
+      birdId: birdId ?? this.birdId,
+      taskId: taskId ?? this.taskId,
+      feedingStatus: feedingStatus ?? this.feedingStatus,
+      fedAt: fedAt ?? this.fedAt,
+      fedBy: fedBy ?? this.fedBy,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (medicationId.present) {
+      map['medication_id'] = Variable<int>(medicationId.value);
+    }
+    if (birdId.present) {
+      map['bird_id'] = Variable<int>(birdId.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<int>(taskId.value);
+    }
+    if (feedingStatus.present) {
+      map['feeding_status'] = Variable<String>(feedingStatus.value);
+    }
+    if (fedAt.present) {
+      map['fed_at'] = Variable<DateTime>(fedAt.value);
+    }
+    if (fedBy.present) {
+      map['fed_by'] = Variable<int>(fedBy.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('birdId: $birdId, ')
+          ..write('taskId: $taskId, ')
+          ..write('feedingStatus: $feedingStatus, ')
+          ..write('fedAt: $fedAt, ')
+          ..write('fedBy: $fedBy, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SideEffectRecordsTable extends SideEffectRecords
+    with TableInfo<$SideEffectRecordsTable, SideEffectRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SideEffectRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _medicationIdMeta =
+      const VerificationMeta('medicationId');
+  @override
+  late final GeneratedColumn<int> medicationId = GeneratedColumn<int>(
+      'medication_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES medications (id) ON DELETE CASCADE'));
+  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+  @override
+  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
+      'bird_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE CASCADE'));
+  static const VerificationMeta _sideEffectCategoryMeta =
+      const VerificationMeta('sideEffectCategory');
+  @override
+  late final GeneratedColumn<String> sideEffectCategory =
+      GeneratedColumn<String>('side_effect_category', aliasedName, false,
+          additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+          type: DriftSqlType.string,
+          requiredDuringInsert: true);
+  static const VerificationMeta _descriptionMeta =
+      const VerificationMeta('description');
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+      'description', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _severityMeta =
+      const VerificationMeta('severity');
+  @override
+  late final GeneratedColumn<String> severity = GeneratedColumn<String>(
+      'severity', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 10),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('轻度'));
+  static const VerificationMeta _observedAtMeta =
+      const VerificationMeta('observedAt');
+  @override
+  late final GeneratedColumn<DateTime> observedAt = GeneratedColumn<DateTime>(
+      'observed_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _resolvedAtMeta =
+      const VerificationMeta('resolvedAt');
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+      'resolved_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        medicationId,
+        birdId,
+        sideEffectCategory,
+        description,
+        severity,
+        observedAt,
+        resolvedAt,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'side_effect_records';
+  @override
+  VerificationContext validateIntegrity(Insertable<SideEffectRecord> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('medication_id')) {
+      context.handle(
+          _medicationIdMeta,
+          medicationId.isAcceptableOrUnknown(
+              data['medication_id']!, _medicationIdMeta));
+    } else if (isInserting) {
+      context.missing(_medicationIdMeta);
+    }
+    if (data.containsKey('bird_id')) {
+      context.handle(_birdIdMeta,
+          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
+    } else if (isInserting) {
+      context.missing(_birdIdMeta);
+    }
+    if (data.containsKey('side_effect_category')) {
+      context.handle(
+          _sideEffectCategoryMeta,
+          sideEffectCategory.isAcceptableOrUnknown(
+              data['side_effect_category']!, _sideEffectCategoryMeta));
+    } else if (isInserting) {
+      context.missing(_sideEffectCategoryMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+          _descriptionMeta,
+          description.isAcceptableOrUnknown(
+              data['description']!, _descriptionMeta));
+    }
+    if (data.containsKey('severity')) {
+      context.handle(_severityMeta,
+          severity.isAcceptableOrUnknown(data['severity']!, _severityMeta));
+    }
+    if (data.containsKey('observed_at')) {
+      context.handle(
+          _observedAtMeta,
+          observedAt.isAcceptableOrUnknown(
+              data['observed_at']!, _observedAtMeta));
+    } else if (isInserting) {
+      context.missing(_observedAtMeta);
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+          _resolvedAtMeta,
+          resolvedAt.isAcceptableOrUnknown(
+              data['resolved_at']!, _resolvedAtMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SideEffectRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SideEffectRecord(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      medicationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}medication_id'])!,
+      birdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bird_id'])!,
+      sideEffectCategory: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}side_effect_category'])!,
+      description: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}description']),
+      severity: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}severity'])!,
+      observedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}observed_at'])!,
+      resolvedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}resolved_at']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $SideEffectRecordsTable createAlias(String alias) {
+    return $SideEffectRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class SideEffectRecord extends DataClass
+    implements Insertable<SideEffectRecord> {
+  final int id;
+
+  /// 关联喂药方案
+  final int medicationId;
+
+  /// 关联鹦鹉（冗余）
+  final int birdId;
+
+  /// 副作用类别：拉稀/食欲下降/呕吐/精神差/恢复/其他
+  final String sideEffectCategory;
+
+  /// 描述
+  final String? description;
+
+  /// 严重程度：轻度/中度/重度
+  final String severity;
+
+  /// 观察时间
+  final DateTime observedAt;
+
+  /// 恢复时间
+  final DateTime? resolvedAt;
+  final DateTime createdAt;
+  const SideEffectRecord(
+      {required this.id,
+      required this.medicationId,
+      required this.birdId,
+      required this.sideEffectCategory,
+      this.description,
+      required this.severity,
+      required this.observedAt,
+      this.resolvedAt,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['medication_id'] = Variable<int>(medicationId);
+    map['bird_id'] = Variable<int>(birdId);
+    map['side_effect_category'] = Variable<String>(sideEffectCategory);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['severity'] = Variable<String>(severity);
+    map['observed_at'] = Variable<DateTime>(observedAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SideEffectRecordsCompanion toCompanion(bool nullToAbsent) {
+    return SideEffectRecordsCompanion(
+      id: Value(id),
+      medicationId: Value(medicationId),
+      birdId: Value(birdId),
+      sideEffectCategory: Value(sideEffectCategory),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      severity: Value(severity),
+      observedAt: Value(observedAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SideEffectRecord.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SideEffectRecord(
+      id: serializer.fromJson<int>(json['id']),
+      medicationId: serializer.fromJson<int>(json['medicationId']),
+      birdId: serializer.fromJson<int>(json['birdId']),
+      sideEffectCategory:
+          serializer.fromJson<String>(json['sideEffectCategory']),
+      description: serializer.fromJson<String?>(json['description']),
+      severity: serializer.fromJson<String>(json['severity']),
+      observedAt: serializer.fromJson<DateTime>(json['observedAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'medicationId': serializer.toJson<int>(medicationId),
+      'birdId': serializer.toJson<int>(birdId),
+      'sideEffectCategory': serializer.toJson<String>(sideEffectCategory),
+      'description': serializer.toJson<String?>(description),
+      'severity': serializer.toJson<String>(severity),
+      'observedAt': serializer.toJson<DateTime>(observedAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SideEffectRecord copyWith(
+          {int? id,
+          int? medicationId,
+          int? birdId,
+          String? sideEffectCategory,
+          Value<String?> description = const Value.absent(),
+          String? severity,
+          DateTime? observedAt,
+          Value<DateTime?> resolvedAt = const Value.absent(),
+          DateTime? createdAt}) =>
+      SideEffectRecord(
+        id: id ?? this.id,
+        medicationId: medicationId ?? this.medicationId,
+        birdId: birdId ?? this.birdId,
+        sideEffectCategory: sideEffectCategory ?? this.sideEffectCategory,
+        description: description.present ? description.value : this.description,
+        severity: severity ?? this.severity,
+        observedAt: observedAt ?? this.observedAt,
+        resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  SideEffectRecord copyWithCompanion(SideEffectRecordsCompanion data) {
+    return SideEffectRecord(
+      id: data.id.present ? data.id.value : this.id,
+      medicationId: data.medicationId.present
+          ? data.medicationId.value
+          : this.medicationId,
+      birdId: data.birdId.present ? data.birdId.value : this.birdId,
+      sideEffectCategory: data.sideEffectCategory.present
+          ? data.sideEffectCategory.value
+          : this.sideEffectCategory,
+      description:
+          data.description.present ? data.description.value : this.description,
+      severity: data.severity.present ? data.severity.value : this.severity,
+      observedAt:
+          data.observedAt.present ? data.observedAt.value : this.observedAt,
+      resolvedAt:
+          data.resolvedAt.present ? data.resolvedAt.value : this.resolvedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SideEffectRecord(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('birdId: $birdId, ')
+          ..write('sideEffectCategory: $sideEffectCategory, ')
+          ..write('description: $description, ')
+          ..write('severity: $severity, ')
+          ..write('observedAt: $observedAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, medicationId, birdId, sideEffectCategory,
+      description, severity, observedAt, resolvedAt, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SideEffectRecord &&
+          other.id == this.id &&
+          other.medicationId == this.medicationId &&
+          other.birdId == this.birdId &&
+          other.sideEffectCategory == this.sideEffectCategory &&
+          other.description == this.description &&
+          other.severity == this.severity &&
+          other.observedAt == this.observedAt &&
+          other.resolvedAt == this.resolvedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class SideEffectRecordsCompanion extends UpdateCompanion<SideEffectRecord> {
+  final Value<int> id;
+  final Value<int> medicationId;
+  final Value<int> birdId;
+  final Value<String> sideEffectCategory;
+  final Value<String?> description;
+  final Value<String> severity;
+  final Value<DateTime> observedAt;
+  final Value<DateTime?> resolvedAt;
+  final Value<DateTime> createdAt;
+  const SideEffectRecordsCompanion({
+    this.id = const Value.absent(),
+    this.medicationId = const Value.absent(),
+    this.birdId = const Value.absent(),
+    this.sideEffectCategory = const Value.absent(),
+    this.description = const Value.absent(),
+    this.severity = const Value.absent(),
+    this.observedAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SideEffectRecordsCompanion.insert({
+    this.id = const Value.absent(),
+    required int medicationId,
+    required int birdId,
+    required String sideEffectCategory,
+    this.description = const Value.absent(),
+    this.severity = const Value.absent(),
+    required DateTime observedAt,
+    this.resolvedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : medicationId = Value(medicationId),
+        birdId = Value(birdId),
+        sideEffectCategory = Value(sideEffectCategory),
+        observedAt = Value(observedAt);
+  static Insertable<SideEffectRecord> custom({
+    Expression<int>? id,
+    Expression<int>? medicationId,
+    Expression<int>? birdId,
+    Expression<String>? sideEffectCategory,
+    Expression<String>? description,
+    Expression<String>? severity,
+    Expression<DateTime>? observedAt,
+    Expression<DateTime>? resolvedAt,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (medicationId != null) 'medication_id': medicationId,
+      if (birdId != null) 'bird_id': birdId,
+      if (sideEffectCategory != null)
+        'side_effect_category': sideEffectCategory,
+      if (description != null) 'description': description,
+      if (severity != null) 'severity': severity,
+      if (observedAt != null) 'observed_at': observedAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SideEffectRecordsCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? medicationId,
+      Value<int>? birdId,
+      Value<String>? sideEffectCategory,
+      Value<String?>? description,
+      Value<String>? severity,
+      Value<DateTime>? observedAt,
+      Value<DateTime?>? resolvedAt,
+      Value<DateTime>? createdAt}) {
+    return SideEffectRecordsCompanion(
+      id: id ?? this.id,
+      medicationId: medicationId ?? this.medicationId,
+      birdId: birdId ?? this.birdId,
+      sideEffectCategory: sideEffectCategory ?? this.sideEffectCategory,
+      description: description ?? this.description,
+      severity: severity ?? this.severity,
+      observedAt: observedAt ?? this.observedAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (medicationId.present) {
+      map['medication_id'] = Variable<int>(medicationId.value);
+    }
+    if (birdId.present) {
+      map['bird_id'] = Variable<int>(birdId.value);
+    }
+    if (sideEffectCategory.present) {
+      map['side_effect_category'] = Variable<String>(sideEffectCategory.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (severity.present) {
+      map['severity'] = Variable<String>(severity.value);
+    }
+    if (observedAt.present) {
+      map['observed_at'] = Variable<DateTime>(observedAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SideEffectRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('birdId: $birdId, ')
+          ..write('sideEffectCategory: $sideEffectCategory, ')
+          ..write('description: $description, ')
+          ..write('severity: $severity, ')
+          ..write('observedAt: $observedAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StopConditionsTable extends StopConditions
+    with TableInfo<$StopConditionsTable, StopCondition> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StopConditionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _medicationIdMeta =
+      const VerificationMeta('medicationId');
+  @override
+  late final GeneratedColumn<int> medicationId = GeneratedColumn<int>(
+      'medication_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'UNIQUE REFERENCES medications (id) ON DELETE CASCADE'));
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+      'reason', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _actualStopDateMeta =
+      const VerificationMeta('actualStopDate');
+  @override
+  late final GeneratedColumn<DateTime> actualStopDate =
+      GeneratedColumn<DateTime>('actual_stop_date', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 200),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, medicationId, reason, actualStopDate, notes, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stop_conditions';
+  @override
+  VerificationContext validateIntegrity(Insertable<StopCondition> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('medication_id')) {
+      context.handle(
+          _medicationIdMeta,
+          medicationId.isAcceptableOrUnknown(
+              data['medication_id']!, _medicationIdMeta));
+    } else if (isInserting) {
+      context.missing(_medicationIdMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(_reasonMeta,
+          reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta));
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('actual_stop_date')) {
+      context.handle(
+          _actualStopDateMeta,
+          actualStopDate.isAcceptableOrUnknown(
+              data['actual_stop_date']!, _actualStopDateMeta));
+    } else if (isInserting) {
+      context.missing(_actualStopDateMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StopCondition map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StopCondition(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      medicationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}medication_id'])!,
+      reason: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reason'])!,
+      actualStopDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}actual_stop_date'])!,
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $StopConditionsTable createAlias(String alias) {
+    return $StopConditionsTable(attachedDatabase, alias);
+  }
+}
+
+class StopCondition extends DataClass implements Insertable<StopCondition> {
+  final int id;
+
+  /// 关联喂药方案（一对一）
+  final int medicationId;
+
+  /// 停药原因
+  final String reason;
+
+  /// 实际停药日期
+  final DateTime actualStopDate;
+
+  /// 备注
+  final String? notes;
+  final DateTime createdAt;
+  const StopCondition(
+      {required this.id,
+      required this.medicationId,
+      required this.reason,
+      required this.actualStopDate,
+      this.notes,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['medication_id'] = Variable<int>(medicationId);
+    map['reason'] = Variable<String>(reason);
+    map['actual_stop_date'] = Variable<DateTime>(actualStopDate);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  StopConditionsCompanion toCompanion(bool nullToAbsent) {
+    return StopConditionsCompanion(
+      id: Value(id),
+      medicationId: Value(medicationId),
+      reason: Value(reason),
+      actualStopDate: Value(actualStopDate),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory StopCondition.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StopCondition(
+      id: serializer.fromJson<int>(json['id']),
+      medicationId: serializer.fromJson<int>(json['medicationId']),
+      reason: serializer.fromJson<String>(json['reason']),
+      actualStopDate: serializer.fromJson<DateTime>(json['actualStopDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'medicationId': serializer.toJson<int>(medicationId),
+      'reason': serializer.toJson<String>(reason),
+      'actualStopDate': serializer.toJson<DateTime>(actualStopDate),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  StopCondition copyWith(
+          {int? id,
+          int? medicationId,
+          String? reason,
+          DateTime? actualStopDate,
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt}) =>
+      StopCondition(
+        id: id ?? this.id,
+        medicationId: medicationId ?? this.medicationId,
+        reason: reason ?? this.reason,
+        actualStopDate: actualStopDate ?? this.actualStopDate,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  StopCondition copyWithCompanion(StopConditionsCompanion data) {
+    return StopCondition(
+      id: data.id.present ? data.id.value : this.id,
+      medicationId: data.medicationId.present
+          ? data.medicationId.value
+          : this.medicationId,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      actualStopDate: data.actualStopDate.present
+          ? data.actualStopDate.value
+          : this.actualStopDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StopCondition(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('reason: $reason, ')
+          ..write('actualStopDate: $actualStopDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, medicationId, reason, actualStopDate, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StopCondition &&
+          other.id == this.id &&
+          other.medicationId == this.medicationId &&
+          other.reason == this.reason &&
+          other.actualStopDate == this.actualStopDate &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class StopConditionsCompanion extends UpdateCompanion<StopCondition> {
+  final Value<int> id;
+  final Value<int> medicationId;
+  final Value<String> reason;
+  final Value<DateTime> actualStopDate;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  const StopConditionsCompanion({
+    this.id = const Value.absent(),
+    this.medicationId = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.actualStopDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  StopConditionsCompanion.insert({
+    this.id = const Value.absent(),
+    required int medicationId,
+    required String reason,
+    required DateTime actualStopDate,
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : medicationId = Value(medicationId),
+        reason = Value(reason),
+        actualStopDate = Value(actualStopDate);
+  static Insertable<StopCondition> custom({
+    Expression<int>? id,
+    Expression<int>? medicationId,
+    Expression<String>? reason,
+    Expression<DateTime>? actualStopDate,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (medicationId != null) 'medication_id': medicationId,
+      if (reason != null) 'reason': reason,
+      if (actualStopDate != null) 'actual_stop_date': actualStopDate,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  StopConditionsCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? medicationId,
+      Value<String>? reason,
+      Value<DateTime>? actualStopDate,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt}) {
+    return StopConditionsCompanion(
+      id: id ?? this.id,
+      medicationId: medicationId ?? this.medicationId,
+      reason: reason ?? this.reason,
+      actualStopDate: actualStopDate ?? this.actualStopDate,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (medicationId.present) {
+      map['medication_id'] = Variable<int>(medicationId.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (actualStopDate.present) {
+      map['actual_stop_date'] = Variable<DateTime>(actualStopDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StopConditionsCompanion(')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('reason: $reason, ')
+          ..write('actualStopDate: $actualStopDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -8925,6 +12638,5361 @@ class BirdAvatarsCompanion extends UpdateCompanion<BirdAvatar> {
   }
 }
 
+class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FoodsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _categoryMeta =
+      const VerificationMeta('category');
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+      'category', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('其他'));
+  static const VerificationMeta _isHulledMeta =
+      const VerificationMeta('isHulled');
+  @override
+  late final GeneratedColumn<bool> isHulled = GeneratedColumn<bool>(
+      'is_hulled', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_hulled" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _basisMeta = const VerificationMeta('basis');
+  @override
+  late final GeneratedColumn<String> basis = GeneratedColumn<String>(
+      'basis', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('As Fed'));
+  static const VerificationMeta _dataSourceMeta =
+      const VerificationMeta('dataSource');
+  @override
+  late final GeneratedColumn<String> dataSource = GeneratedColumn<String>(
+      'data_source', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 200),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _dataConfidenceMeta =
+      const VerificationMeta('dataConfidence');
+  @override
+  late final GeneratedColumn<String> dataConfidence = GeneratedColumn<String>(
+      'data_confidence', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 1),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _imageUrlMeta =
+      const VerificationMeta('imageUrl');
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+      'image_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _moistureMeta =
+      const VerificationMeta('moisture');
+  @override
+  late final GeneratedColumn<double> moisture = GeneratedColumn<double>(
+      'moisture', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _crudeProteinMeta =
+      const VerificationMeta('crudeProtein');
+  @override
+  late final GeneratedColumn<double> crudeProtein = GeneratedColumn<double>(
+      'crude_protein', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _crudeFatMeta =
+      const VerificationMeta('crudeFat');
+  @override
+  late final GeneratedColumn<double> crudeFat = GeneratedColumn<double>(
+      'crude_fat', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _crudeFiberMeta =
+      const VerificationMeta('crudeFiber');
+  @override
+  late final GeneratedColumn<double> crudeFiber = GeneratedColumn<double>(
+      'crude_fiber', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _crudeAshMeta =
+      const VerificationMeta('crudeAsh');
+  @override
+  late final GeneratedColumn<double> crudeAsh = GeneratedColumn<double>(
+      'crude_ash', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _metabolizableEnergyMeta =
+      const VerificationMeta('metabolizableEnergy');
+  @override
+  late final GeneratedColumn<double> metabolizableEnergy =
+      GeneratedColumn<double>('metabolizable_energy', aliasedName, true,
+          type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _calciumMeta =
+      const VerificationMeta('calcium');
+  @override
+  late final GeneratedColumn<double> calcium = GeneratedColumn<double>(
+      'calcium', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _phosphorusMeta =
+      const VerificationMeta('phosphorus');
+  @override
+  late final GeneratedColumn<double> phosphorus = GeneratedColumn<double>(
+      'phosphorus', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _magnesiumMeta =
+      const VerificationMeta('magnesium');
+  @override
+  late final GeneratedColumn<double> magnesium = GeneratedColumn<double>(
+      'magnesium', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _potassiumMeta =
+      const VerificationMeta('potassium');
+  @override
+  late final GeneratedColumn<double> potassium = GeneratedColumn<double>(
+      'potassium', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _sodiumMeta = const VerificationMeta('sodium');
+  @override
+  late final GeneratedColumn<double> sodium = GeneratedColumn<double>(
+      'sodium', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _omega3Meta = const VerificationMeta('omega3');
+  @override
+  late final GeneratedColumn<double> omega3 = GeneratedColumn<double>(
+      'omega3', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _omega6Meta = const VerificationMeta('omega6');
+  @override
+  late final GeneratedColumn<double> omega6 = GeneratedColumn<double>(
+      'omega6', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _linoleicAcidMeta =
+      const VerificationMeta('linoleicAcid');
+  @override
+  late final GeneratedColumn<double> linoleicAcid = GeneratedColumn<double>(
+      'linoleic_acid', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _alaMeta = const VerificationMeta('ala');
+  @override
+  late final GeneratedColumn<double> ala = GeneratedColumn<double>(
+      'ala', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _lysineMeta = const VerificationMeta('lysine');
+  @override
+  late final GeneratedColumn<double> lysine = GeneratedColumn<double>(
+      'lysine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _methionineMeta =
+      const VerificationMeta('methionine');
+  @override
+  late final GeneratedColumn<double> methionine = GeneratedColumn<double>(
+      'methionine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _cystineMeta =
+      const VerificationMeta('cystine');
+  @override
+  late final GeneratedColumn<double> cystine = GeneratedColumn<double>(
+      'cystine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _threonineMeta =
+      const VerificationMeta('threonine');
+  @override
+  late final GeneratedColumn<double> threonine = GeneratedColumn<double>(
+      'threonine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _tryptophanMeta =
+      const VerificationMeta('tryptophan');
+  @override
+  late final GeneratedColumn<double> tryptophan = GeneratedColumn<double>(
+      'tryptophan', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _arginineMeta =
+      const VerificationMeta('arginine');
+  @override
+  late final GeneratedColumn<double> arginine = GeneratedColumn<double>(
+      'arginine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _valineMeta = const VerificationMeta('valine');
+  @override
+  late final GeneratedColumn<double> valine = GeneratedColumn<double>(
+      'valine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _isoleucineMeta =
+      const VerificationMeta('isoleucine');
+  @override
+  late final GeneratedColumn<double> isoleucine = GeneratedColumn<double>(
+      'isoleucine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _leucineMeta =
+      const VerificationMeta('leucine');
+  @override
+  late final GeneratedColumn<double> leucine = GeneratedColumn<double>(
+      'leucine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _zincMeta = const VerificationMeta('zinc');
+  @override
+  late final GeneratedColumn<double> zinc = GeneratedColumn<double>(
+      'zinc', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _copperMeta = const VerificationMeta('copper');
+  @override
+  late final GeneratedColumn<double> copper = GeneratedColumn<double>(
+      'copper', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ironMeta = const VerificationMeta('iron');
+  @override
+  late final GeneratedColumn<double> iron = GeneratedColumn<double>(
+      'iron', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _manganeseMeta =
+      const VerificationMeta('manganese');
+  @override
+  late final GeneratedColumn<double> manganese = GeneratedColumn<double>(
+      'manganese', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _seleniumMeta =
+      const VerificationMeta('selenium');
+  @override
+  late final GeneratedColumn<double> selenium = GeneratedColumn<double>(
+      'selenium', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _iodineMeta = const VerificationMeta('iodine');
+  @override
+  late final GeneratedColumn<double> iodine = GeneratedColumn<double>(
+      'iodine', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitAMeta = const VerificationMeta('vitA');
+  @override
+  late final GeneratedColumn<double> vitA = GeneratedColumn<double>(
+      'vit_a', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitD3Meta = const VerificationMeta('vitD3');
+  @override
+  late final GeneratedColumn<double> vitD3 = GeneratedColumn<double>(
+      'vit_d3', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitEMeta = const VerificationMeta('vitE');
+  @override
+  late final GeneratedColumn<double> vitE = GeneratedColumn<double>(
+      'vit_e', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitKMeta = const VerificationMeta('vitK');
+  @override
+  late final GeneratedColumn<double> vitK = GeneratedColumn<double>(
+      'vit_k', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitB1Meta = const VerificationMeta('vitB1');
+  @override
+  late final GeneratedColumn<double> vitB1 = GeneratedColumn<double>(
+      'vit_b1', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitB2Meta = const VerificationMeta('vitB2');
+  @override
+  late final GeneratedColumn<double> vitB2 = GeneratedColumn<double>(
+      'vit_b2', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitB6Meta = const VerificationMeta('vitB6');
+  @override
+  late final GeneratedColumn<double> vitB6 = GeneratedColumn<double>(
+      'vit_b6', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vitB12Meta = const VerificationMeta('vitB12');
+  @override
+  late final GeneratedColumn<double> vitB12 = GeneratedColumn<double>(
+      'vit_b12', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _niacinMeta = const VerificationMeta('niacin');
+  @override
+  late final GeneratedColumn<double> niacin = GeneratedColumn<double>(
+      'niacin', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _pantothenicAcidMeta =
+      const VerificationMeta('pantothenicAcid');
+  @override
+  late final GeneratedColumn<double> pantothenicAcid = GeneratedColumn<double>(
+      'pantothenic_acid', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _biotinMeta = const VerificationMeta('biotin');
+  @override
+  late final GeneratedColumn<double> biotin = GeneratedColumn<double>(
+      'biotin', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _folicAcidMeta =
+      const VerificationMeta('folicAcid');
+  @override
+  late final GeneratedColumn<double> folicAcid = GeneratedColumn<double>(
+      'folic_acid', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _recommendedStagesMeta =
+      const VerificationMeta('recommendedStages');
+  @override
+  late final GeneratedColumn<String> recommendedStages =
+      GeneratedColumn<String>('recommended_stages', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _maxRatioPercentMeta =
+      const VerificationMeta('maxRatioPercent');
+  @override
+  late final GeneratedColumn<double> maxRatioPercent = GeneratedColumn<double>(
+      'max_ratio_percent', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(100));
+  static const VerificationMeta _minRatioPercentMeta =
+      const VerificationMeta('minRatioPercent');
+  @override
+  late final GeneratedColumn<double> minRatioPercent = GeneratedColumn<double>(
+      'min_ratio_percent', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _needsSoakingMeta =
+      const VerificationMeta('needsSoaking');
+  @override
+  late final GeneratedColumn<bool> needsSoaking = GeneratedColumn<bool>(
+      'needs_soaking', aliasedName, true,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("needs_soaking" IN (0, 1))'));
+  static const VerificationMeta _canSproutMeta =
+      const VerificationMeta('canSprout');
+  @override
+  late final GeneratedColumn<bool> canSprout = GeneratedColumn<bool>(
+      'can_sprout', aliasedName, true,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("can_sprout" IN (0, 1))'));
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        name,
+        category,
+        isHulled,
+        basis,
+        dataSource,
+        dataConfidence,
+        imageUrl,
+        moisture,
+        crudeProtein,
+        crudeFat,
+        crudeFiber,
+        crudeAsh,
+        metabolizableEnergy,
+        calcium,
+        phosphorus,
+        magnesium,
+        potassium,
+        sodium,
+        omega3,
+        omega6,
+        linoleicAcid,
+        ala,
+        lysine,
+        methionine,
+        cystine,
+        threonine,
+        tryptophan,
+        arginine,
+        valine,
+        isoleucine,
+        leucine,
+        zinc,
+        copper,
+        iron,
+        manganese,
+        selenium,
+        iodine,
+        vitA,
+        vitD3,
+        vitE,
+        vitK,
+        vitB1,
+        vitB2,
+        vitB6,
+        vitB12,
+        niacin,
+        pantothenicAcid,
+        biotin,
+        folicAcid,
+        recommendedStages,
+        maxRatioPercent,
+        minRatioPercent,
+        needsSoaking,
+        canSprout,
+        notes,
+        createdAt,
+        updatedAt,
+        deletedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'foods';
+  @override
+  VerificationContext validateIntegrity(Insertable<Food> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(_categoryMeta,
+          category.isAcceptableOrUnknown(data['category']!, _categoryMeta));
+    }
+    if (data.containsKey('is_hulled')) {
+      context.handle(_isHulledMeta,
+          isHulled.isAcceptableOrUnknown(data['is_hulled']!, _isHulledMeta));
+    }
+    if (data.containsKey('basis')) {
+      context.handle(
+          _basisMeta, basis.isAcceptableOrUnknown(data['basis']!, _basisMeta));
+    }
+    if (data.containsKey('data_source')) {
+      context.handle(
+          _dataSourceMeta,
+          dataSource.isAcceptableOrUnknown(
+              data['data_source']!, _dataSourceMeta));
+    } else if (isInserting) {
+      context.missing(_dataSourceMeta);
+    }
+    if (data.containsKey('data_confidence')) {
+      context.handle(
+          _dataConfidenceMeta,
+          dataConfidence.isAcceptableOrUnknown(
+              data['data_confidence']!, _dataConfidenceMeta));
+    }
+    if (data.containsKey('image_url')) {
+      context.handle(_imageUrlMeta,
+          imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta));
+    }
+    if (data.containsKey('moisture')) {
+      context.handle(_moistureMeta,
+          moisture.isAcceptableOrUnknown(data['moisture']!, _moistureMeta));
+    }
+    if (data.containsKey('crude_protein')) {
+      context.handle(
+          _crudeProteinMeta,
+          crudeProtein.isAcceptableOrUnknown(
+              data['crude_protein']!, _crudeProteinMeta));
+    }
+    if (data.containsKey('crude_fat')) {
+      context.handle(_crudeFatMeta,
+          crudeFat.isAcceptableOrUnknown(data['crude_fat']!, _crudeFatMeta));
+    }
+    if (data.containsKey('crude_fiber')) {
+      context.handle(
+          _crudeFiberMeta,
+          crudeFiber.isAcceptableOrUnknown(
+              data['crude_fiber']!, _crudeFiberMeta));
+    }
+    if (data.containsKey('crude_ash')) {
+      context.handle(_crudeAshMeta,
+          crudeAsh.isAcceptableOrUnknown(data['crude_ash']!, _crudeAshMeta));
+    }
+    if (data.containsKey('metabolizable_energy')) {
+      context.handle(
+          _metabolizableEnergyMeta,
+          metabolizableEnergy.isAcceptableOrUnknown(
+              data['metabolizable_energy']!, _metabolizableEnergyMeta));
+    }
+    if (data.containsKey('calcium')) {
+      context.handle(_calciumMeta,
+          calcium.isAcceptableOrUnknown(data['calcium']!, _calciumMeta));
+    }
+    if (data.containsKey('phosphorus')) {
+      context.handle(
+          _phosphorusMeta,
+          phosphorus.isAcceptableOrUnknown(
+              data['phosphorus']!, _phosphorusMeta));
+    }
+    if (data.containsKey('magnesium')) {
+      context.handle(_magnesiumMeta,
+          magnesium.isAcceptableOrUnknown(data['magnesium']!, _magnesiumMeta));
+    }
+    if (data.containsKey('potassium')) {
+      context.handle(_potassiumMeta,
+          potassium.isAcceptableOrUnknown(data['potassium']!, _potassiumMeta));
+    }
+    if (data.containsKey('sodium')) {
+      context.handle(_sodiumMeta,
+          sodium.isAcceptableOrUnknown(data['sodium']!, _sodiumMeta));
+    }
+    if (data.containsKey('omega3')) {
+      context.handle(_omega3Meta,
+          omega3.isAcceptableOrUnknown(data['omega3']!, _omega3Meta));
+    }
+    if (data.containsKey('omega6')) {
+      context.handle(_omega6Meta,
+          omega6.isAcceptableOrUnknown(data['omega6']!, _omega6Meta));
+    }
+    if (data.containsKey('linoleic_acid')) {
+      context.handle(
+          _linoleicAcidMeta,
+          linoleicAcid.isAcceptableOrUnknown(
+              data['linoleic_acid']!, _linoleicAcidMeta));
+    }
+    if (data.containsKey('ala')) {
+      context.handle(
+          _alaMeta, ala.isAcceptableOrUnknown(data['ala']!, _alaMeta));
+    }
+    if (data.containsKey('lysine')) {
+      context.handle(_lysineMeta,
+          lysine.isAcceptableOrUnknown(data['lysine']!, _lysineMeta));
+    }
+    if (data.containsKey('methionine')) {
+      context.handle(
+          _methionineMeta,
+          methionine.isAcceptableOrUnknown(
+              data['methionine']!, _methionineMeta));
+    }
+    if (data.containsKey('cystine')) {
+      context.handle(_cystineMeta,
+          cystine.isAcceptableOrUnknown(data['cystine']!, _cystineMeta));
+    }
+    if (data.containsKey('threonine')) {
+      context.handle(_threonineMeta,
+          threonine.isAcceptableOrUnknown(data['threonine']!, _threonineMeta));
+    }
+    if (data.containsKey('tryptophan')) {
+      context.handle(
+          _tryptophanMeta,
+          tryptophan.isAcceptableOrUnknown(
+              data['tryptophan']!, _tryptophanMeta));
+    }
+    if (data.containsKey('arginine')) {
+      context.handle(_arginineMeta,
+          arginine.isAcceptableOrUnknown(data['arginine']!, _arginineMeta));
+    }
+    if (data.containsKey('valine')) {
+      context.handle(_valineMeta,
+          valine.isAcceptableOrUnknown(data['valine']!, _valineMeta));
+    }
+    if (data.containsKey('isoleucine')) {
+      context.handle(
+          _isoleucineMeta,
+          isoleucine.isAcceptableOrUnknown(
+              data['isoleucine']!, _isoleucineMeta));
+    }
+    if (data.containsKey('leucine')) {
+      context.handle(_leucineMeta,
+          leucine.isAcceptableOrUnknown(data['leucine']!, _leucineMeta));
+    }
+    if (data.containsKey('zinc')) {
+      context.handle(
+          _zincMeta, zinc.isAcceptableOrUnknown(data['zinc']!, _zincMeta));
+    }
+    if (data.containsKey('copper')) {
+      context.handle(_copperMeta,
+          copper.isAcceptableOrUnknown(data['copper']!, _copperMeta));
+    }
+    if (data.containsKey('iron')) {
+      context.handle(
+          _ironMeta, iron.isAcceptableOrUnknown(data['iron']!, _ironMeta));
+    }
+    if (data.containsKey('manganese')) {
+      context.handle(_manganeseMeta,
+          manganese.isAcceptableOrUnknown(data['manganese']!, _manganeseMeta));
+    }
+    if (data.containsKey('selenium')) {
+      context.handle(_seleniumMeta,
+          selenium.isAcceptableOrUnknown(data['selenium']!, _seleniumMeta));
+    }
+    if (data.containsKey('iodine')) {
+      context.handle(_iodineMeta,
+          iodine.isAcceptableOrUnknown(data['iodine']!, _iodineMeta));
+    }
+    if (data.containsKey('vit_a')) {
+      context.handle(
+          _vitAMeta, vitA.isAcceptableOrUnknown(data['vit_a']!, _vitAMeta));
+    }
+    if (data.containsKey('vit_d3')) {
+      context.handle(
+          _vitD3Meta, vitD3.isAcceptableOrUnknown(data['vit_d3']!, _vitD3Meta));
+    }
+    if (data.containsKey('vit_e')) {
+      context.handle(
+          _vitEMeta, vitE.isAcceptableOrUnknown(data['vit_e']!, _vitEMeta));
+    }
+    if (data.containsKey('vit_k')) {
+      context.handle(
+          _vitKMeta, vitK.isAcceptableOrUnknown(data['vit_k']!, _vitKMeta));
+    }
+    if (data.containsKey('vit_b1')) {
+      context.handle(
+          _vitB1Meta, vitB1.isAcceptableOrUnknown(data['vit_b1']!, _vitB1Meta));
+    }
+    if (data.containsKey('vit_b2')) {
+      context.handle(
+          _vitB2Meta, vitB2.isAcceptableOrUnknown(data['vit_b2']!, _vitB2Meta));
+    }
+    if (data.containsKey('vit_b6')) {
+      context.handle(
+          _vitB6Meta, vitB6.isAcceptableOrUnknown(data['vit_b6']!, _vitB6Meta));
+    }
+    if (data.containsKey('vit_b12')) {
+      context.handle(_vitB12Meta,
+          vitB12.isAcceptableOrUnknown(data['vit_b12']!, _vitB12Meta));
+    }
+    if (data.containsKey('niacin')) {
+      context.handle(_niacinMeta,
+          niacin.isAcceptableOrUnknown(data['niacin']!, _niacinMeta));
+    }
+    if (data.containsKey('pantothenic_acid')) {
+      context.handle(
+          _pantothenicAcidMeta,
+          pantothenicAcid.isAcceptableOrUnknown(
+              data['pantothenic_acid']!, _pantothenicAcidMeta));
+    }
+    if (data.containsKey('biotin')) {
+      context.handle(_biotinMeta,
+          biotin.isAcceptableOrUnknown(data['biotin']!, _biotinMeta));
+    }
+    if (data.containsKey('folic_acid')) {
+      context.handle(_folicAcidMeta,
+          folicAcid.isAcceptableOrUnknown(data['folic_acid']!, _folicAcidMeta));
+    }
+    if (data.containsKey('recommended_stages')) {
+      context.handle(
+          _recommendedStagesMeta,
+          recommendedStages.isAcceptableOrUnknown(
+              data['recommended_stages']!, _recommendedStagesMeta));
+    }
+    if (data.containsKey('max_ratio_percent')) {
+      context.handle(
+          _maxRatioPercentMeta,
+          maxRatioPercent.isAcceptableOrUnknown(
+              data['max_ratio_percent']!, _maxRatioPercentMeta));
+    }
+    if (data.containsKey('min_ratio_percent')) {
+      context.handle(
+          _minRatioPercentMeta,
+          minRatioPercent.isAcceptableOrUnknown(
+              data['min_ratio_percent']!, _minRatioPercentMeta));
+    }
+    if (data.containsKey('needs_soaking')) {
+      context.handle(
+          _needsSoakingMeta,
+          needsSoaking.isAcceptableOrUnknown(
+              data['needs_soaking']!, _needsSoakingMeta));
+    }
+    if (data.containsKey('can_sprout')) {
+      context.handle(_canSproutMeta,
+          canSprout.isAcceptableOrUnknown(data['can_sprout']!, _canSproutMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Food map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Food(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      category: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}category'])!,
+      isHulled: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_hulled'])!,
+      basis: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}basis'])!,
+      dataSource: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}data_source'])!,
+      dataConfidence: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}data_confidence']),
+      imageUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}image_url']),
+      moisture: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}moisture'])!,
+      crudeProtein: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}crude_protein'])!,
+      crudeFat: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}crude_fat'])!,
+      crudeFiber: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}crude_fiber'])!,
+      crudeAsh: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}crude_ash']),
+      metabolizableEnergy: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}metabolizable_energy']),
+      calcium: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}calcium']),
+      phosphorus: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}phosphorus']),
+      magnesium: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}magnesium']),
+      potassium: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}potassium']),
+      sodium: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}sodium']),
+      omega3: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}omega3']),
+      omega6: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}omega6']),
+      linoleicAcid: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}linoleic_acid']),
+      ala: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ala']),
+      lysine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lysine']),
+      methionine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}methionine']),
+      cystine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}cystine']),
+      threonine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}threonine']),
+      tryptophan: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}tryptophan']),
+      arginine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}arginine']),
+      valine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}valine']),
+      isoleucine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}isoleucine']),
+      leucine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}leucine']),
+      zinc: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}zinc']),
+      copper: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}copper']),
+      iron: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}iron']),
+      manganese: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}manganese']),
+      selenium: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}selenium']),
+      iodine: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}iodine']),
+      vitA: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_a']),
+      vitD3: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_d3']),
+      vitE: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_e']),
+      vitK: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_k']),
+      vitB1: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_b1']),
+      vitB2: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_b2']),
+      vitB6: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_b6']),
+      vitB12: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vit_b12']),
+      niacin: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}niacin']),
+      pantothenicAcid: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}pantothenic_acid']),
+      biotin: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}biotin']),
+      folicAcid: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}folic_acid']),
+      recommendedStages: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}recommended_stages']),
+      maxRatioPercent: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}max_ratio_percent'])!,
+      minRatioPercent: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}min_ratio_percent']),
+      needsSoaking: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}needs_soaking']),
+      canSprout: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}can_sprout']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $FoodsTable createAlias(String alias) {
+    return $FoodsTable(attachedDatabase, alias);
+  }
+}
+
+class Food extends DataClass implements Insertable<Food> {
+  final int id;
+  final String uuid;
+
+  /// 食材名称（必填，唯一标识）
+  final String name;
+
+  /// 分类：主食 / 蔬果 / 补充剂 / 其他（必填）
+  final String category;
+
+  /// 是否去壳（必填，影响营养值）
+  final bool isHulled;
+
+  /// 数据基准：As Fed（原样）/ Dry Matter（干物质）（必填）
+  final String basis;
+
+  /// 数据来源（必填，如 USDA / Feedipedia / 厂家检测报告）
+  final String dataSource;
+
+  /// 数据质量等级：A（实验室）/ B（官方数据库）/ C（论文）/ D（企业标注）/ E（经验值）
+  final String? dataConfidence;
+
+  /// 食材图片路径
+  final String? imageUrl;
+
+  /// 水分（必填）
+  final double moisture;
+
+  /// 粗蛋白（必填）
+  final double crudeProtein;
+
+  /// 粗脂肪（必填）
+  final double crudeFat;
+
+  /// 粗纤维（必填）
+  final double crudeFiber;
+
+  /// 粗灰分（选填）
+  final double? crudeAsh;
+
+  /// 代谢能 ME（kcal/100g，选填）
+  final double? metabolizableEnergy;
+  final double? calcium;
+  final double? phosphorus;
+  final double? magnesium;
+  final double? potassium;
+  final double? sodium;
+  final double? omega3;
+  final double? omega6;
+  final double? linoleicAcid;
+
+  /// α-亚麻酸
+  final double? ala;
+
+  /// 赖氨酸
+  final double? lysine;
+
+  /// 蛋氨酸
+  final double? methionine;
+
+  /// 胱氨酸
+  final double? cystine;
+
+  /// 苏氨酸
+  final double? threonine;
+
+  /// 色氨酸
+  final double? tryptophan;
+
+  /// 精氨酸
+  final double? arginine;
+
+  /// 缬氨酸
+  final double? valine;
+
+  /// 异亮氨酸
+  final double? isoleucine;
+
+  /// 亮氨酸
+  final double? leucine;
+
+  /// 锌
+  final double? zinc;
+
+  /// 铜
+  final double? copper;
+
+  /// 铁
+  final double? iron;
+
+  /// 锰
+  final double? manganese;
+
+  /// 硒
+  final double? selenium;
+
+  /// 碘
+  final double? iodine;
+
+  /// VA
+  final double? vitA;
+
+  /// VD3
+  final double? vitD3;
+
+  /// VE
+  final double? vitE;
+
+  /// VK
+  final double? vitK;
+
+  /// B1（硫胺素）
+  final double? vitB1;
+
+  /// B2（核黄素）
+  final double? vitB2;
+
+  /// B6
+  final double? vitB6;
+
+  /// B12
+  final double? vitB12;
+
+  /// 烟酸
+  final double? niacin;
+
+  /// 泛酸
+  final double? pantothenicAcid;
+
+  /// 生物素
+  final double? biotin;
+
+  /// 叶酸
+  final double? folicAcid;
+
+  /// 适用阶段（JSON 数组，如 ["雏鸟","断奶期"]）
+  final String? recommendedStages;
+
+  /// 最大建议比例 %（必填，防止配方超量）
+  final double maxRatioPercent;
+
+  /// 最小建议比例 %（选填，优化配方）
+  final double? minRatioPercent;
+
+  /// 是否需要浸泡（选填）
+  final bool? needsSoaking;
+
+  /// 是否适合发芽（选填）
+  final bool? canSprout;
+
+  /// 备注
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Food(
+      {required this.id,
+      required this.uuid,
+      required this.name,
+      required this.category,
+      required this.isHulled,
+      required this.basis,
+      required this.dataSource,
+      this.dataConfidence,
+      this.imageUrl,
+      required this.moisture,
+      required this.crudeProtein,
+      required this.crudeFat,
+      required this.crudeFiber,
+      this.crudeAsh,
+      this.metabolizableEnergy,
+      this.calcium,
+      this.phosphorus,
+      this.magnesium,
+      this.potassium,
+      this.sodium,
+      this.omega3,
+      this.omega6,
+      this.linoleicAcid,
+      this.ala,
+      this.lysine,
+      this.methionine,
+      this.cystine,
+      this.threonine,
+      this.tryptophan,
+      this.arginine,
+      this.valine,
+      this.isoleucine,
+      this.leucine,
+      this.zinc,
+      this.copper,
+      this.iron,
+      this.manganese,
+      this.selenium,
+      this.iodine,
+      this.vitA,
+      this.vitD3,
+      this.vitE,
+      this.vitK,
+      this.vitB1,
+      this.vitB2,
+      this.vitB6,
+      this.vitB12,
+      this.niacin,
+      this.pantothenicAcid,
+      this.biotin,
+      this.folicAcid,
+      this.recommendedStages,
+      required this.maxRatioPercent,
+      this.minRatioPercent,
+      this.needsSoaking,
+      this.canSprout,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['name'] = Variable<String>(name);
+    map['category'] = Variable<String>(category);
+    map['is_hulled'] = Variable<bool>(isHulled);
+    map['basis'] = Variable<String>(basis);
+    map['data_source'] = Variable<String>(dataSource);
+    if (!nullToAbsent || dataConfidence != null) {
+      map['data_confidence'] = Variable<String>(dataConfidence);
+    }
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
+    map['moisture'] = Variable<double>(moisture);
+    map['crude_protein'] = Variable<double>(crudeProtein);
+    map['crude_fat'] = Variable<double>(crudeFat);
+    map['crude_fiber'] = Variable<double>(crudeFiber);
+    if (!nullToAbsent || crudeAsh != null) {
+      map['crude_ash'] = Variable<double>(crudeAsh);
+    }
+    if (!nullToAbsent || metabolizableEnergy != null) {
+      map['metabolizable_energy'] = Variable<double>(metabolizableEnergy);
+    }
+    if (!nullToAbsent || calcium != null) {
+      map['calcium'] = Variable<double>(calcium);
+    }
+    if (!nullToAbsent || phosphorus != null) {
+      map['phosphorus'] = Variable<double>(phosphorus);
+    }
+    if (!nullToAbsent || magnesium != null) {
+      map['magnesium'] = Variable<double>(magnesium);
+    }
+    if (!nullToAbsent || potassium != null) {
+      map['potassium'] = Variable<double>(potassium);
+    }
+    if (!nullToAbsent || sodium != null) {
+      map['sodium'] = Variable<double>(sodium);
+    }
+    if (!nullToAbsent || omega3 != null) {
+      map['omega3'] = Variable<double>(omega3);
+    }
+    if (!nullToAbsent || omega6 != null) {
+      map['omega6'] = Variable<double>(omega6);
+    }
+    if (!nullToAbsent || linoleicAcid != null) {
+      map['linoleic_acid'] = Variable<double>(linoleicAcid);
+    }
+    if (!nullToAbsent || ala != null) {
+      map['ala'] = Variable<double>(ala);
+    }
+    if (!nullToAbsent || lysine != null) {
+      map['lysine'] = Variable<double>(lysine);
+    }
+    if (!nullToAbsent || methionine != null) {
+      map['methionine'] = Variable<double>(methionine);
+    }
+    if (!nullToAbsent || cystine != null) {
+      map['cystine'] = Variable<double>(cystine);
+    }
+    if (!nullToAbsent || threonine != null) {
+      map['threonine'] = Variable<double>(threonine);
+    }
+    if (!nullToAbsent || tryptophan != null) {
+      map['tryptophan'] = Variable<double>(tryptophan);
+    }
+    if (!nullToAbsent || arginine != null) {
+      map['arginine'] = Variable<double>(arginine);
+    }
+    if (!nullToAbsent || valine != null) {
+      map['valine'] = Variable<double>(valine);
+    }
+    if (!nullToAbsent || isoleucine != null) {
+      map['isoleucine'] = Variable<double>(isoleucine);
+    }
+    if (!nullToAbsent || leucine != null) {
+      map['leucine'] = Variable<double>(leucine);
+    }
+    if (!nullToAbsent || zinc != null) {
+      map['zinc'] = Variable<double>(zinc);
+    }
+    if (!nullToAbsent || copper != null) {
+      map['copper'] = Variable<double>(copper);
+    }
+    if (!nullToAbsent || iron != null) {
+      map['iron'] = Variable<double>(iron);
+    }
+    if (!nullToAbsent || manganese != null) {
+      map['manganese'] = Variable<double>(manganese);
+    }
+    if (!nullToAbsent || selenium != null) {
+      map['selenium'] = Variable<double>(selenium);
+    }
+    if (!nullToAbsent || iodine != null) {
+      map['iodine'] = Variable<double>(iodine);
+    }
+    if (!nullToAbsent || vitA != null) {
+      map['vit_a'] = Variable<double>(vitA);
+    }
+    if (!nullToAbsent || vitD3 != null) {
+      map['vit_d3'] = Variable<double>(vitD3);
+    }
+    if (!nullToAbsent || vitE != null) {
+      map['vit_e'] = Variable<double>(vitE);
+    }
+    if (!nullToAbsent || vitK != null) {
+      map['vit_k'] = Variable<double>(vitK);
+    }
+    if (!nullToAbsent || vitB1 != null) {
+      map['vit_b1'] = Variable<double>(vitB1);
+    }
+    if (!nullToAbsent || vitB2 != null) {
+      map['vit_b2'] = Variable<double>(vitB2);
+    }
+    if (!nullToAbsent || vitB6 != null) {
+      map['vit_b6'] = Variable<double>(vitB6);
+    }
+    if (!nullToAbsent || vitB12 != null) {
+      map['vit_b12'] = Variable<double>(vitB12);
+    }
+    if (!nullToAbsent || niacin != null) {
+      map['niacin'] = Variable<double>(niacin);
+    }
+    if (!nullToAbsent || pantothenicAcid != null) {
+      map['pantothenic_acid'] = Variable<double>(pantothenicAcid);
+    }
+    if (!nullToAbsent || biotin != null) {
+      map['biotin'] = Variable<double>(biotin);
+    }
+    if (!nullToAbsent || folicAcid != null) {
+      map['folic_acid'] = Variable<double>(folicAcid);
+    }
+    if (!nullToAbsent || recommendedStages != null) {
+      map['recommended_stages'] = Variable<String>(recommendedStages);
+    }
+    map['max_ratio_percent'] = Variable<double>(maxRatioPercent);
+    if (!nullToAbsent || minRatioPercent != null) {
+      map['min_ratio_percent'] = Variable<double>(minRatioPercent);
+    }
+    if (!nullToAbsent || needsSoaking != null) {
+      map['needs_soaking'] = Variable<bool>(needsSoaking);
+    }
+    if (!nullToAbsent || canSprout != null) {
+      map['can_sprout'] = Variable<bool>(canSprout);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  FoodsCompanion toCompanion(bool nullToAbsent) {
+    return FoodsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      name: Value(name),
+      category: Value(category),
+      isHulled: Value(isHulled),
+      basis: Value(basis),
+      dataSource: Value(dataSource),
+      dataConfidence: dataConfidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dataConfidence),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
+      moisture: Value(moisture),
+      crudeProtein: Value(crudeProtein),
+      crudeFat: Value(crudeFat),
+      crudeFiber: Value(crudeFiber),
+      crudeAsh: crudeAsh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(crudeAsh),
+      metabolizableEnergy: metabolizableEnergy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metabolizableEnergy),
+      calcium: calcium == null && nullToAbsent
+          ? const Value.absent()
+          : Value(calcium),
+      phosphorus: phosphorus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phosphorus),
+      magnesium: magnesium == null && nullToAbsent
+          ? const Value.absent()
+          : Value(magnesium),
+      potassium: potassium == null && nullToAbsent
+          ? const Value.absent()
+          : Value(potassium),
+      sodium:
+          sodium == null && nullToAbsent ? const Value.absent() : Value(sodium),
+      omega3:
+          omega3 == null && nullToAbsent ? const Value.absent() : Value(omega3),
+      omega6:
+          omega6 == null && nullToAbsent ? const Value.absent() : Value(omega6),
+      linoleicAcid: linoleicAcid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linoleicAcid),
+      ala: ala == null && nullToAbsent ? const Value.absent() : Value(ala),
+      lysine:
+          lysine == null && nullToAbsent ? const Value.absent() : Value(lysine),
+      methionine: methionine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(methionine),
+      cystine: cystine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cystine),
+      threonine: threonine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(threonine),
+      tryptophan: tryptophan == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tryptophan),
+      arginine: arginine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(arginine),
+      valine:
+          valine == null && nullToAbsent ? const Value.absent() : Value(valine),
+      isoleucine: isoleucine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isoleucine),
+      leucine: leucine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(leucine),
+      zinc: zinc == null && nullToAbsent ? const Value.absent() : Value(zinc),
+      copper:
+          copper == null && nullToAbsent ? const Value.absent() : Value(copper),
+      iron: iron == null && nullToAbsent ? const Value.absent() : Value(iron),
+      manganese: manganese == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manganese),
+      selenium: selenium == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selenium),
+      iodine:
+          iodine == null && nullToAbsent ? const Value.absent() : Value(iodine),
+      vitA: vitA == null && nullToAbsent ? const Value.absent() : Value(vitA),
+      vitD3:
+          vitD3 == null && nullToAbsent ? const Value.absent() : Value(vitD3),
+      vitE: vitE == null && nullToAbsent ? const Value.absent() : Value(vitE),
+      vitK: vitK == null && nullToAbsent ? const Value.absent() : Value(vitK),
+      vitB1:
+          vitB1 == null && nullToAbsent ? const Value.absent() : Value(vitB1),
+      vitB2:
+          vitB2 == null && nullToAbsent ? const Value.absent() : Value(vitB2),
+      vitB6:
+          vitB6 == null && nullToAbsent ? const Value.absent() : Value(vitB6),
+      vitB12:
+          vitB12 == null && nullToAbsent ? const Value.absent() : Value(vitB12),
+      niacin:
+          niacin == null && nullToAbsent ? const Value.absent() : Value(niacin),
+      pantothenicAcid: pantothenicAcid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pantothenicAcid),
+      biotin:
+          biotin == null && nullToAbsent ? const Value.absent() : Value(biotin),
+      folicAcid: folicAcid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(folicAcid),
+      recommendedStages: recommendedStages == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recommendedStages),
+      maxRatioPercent: Value(maxRatioPercent),
+      minRatioPercent: minRatioPercent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minRatioPercent),
+      needsSoaking: needsSoaking == null && nullToAbsent
+          ? const Value.absent()
+          : Value(needsSoaking),
+      canSprout: canSprout == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canSprout),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Food.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Food(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      name: serializer.fromJson<String>(json['name']),
+      category: serializer.fromJson<String>(json['category']),
+      isHulled: serializer.fromJson<bool>(json['isHulled']),
+      basis: serializer.fromJson<String>(json['basis']),
+      dataSource: serializer.fromJson<String>(json['dataSource']),
+      dataConfidence: serializer.fromJson<String?>(json['dataConfidence']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
+      moisture: serializer.fromJson<double>(json['moisture']),
+      crudeProtein: serializer.fromJson<double>(json['crudeProtein']),
+      crudeFat: serializer.fromJson<double>(json['crudeFat']),
+      crudeFiber: serializer.fromJson<double>(json['crudeFiber']),
+      crudeAsh: serializer.fromJson<double?>(json['crudeAsh']),
+      metabolizableEnergy:
+          serializer.fromJson<double?>(json['metabolizableEnergy']),
+      calcium: serializer.fromJson<double?>(json['calcium']),
+      phosphorus: serializer.fromJson<double?>(json['phosphorus']),
+      magnesium: serializer.fromJson<double?>(json['magnesium']),
+      potassium: serializer.fromJson<double?>(json['potassium']),
+      sodium: serializer.fromJson<double?>(json['sodium']),
+      omega3: serializer.fromJson<double?>(json['omega3']),
+      omega6: serializer.fromJson<double?>(json['omega6']),
+      linoleicAcid: serializer.fromJson<double?>(json['linoleicAcid']),
+      ala: serializer.fromJson<double?>(json['ala']),
+      lysine: serializer.fromJson<double?>(json['lysine']),
+      methionine: serializer.fromJson<double?>(json['methionine']),
+      cystine: serializer.fromJson<double?>(json['cystine']),
+      threonine: serializer.fromJson<double?>(json['threonine']),
+      tryptophan: serializer.fromJson<double?>(json['tryptophan']),
+      arginine: serializer.fromJson<double?>(json['arginine']),
+      valine: serializer.fromJson<double?>(json['valine']),
+      isoleucine: serializer.fromJson<double?>(json['isoleucine']),
+      leucine: serializer.fromJson<double?>(json['leucine']),
+      zinc: serializer.fromJson<double?>(json['zinc']),
+      copper: serializer.fromJson<double?>(json['copper']),
+      iron: serializer.fromJson<double?>(json['iron']),
+      manganese: serializer.fromJson<double?>(json['manganese']),
+      selenium: serializer.fromJson<double?>(json['selenium']),
+      iodine: serializer.fromJson<double?>(json['iodine']),
+      vitA: serializer.fromJson<double?>(json['vitA']),
+      vitD3: serializer.fromJson<double?>(json['vitD3']),
+      vitE: serializer.fromJson<double?>(json['vitE']),
+      vitK: serializer.fromJson<double?>(json['vitK']),
+      vitB1: serializer.fromJson<double?>(json['vitB1']),
+      vitB2: serializer.fromJson<double?>(json['vitB2']),
+      vitB6: serializer.fromJson<double?>(json['vitB6']),
+      vitB12: serializer.fromJson<double?>(json['vitB12']),
+      niacin: serializer.fromJson<double?>(json['niacin']),
+      pantothenicAcid: serializer.fromJson<double?>(json['pantothenicAcid']),
+      biotin: serializer.fromJson<double?>(json['biotin']),
+      folicAcid: serializer.fromJson<double?>(json['folicAcid']),
+      recommendedStages:
+          serializer.fromJson<String?>(json['recommendedStages']),
+      maxRatioPercent: serializer.fromJson<double>(json['maxRatioPercent']),
+      minRatioPercent: serializer.fromJson<double?>(json['minRatioPercent']),
+      needsSoaking: serializer.fromJson<bool?>(json['needsSoaking']),
+      canSprout: serializer.fromJson<bool?>(json['canSprout']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'name': serializer.toJson<String>(name),
+      'category': serializer.toJson<String>(category),
+      'isHulled': serializer.toJson<bool>(isHulled),
+      'basis': serializer.toJson<String>(basis),
+      'dataSource': serializer.toJson<String>(dataSource),
+      'dataConfidence': serializer.toJson<String?>(dataConfidence),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
+      'moisture': serializer.toJson<double>(moisture),
+      'crudeProtein': serializer.toJson<double>(crudeProtein),
+      'crudeFat': serializer.toJson<double>(crudeFat),
+      'crudeFiber': serializer.toJson<double>(crudeFiber),
+      'crudeAsh': serializer.toJson<double?>(crudeAsh),
+      'metabolizableEnergy': serializer.toJson<double?>(metabolizableEnergy),
+      'calcium': serializer.toJson<double?>(calcium),
+      'phosphorus': serializer.toJson<double?>(phosphorus),
+      'magnesium': serializer.toJson<double?>(magnesium),
+      'potassium': serializer.toJson<double?>(potassium),
+      'sodium': serializer.toJson<double?>(sodium),
+      'omega3': serializer.toJson<double?>(omega3),
+      'omega6': serializer.toJson<double?>(omega6),
+      'linoleicAcid': serializer.toJson<double?>(linoleicAcid),
+      'ala': serializer.toJson<double?>(ala),
+      'lysine': serializer.toJson<double?>(lysine),
+      'methionine': serializer.toJson<double?>(methionine),
+      'cystine': serializer.toJson<double?>(cystine),
+      'threonine': serializer.toJson<double?>(threonine),
+      'tryptophan': serializer.toJson<double?>(tryptophan),
+      'arginine': serializer.toJson<double?>(arginine),
+      'valine': serializer.toJson<double?>(valine),
+      'isoleucine': serializer.toJson<double?>(isoleucine),
+      'leucine': serializer.toJson<double?>(leucine),
+      'zinc': serializer.toJson<double?>(zinc),
+      'copper': serializer.toJson<double?>(copper),
+      'iron': serializer.toJson<double?>(iron),
+      'manganese': serializer.toJson<double?>(manganese),
+      'selenium': serializer.toJson<double?>(selenium),
+      'iodine': serializer.toJson<double?>(iodine),
+      'vitA': serializer.toJson<double?>(vitA),
+      'vitD3': serializer.toJson<double?>(vitD3),
+      'vitE': serializer.toJson<double?>(vitE),
+      'vitK': serializer.toJson<double?>(vitK),
+      'vitB1': serializer.toJson<double?>(vitB1),
+      'vitB2': serializer.toJson<double?>(vitB2),
+      'vitB6': serializer.toJson<double?>(vitB6),
+      'vitB12': serializer.toJson<double?>(vitB12),
+      'niacin': serializer.toJson<double?>(niacin),
+      'pantothenicAcid': serializer.toJson<double?>(pantothenicAcid),
+      'biotin': serializer.toJson<double?>(biotin),
+      'folicAcid': serializer.toJson<double?>(folicAcid),
+      'recommendedStages': serializer.toJson<String?>(recommendedStages),
+      'maxRatioPercent': serializer.toJson<double>(maxRatioPercent),
+      'minRatioPercent': serializer.toJson<double?>(minRatioPercent),
+      'needsSoaking': serializer.toJson<bool?>(needsSoaking),
+      'canSprout': serializer.toJson<bool?>(canSprout),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Food copyWith(
+          {int? id,
+          String? uuid,
+          String? name,
+          String? category,
+          bool? isHulled,
+          String? basis,
+          String? dataSource,
+          Value<String?> dataConfidence = const Value.absent(),
+          Value<String?> imageUrl = const Value.absent(),
+          double? moisture,
+          double? crudeProtein,
+          double? crudeFat,
+          double? crudeFiber,
+          Value<double?> crudeAsh = const Value.absent(),
+          Value<double?> metabolizableEnergy = const Value.absent(),
+          Value<double?> calcium = const Value.absent(),
+          Value<double?> phosphorus = const Value.absent(),
+          Value<double?> magnesium = const Value.absent(),
+          Value<double?> potassium = const Value.absent(),
+          Value<double?> sodium = const Value.absent(),
+          Value<double?> omega3 = const Value.absent(),
+          Value<double?> omega6 = const Value.absent(),
+          Value<double?> linoleicAcid = const Value.absent(),
+          Value<double?> ala = const Value.absent(),
+          Value<double?> lysine = const Value.absent(),
+          Value<double?> methionine = const Value.absent(),
+          Value<double?> cystine = const Value.absent(),
+          Value<double?> threonine = const Value.absent(),
+          Value<double?> tryptophan = const Value.absent(),
+          Value<double?> arginine = const Value.absent(),
+          Value<double?> valine = const Value.absent(),
+          Value<double?> isoleucine = const Value.absent(),
+          Value<double?> leucine = const Value.absent(),
+          Value<double?> zinc = const Value.absent(),
+          Value<double?> copper = const Value.absent(),
+          Value<double?> iron = const Value.absent(),
+          Value<double?> manganese = const Value.absent(),
+          Value<double?> selenium = const Value.absent(),
+          Value<double?> iodine = const Value.absent(),
+          Value<double?> vitA = const Value.absent(),
+          Value<double?> vitD3 = const Value.absent(),
+          Value<double?> vitE = const Value.absent(),
+          Value<double?> vitK = const Value.absent(),
+          Value<double?> vitB1 = const Value.absent(),
+          Value<double?> vitB2 = const Value.absent(),
+          Value<double?> vitB6 = const Value.absent(),
+          Value<double?> vitB12 = const Value.absent(),
+          Value<double?> niacin = const Value.absent(),
+          Value<double?> pantothenicAcid = const Value.absent(),
+          Value<double?> biotin = const Value.absent(),
+          Value<double?> folicAcid = const Value.absent(),
+          Value<String?> recommendedStages = const Value.absent(),
+          double? maxRatioPercent,
+          Value<double?> minRatioPercent = const Value.absent(),
+          Value<bool?> needsSoaking = const Value.absent(),
+          Value<bool?> canSprout = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      Food(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        name: name ?? this.name,
+        category: category ?? this.category,
+        isHulled: isHulled ?? this.isHulled,
+        basis: basis ?? this.basis,
+        dataSource: dataSource ?? this.dataSource,
+        dataConfidence:
+            dataConfidence.present ? dataConfidence.value : this.dataConfidence,
+        imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
+        moisture: moisture ?? this.moisture,
+        crudeProtein: crudeProtein ?? this.crudeProtein,
+        crudeFat: crudeFat ?? this.crudeFat,
+        crudeFiber: crudeFiber ?? this.crudeFiber,
+        crudeAsh: crudeAsh.present ? crudeAsh.value : this.crudeAsh,
+        metabolizableEnergy: metabolizableEnergy.present
+            ? metabolizableEnergy.value
+            : this.metabolizableEnergy,
+        calcium: calcium.present ? calcium.value : this.calcium,
+        phosphorus: phosphorus.present ? phosphorus.value : this.phosphorus,
+        magnesium: magnesium.present ? magnesium.value : this.magnesium,
+        potassium: potassium.present ? potassium.value : this.potassium,
+        sodium: sodium.present ? sodium.value : this.sodium,
+        omega3: omega3.present ? omega3.value : this.omega3,
+        omega6: omega6.present ? omega6.value : this.omega6,
+        linoleicAcid:
+            linoleicAcid.present ? linoleicAcid.value : this.linoleicAcid,
+        ala: ala.present ? ala.value : this.ala,
+        lysine: lysine.present ? lysine.value : this.lysine,
+        methionine: methionine.present ? methionine.value : this.methionine,
+        cystine: cystine.present ? cystine.value : this.cystine,
+        threonine: threonine.present ? threonine.value : this.threonine,
+        tryptophan: tryptophan.present ? tryptophan.value : this.tryptophan,
+        arginine: arginine.present ? arginine.value : this.arginine,
+        valine: valine.present ? valine.value : this.valine,
+        isoleucine: isoleucine.present ? isoleucine.value : this.isoleucine,
+        leucine: leucine.present ? leucine.value : this.leucine,
+        zinc: zinc.present ? zinc.value : this.zinc,
+        copper: copper.present ? copper.value : this.copper,
+        iron: iron.present ? iron.value : this.iron,
+        manganese: manganese.present ? manganese.value : this.manganese,
+        selenium: selenium.present ? selenium.value : this.selenium,
+        iodine: iodine.present ? iodine.value : this.iodine,
+        vitA: vitA.present ? vitA.value : this.vitA,
+        vitD3: vitD3.present ? vitD3.value : this.vitD3,
+        vitE: vitE.present ? vitE.value : this.vitE,
+        vitK: vitK.present ? vitK.value : this.vitK,
+        vitB1: vitB1.present ? vitB1.value : this.vitB1,
+        vitB2: vitB2.present ? vitB2.value : this.vitB2,
+        vitB6: vitB6.present ? vitB6.value : this.vitB6,
+        vitB12: vitB12.present ? vitB12.value : this.vitB12,
+        niacin: niacin.present ? niacin.value : this.niacin,
+        pantothenicAcid: pantothenicAcid.present
+            ? pantothenicAcid.value
+            : this.pantothenicAcid,
+        biotin: biotin.present ? biotin.value : this.biotin,
+        folicAcid: folicAcid.present ? folicAcid.value : this.folicAcid,
+        recommendedStages: recommendedStages.present
+            ? recommendedStages.value
+            : this.recommendedStages,
+        maxRatioPercent: maxRatioPercent ?? this.maxRatioPercent,
+        minRatioPercent: minRatioPercent.present
+            ? minRatioPercent.value
+            : this.minRatioPercent,
+        needsSoaking:
+            needsSoaking.present ? needsSoaking.value : this.needsSoaking,
+        canSprout: canSprout.present ? canSprout.value : this.canSprout,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  Food copyWithCompanion(FoodsCompanion data) {
+    return Food(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      name: data.name.present ? data.name.value : this.name,
+      category: data.category.present ? data.category.value : this.category,
+      isHulled: data.isHulled.present ? data.isHulled.value : this.isHulled,
+      basis: data.basis.present ? data.basis.value : this.basis,
+      dataSource:
+          data.dataSource.present ? data.dataSource.value : this.dataSource,
+      dataConfidence: data.dataConfidence.present
+          ? data.dataConfidence.value
+          : this.dataConfidence,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
+      moisture: data.moisture.present ? data.moisture.value : this.moisture,
+      crudeProtein: data.crudeProtein.present
+          ? data.crudeProtein.value
+          : this.crudeProtein,
+      crudeFat: data.crudeFat.present ? data.crudeFat.value : this.crudeFat,
+      crudeFiber:
+          data.crudeFiber.present ? data.crudeFiber.value : this.crudeFiber,
+      crudeAsh: data.crudeAsh.present ? data.crudeAsh.value : this.crudeAsh,
+      metabolizableEnergy: data.metabolizableEnergy.present
+          ? data.metabolizableEnergy.value
+          : this.metabolizableEnergy,
+      calcium: data.calcium.present ? data.calcium.value : this.calcium,
+      phosphorus:
+          data.phosphorus.present ? data.phosphorus.value : this.phosphorus,
+      magnesium: data.magnesium.present ? data.magnesium.value : this.magnesium,
+      potassium: data.potassium.present ? data.potassium.value : this.potassium,
+      sodium: data.sodium.present ? data.sodium.value : this.sodium,
+      omega3: data.omega3.present ? data.omega3.value : this.omega3,
+      omega6: data.omega6.present ? data.omega6.value : this.omega6,
+      linoleicAcid: data.linoleicAcid.present
+          ? data.linoleicAcid.value
+          : this.linoleicAcid,
+      ala: data.ala.present ? data.ala.value : this.ala,
+      lysine: data.lysine.present ? data.lysine.value : this.lysine,
+      methionine:
+          data.methionine.present ? data.methionine.value : this.methionine,
+      cystine: data.cystine.present ? data.cystine.value : this.cystine,
+      threonine: data.threonine.present ? data.threonine.value : this.threonine,
+      tryptophan:
+          data.tryptophan.present ? data.tryptophan.value : this.tryptophan,
+      arginine: data.arginine.present ? data.arginine.value : this.arginine,
+      valine: data.valine.present ? data.valine.value : this.valine,
+      isoleucine:
+          data.isoleucine.present ? data.isoleucine.value : this.isoleucine,
+      leucine: data.leucine.present ? data.leucine.value : this.leucine,
+      zinc: data.zinc.present ? data.zinc.value : this.zinc,
+      copper: data.copper.present ? data.copper.value : this.copper,
+      iron: data.iron.present ? data.iron.value : this.iron,
+      manganese: data.manganese.present ? data.manganese.value : this.manganese,
+      selenium: data.selenium.present ? data.selenium.value : this.selenium,
+      iodine: data.iodine.present ? data.iodine.value : this.iodine,
+      vitA: data.vitA.present ? data.vitA.value : this.vitA,
+      vitD3: data.vitD3.present ? data.vitD3.value : this.vitD3,
+      vitE: data.vitE.present ? data.vitE.value : this.vitE,
+      vitK: data.vitK.present ? data.vitK.value : this.vitK,
+      vitB1: data.vitB1.present ? data.vitB1.value : this.vitB1,
+      vitB2: data.vitB2.present ? data.vitB2.value : this.vitB2,
+      vitB6: data.vitB6.present ? data.vitB6.value : this.vitB6,
+      vitB12: data.vitB12.present ? data.vitB12.value : this.vitB12,
+      niacin: data.niacin.present ? data.niacin.value : this.niacin,
+      pantothenicAcid: data.pantothenicAcid.present
+          ? data.pantothenicAcid.value
+          : this.pantothenicAcid,
+      biotin: data.biotin.present ? data.biotin.value : this.biotin,
+      folicAcid: data.folicAcid.present ? data.folicAcid.value : this.folicAcid,
+      recommendedStages: data.recommendedStages.present
+          ? data.recommendedStages.value
+          : this.recommendedStages,
+      maxRatioPercent: data.maxRatioPercent.present
+          ? data.maxRatioPercent.value
+          : this.maxRatioPercent,
+      minRatioPercent: data.minRatioPercent.present
+          ? data.minRatioPercent.value
+          : this.minRatioPercent,
+      needsSoaking: data.needsSoaking.present
+          ? data.needsSoaking.value
+          : this.needsSoaking,
+      canSprout: data.canSprout.present ? data.canSprout.value : this.canSprout,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Food(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('category: $category, ')
+          ..write('isHulled: $isHulled, ')
+          ..write('basis: $basis, ')
+          ..write('dataSource: $dataSource, ')
+          ..write('dataConfidence: $dataConfidence, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('moisture: $moisture, ')
+          ..write('crudeProtein: $crudeProtein, ')
+          ..write('crudeFat: $crudeFat, ')
+          ..write('crudeFiber: $crudeFiber, ')
+          ..write('crudeAsh: $crudeAsh, ')
+          ..write('metabolizableEnergy: $metabolizableEnergy, ')
+          ..write('calcium: $calcium, ')
+          ..write('phosphorus: $phosphorus, ')
+          ..write('magnesium: $magnesium, ')
+          ..write('potassium: $potassium, ')
+          ..write('sodium: $sodium, ')
+          ..write('omega3: $omega3, ')
+          ..write('omega6: $omega6, ')
+          ..write('linoleicAcid: $linoleicAcid, ')
+          ..write('ala: $ala, ')
+          ..write('lysine: $lysine, ')
+          ..write('methionine: $methionine, ')
+          ..write('cystine: $cystine, ')
+          ..write('threonine: $threonine, ')
+          ..write('tryptophan: $tryptophan, ')
+          ..write('arginine: $arginine, ')
+          ..write('valine: $valine, ')
+          ..write('isoleucine: $isoleucine, ')
+          ..write('leucine: $leucine, ')
+          ..write('zinc: $zinc, ')
+          ..write('copper: $copper, ')
+          ..write('iron: $iron, ')
+          ..write('manganese: $manganese, ')
+          ..write('selenium: $selenium, ')
+          ..write('iodine: $iodine, ')
+          ..write('vitA: $vitA, ')
+          ..write('vitD3: $vitD3, ')
+          ..write('vitE: $vitE, ')
+          ..write('vitK: $vitK, ')
+          ..write('vitB1: $vitB1, ')
+          ..write('vitB2: $vitB2, ')
+          ..write('vitB6: $vitB6, ')
+          ..write('vitB12: $vitB12, ')
+          ..write('niacin: $niacin, ')
+          ..write('pantothenicAcid: $pantothenicAcid, ')
+          ..write('biotin: $biotin, ')
+          ..write('folicAcid: $folicAcid, ')
+          ..write('recommendedStages: $recommendedStages, ')
+          ..write('maxRatioPercent: $maxRatioPercent, ')
+          ..write('minRatioPercent: $minRatioPercent, ')
+          ..write('needsSoaking: $needsSoaking, ')
+          ..write('canSprout: $canSprout, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+        id,
+        uuid,
+        name,
+        category,
+        isHulled,
+        basis,
+        dataSource,
+        dataConfidence,
+        imageUrl,
+        moisture,
+        crudeProtein,
+        crudeFat,
+        crudeFiber,
+        crudeAsh,
+        metabolizableEnergy,
+        calcium,
+        phosphorus,
+        magnesium,
+        potassium,
+        sodium,
+        omega3,
+        omega6,
+        linoleicAcid,
+        ala,
+        lysine,
+        methionine,
+        cystine,
+        threonine,
+        tryptophan,
+        arginine,
+        valine,
+        isoleucine,
+        leucine,
+        zinc,
+        copper,
+        iron,
+        manganese,
+        selenium,
+        iodine,
+        vitA,
+        vitD3,
+        vitE,
+        vitK,
+        vitB1,
+        vitB2,
+        vitB6,
+        vitB12,
+        niacin,
+        pantothenicAcid,
+        biotin,
+        folicAcid,
+        recommendedStages,
+        maxRatioPercent,
+        minRatioPercent,
+        needsSoaking,
+        canSprout,
+        notes,
+        createdAt,
+        updatedAt,
+        deletedAt
+      ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Food &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.name == this.name &&
+          other.category == this.category &&
+          other.isHulled == this.isHulled &&
+          other.basis == this.basis &&
+          other.dataSource == this.dataSource &&
+          other.dataConfidence == this.dataConfidence &&
+          other.imageUrl == this.imageUrl &&
+          other.moisture == this.moisture &&
+          other.crudeProtein == this.crudeProtein &&
+          other.crudeFat == this.crudeFat &&
+          other.crudeFiber == this.crudeFiber &&
+          other.crudeAsh == this.crudeAsh &&
+          other.metabolizableEnergy == this.metabolizableEnergy &&
+          other.calcium == this.calcium &&
+          other.phosphorus == this.phosphorus &&
+          other.magnesium == this.magnesium &&
+          other.potassium == this.potassium &&
+          other.sodium == this.sodium &&
+          other.omega3 == this.omega3 &&
+          other.omega6 == this.omega6 &&
+          other.linoleicAcid == this.linoleicAcid &&
+          other.ala == this.ala &&
+          other.lysine == this.lysine &&
+          other.methionine == this.methionine &&
+          other.cystine == this.cystine &&
+          other.threonine == this.threonine &&
+          other.tryptophan == this.tryptophan &&
+          other.arginine == this.arginine &&
+          other.valine == this.valine &&
+          other.isoleucine == this.isoleucine &&
+          other.leucine == this.leucine &&
+          other.zinc == this.zinc &&
+          other.copper == this.copper &&
+          other.iron == this.iron &&
+          other.manganese == this.manganese &&
+          other.selenium == this.selenium &&
+          other.iodine == this.iodine &&
+          other.vitA == this.vitA &&
+          other.vitD3 == this.vitD3 &&
+          other.vitE == this.vitE &&
+          other.vitK == this.vitK &&
+          other.vitB1 == this.vitB1 &&
+          other.vitB2 == this.vitB2 &&
+          other.vitB6 == this.vitB6 &&
+          other.vitB12 == this.vitB12 &&
+          other.niacin == this.niacin &&
+          other.pantothenicAcid == this.pantothenicAcid &&
+          other.biotin == this.biotin &&
+          other.folicAcid == this.folicAcid &&
+          other.recommendedStages == this.recommendedStages &&
+          other.maxRatioPercent == this.maxRatioPercent &&
+          other.minRatioPercent == this.minRatioPercent &&
+          other.needsSoaking == this.needsSoaking &&
+          other.canSprout == this.canSprout &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class FoodsCompanion extends UpdateCompanion<Food> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<String> name;
+  final Value<String> category;
+  final Value<bool> isHulled;
+  final Value<String> basis;
+  final Value<String> dataSource;
+  final Value<String?> dataConfidence;
+  final Value<String?> imageUrl;
+  final Value<double> moisture;
+  final Value<double> crudeProtein;
+  final Value<double> crudeFat;
+  final Value<double> crudeFiber;
+  final Value<double?> crudeAsh;
+  final Value<double?> metabolizableEnergy;
+  final Value<double?> calcium;
+  final Value<double?> phosphorus;
+  final Value<double?> magnesium;
+  final Value<double?> potassium;
+  final Value<double?> sodium;
+  final Value<double?> omega3;
+  final Value<double?> omega6;
+  final Value<double?> linoleicAcid;
+  final Value<double?> ala;
+  final Value<double?> lysine;
+  final Value<double?> methionine;
+  final Value<double?> cystine;
+  final Value<double?> threonine;
+  final Value<double?> tryptophan;
+  final Value<double?> arginine;
+  final Value<double?> valine;
+  final Value<double?> isoleucine;
+  final Value<double?> leucine;
+  final Value<double?> zinc;
+  final Value<double?> copper;
+  final Value<double?> iron;
+  final Value<double?> manganese;
+  final Value<double?> selenium;
+  final Value<double?> iodine;
+  final Value<double?> vitA;
+  final Value<double?> vitD3;
+  final Value<double?> vitE;
+  final Value<double?> vitK;
+  final Value<double?> vitB1;
+  final Value<double?> vitB2;
+  final Value<double?> vitB6;
+  final Value<double?> vitB12;
+  final Value<double?> niacin;
+  final Value<double?> pantothenicAcid;
+  final Value<double?> biotin;
+  final Value<double?> folicAcid;
+  final Value<String?> recommendedStages;
+  final Value<double> maxRatioPercent;
+  final Value<double?> minRatioPercent;
+  final Value<bool?> needsSoaking;
+  final Value<bool?> canSprout;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  const FoodsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.name = const Value.absent(),
+    this.category = const Value.absent(),
+    this.isHulled = const Value.absent(),
+    this.basis = const Value.absent(),
+    this.dataSource = const Value.absent(),
+    this.dataConfidence = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.moisture = const Value.absent(),
+    this.crudeProtein = const Value.absent(),
+    this.crudeFat = const Value.absent(),
+    this.crudeFiber = const Value.absent(),
+    this.crudeAsh = const Value.absent(),
+    this.metabolizableEnergy = const Value.absent(),
+    this.calcium = const Value.absent(),
+    this.phosphorus = const Value.absent(),
+    this.magnesium = const Value.absent(),
+    this.potassium = const Value.absent(),
+    this.sodium = const Value.absent(),
+    this.omega3 = const Value.absent(),
+    this.omega6 = const Value.absent(),
+    this.linoleicAcid = const Value.absent(),
+    this.ala = const Value.absent(),
+    this.lysine = const Value.absent(),
+    this.methionine = const Value.absent(),
+    this.cystine = const Value.absent(),
+    this.threonine = const Value.absent(),
+    this.tryptophan = const Value.absent(),
+    this.arginine = const Value.absent(),
+    this.valine = const Value.absent(),
+    this.isoleucine = const Value.absent(),
+    this.leucine = const Value.absent(),
+    this.zinc = const Value.absent(),
+    this.copper = const Value.absent(),
+    this.iron = const Value.absent(),
+    this.manganese = const Value.absent(),
+    this.selenium = const Value.absent(),
+    this.iodine = const Value.absent(),
+    this.vitA = const Value.absent(),
+    this.vitD3 = const Value.absent(),
+    this.vitE = const Value.absent(),
+    this.vitK = const Value.absent(),
+    this.vitB1 = const Value.absent(),
+    this.vitB2 = const Value.absent(),
+    this.vitB6 = const Value.absent(),
+    this.vitB12 = const Value.absent(),
+    this.niacin = const Value.absent(),
+    this.pantothenicAcid = const Value.absent(),
+    this.biotin = const Value.absent(),
+    this.folicAcid = const Value.absent(),
+    this.recommendedStages = const Value.absent(),
+    this.maxRatioPercent = const Value.absent(),
+    this.minRatioPercent = const Value.absent(),
+    this.needsSoaking = const Value.absent(),
+    this.canSprout = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  FoodsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required String name,
+    this.category = const Value.absent(),
+    this.isHulled = const Value.absent(),
+    this.basis = const Value.absent(),
+    required String dataSource,
+    this.dataConfidence = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.moisture = const Value.absent(),
+    this.crudeProtein = const Value.absent(),
+    this.crudeFat = const Value.absent(),
+    this.crudeFiber = const Value.absent(),
+    this.crudeAsh = const Value.absent(),
+    this.metabolizableEnergy = const Value.absent(),
+    this.calcium = const Value.absent(),
+    this.phosphorus = const Value.absent(),
+    this.magnesium = const Value.absent(),
+    this.potassium = const Value.absent(),
+    this.sodium = const Value.absent(),
+    this.omega3 = const Value.absent(),
+    this.omega6 = const Value.absent(),
+    this.linoleicAcid = const Value.absent(),
+    this.ala = const Value.absent(),
+    this.lysine = const Value.absent(),
+    this.methionine = const Value.absent(),
+    this.cystine = const Value.absent(),
+    this.threonine = const Value.absent(),
+    this.tryptophan = const Value.absent(),
+    this.arginine = const Value.absent(),
+    this.valine = const Value.absent(),
+    this.isoleucine = const Value.absent(),
+    this.leucine = const Value.absent(),
+    this.zinc = const Value.absent(),
+    this.copper = const Value.absent(),
+    this.iron = const Value.absent(),
+    this.manganese = const Value.absent(),
+    this.selenium = const Value.absent(),
+    this.iodine = const Value.absent(),
+    this.vitA = const Value.absent(),
+    this.vitD3 = const Value.absent(),
+    this.vitE = const Value.absent(),
+    this.vitK = const Value.absent(),
+    this.vitB1 = const Value.absent(),
+    this.vitB2 = const Value.absent(),
+    this.vitB6 = const Value.absent(),
+    this.vitB12 = const Value.absent(),
+    this.niacin = const Value.absent(),
+    this.pantothenicAcid = const Value.absent(),
+    this.biotin = const Value.absent(),
+    this.folicAcid = const Value.absent(),
+    this.recommendedStages = const Value.absent(),
+    this.maxRatioPercent = const Value.absent(),
+    this.minRatioPercent = const Value.absent(),
+    this.needsSoaking = const Value.absent(),
+    this.canSprout = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        name = Value(name),
+        dataSource = Value(dataSource);
+  static Insertable<Food> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<String>? name,
+    Expression<String>? category,
+    Expression<bool>? isHulled,
+    Expression<String>? basis,
+    Expression<String>? dataSource,
+    Expression<String>? dataConfidence,
+    Expression<String>? imageUrl,
+    Expression<double>? moisture,
+    Expression<double>? crudeProtein,
+    Expression<double>? crudeFat,
+    Expression<double>? crudeFiber,
+    Expression<double>? crudeAsh,
+    Expression<double>? metabolizableEnergy,
+    Expression<double>? calcium,
+    Expression<double>? phosphorus,
+    Expression<double>? magnesium,
+    Expression<double>? potassium,
+    Expression<double>? sodium,
+    Expression<double>? omega3,
+    Expression<double>? omega6,
+    Expression<double>? linoleicAcid,
+    Expression<double>? ala,
+    Expression<double>? lysine,
+    Expression<double>? methionine,
+    Expression<double>? cystine,
+    Expression<double>? threonine,
+    Expression<double>? tryptophan,
+    Expression<double>? arginine,
+    Expression<double>? valine,
+    Expression<double>? isoleucine,
+    Expression<double>? leucine,
+    Expression<double>? zinc,
+    Expression<double>? copper,
+    Expression<double>? iron,
+    Expression<double>? manganese,
+    Expression<double>? selenium,
+    Expression<double>? iodine,
+    Expression<double>? vitA,
+    Expression<double>? vitD3,
+    Expression<double>? vitE,
+    Expression<double>? vitK,
+    Expression<double>? vitB1,
+    Expression<double>? vitB2,
+    Expression<double>? vitB6,
+    Expression<double>? vitB12,
+    Expression<double>? niacin,
+    Expression<double>? pantothenicAcid,
+    Expression<double>? biotin,
+    Expression<double>? folicAcid,
+    Expression<String>? recommendedStages,
+    Expression<double>? maxRatioPercent,
+    Expression<double>? minRatioPercent,
+    Expression<bool>? needsSoaking,
+    Expression<bool>? canSprout,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (name != null) 'name': name,
+      if (category != null) 'category': category,
+      if (isHulled != null) 'is_hulled': isHulled,
+      if (basis != null) 'basis': basis,
+      if (dataSource != null) 'data_source': dataSource,
+      if (dataConfidence != null) 'data_confidence': dataConfidence,
+      if (imageUrl != null) 'image_url': imageUrl,
+      if (moisture != null) 'moisture': moisture,
+      if (crudeProtein != null) 'crude_protein': crudeProtein,
+      if (crudeFat != null) 'crude_fat': crudeFat,
+      if (crudeFiber != null) 'crude_fiber': crudeFiber,
+      if (crudeAsh != null) 'crude_ash': crudeAsh,
+      if (metabolizableEnergy != null)
+        'metabolizable_energy': metabolizableEnergy,
+      if (calcium != null) 'calcium': calcium,
+      if (phosphorus != null) 'phosphorus': phosphorus,
+      if (magnesium != null) 'magnesium': magnesium,
+      if (potassium != null) 'potassium': potassium,
+      if (sodium != null) 'sodium': sodium,
+      if (omega3 != null) 'omega3': omega3,
+      if (omega6 != null) 'omega6': omega6,
+      if (linoleicAcid != null) 'linoleic_acid': linoleicAcid,
+      if (ala != null) 'ala': ala,
+      if (lysine != null) 'lysine': lysine,
+      if (methionine != null) 'methionine': methionine,
+      if (cystine != null) 'cystine': cystine,
+      if (threonine != null) 'threonine': threonine,
+      if (tryptophan != null) 'tryptophan': tryptophan,
+      if (arginine != null) 'arginine': arginine,
+      if (valine != null) 'valine': valine,
+      if (isoleucine != null) 'isoleucine': isoleucine,
+      if (leucine != null) 'leucine': leucine,
+      if (zinc != null) 'zinc': zinc,
+      if (copper != null) 'copper': copper,
+      if (iron != null) 'iron': iron,
+      if (manganese != null) 'manganese': manganese,
+      if (selenium != null) 'selenium': selenium,
+      if (iodine != null) 'iodine': iodine,
+      if (vitA != null) 'vit_a': vitA,
+      if (vitD3 != null) 'vit_d3': vitD3,
+      if (vitE != null) 'vit_e': vitE,
+      if (vitK != null) 'vit_k': vitK,
+      if (vitB1 != null) 'vit_b1': vitB1,
+      if (vitB2 != null) 'vit_b2': vitB2,
+      if (vitB6 != null) 'vit_b6': vitB6,
+      if (vitB12 != null) 'vit_b12': vitB12,
+      if (niacin != null) 'niacin': niacin,
+      if (pantothenicAcid != null) 'pantothenic_acid': pantothenicAcid,
+      if (biotin != null) 'biotin': biotin,
+      if (folicAcid != null) 'folic_acid': folicAcid,
+      if (recommendedStages != null) 'recommended_stages': recommendedStages,
+      if (maxRatioPercent != null) 'max_ratio_percent': maxRatioPercent,
+      if (minRatioPercent != null) 'min_ratio_percent': minRatioPercent,
+      if (needsSoaking != null) 'needs_soaking': needsSoaking,
+      if (canSprout != null) 'can_sprout': canSprout,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  FoodsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<String>? name,
+      Value<String>? category,
+      Value<bool>? isHulled,
+      Value<String>? basis,
+      Value<String>? dataSource,
+      Value<String?>? dataConfidence,
+      Value<String?>? imageUrl,
+      Value<double>? moisture,
+      Value<double>? crudeProtein,
+      Value<double>? crudeFat,
+      Value<double>? crudeFiber,
+      Value<double?>? crudeAsh,
+      Value<double?>? metabolizableEnergy,
+      Value<double?>? calcium,
+      Value<double?>? phosphorus,
+      Value<double?>? magnesium,
+      Value<double?>? potassium,
+      Value<double?>? sodium,
+      Value<double?>? omega3,
+      Value<double?>? omega6,
+      Value<double?>? linoleicAcid,
+      Value<double?>? ala,
+      Value<double?>? lysine,
+      Value<double?>? methionine,
+      Value<double?>? cystine,
+      Value<double?>? threonine,
+      Value<double?>? tryptophan,
+      Value<double?>? arginine,
+      Value<double?>? valine,
+      Value<double?>? isoleucine,
+      Value<double?>? leucine,
+      Value<double?>? zinc,
+      Value<double?>? copper,
+      Value<double?>? iron,
+      Value<double?>? manganese,
+      Value<double?>? selenium,
+      Value<double?>? iodine,
+      Value<double?>? vitA,
+      Value<double?>? vitD3,
+      Value<double?>? vitE,
+      Value<double?>? vitK,
+      Value<double?>? vitB1,
+      Value<double?>? vitB2,
+      Value<double?>? vitB6,
+      Value<double?>? vitB12,
+      Value<double?>? niacin,
+      Value<double?>? pantothenicAcid,
+      Value<double?>? biotin,
+      Value<double?>? folicAcid,
+      Value<String?>? recommendedStages,
+      Value<double>? maxRatioPercent,
+      Value<double?>? minRatioPercent,
+      Value<bool?>? needsSoaking,
+      Value<bool?>? canSprout,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt}) {
+    return FoodsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      isHulled: isHulled ?? this.isHulled,
+      basis: basis ?? this.basis,
+      dataSource: dataSource ?? this.dataSource,
+      dataConfidence: dataConfidence ?? this.dataConfidence,
+      imageUrl: imageUrl ?? this.imageUrl,
+      moisture: moisture ?? this.moisture,
+      crudeProtein: crudeProtein ?? this.crudeProtein,
+      crudeFat: crudeFat ?? this.crudeFat,
+      crudeFiber: crudeFiber ?? this.crudeFiber,
+      crudeAsh: crudeAsh ?? this.crudeAsh,
+      metabolizableEnergy: metabolizableEnergy ?? this.metabolizableEnergy,
+      calcium: calcium ?? this.calcium,
+      phosphorus: phosphorus ?? this.phosphorus,
+      magnesium: magnesium ?? this.magnesium,
+      potassium: potassium ?? this.potassium,
+      sodium: sodium ?? this.sodium,
+      omega3: omega3 ?? this.omega3,
+      omega6: omega6 ?? this.omega6,
+      linoleicAcid: linoleicAcid ?? this.linoleicAcid,
+      ala: ala ?? this.ala,
+      lysine: lysine ?? this.lysine,
+      methionine: methionine ?? this.methionine,
+      cystine: cystine ?? this.cystine,
+      threonine: threonine ?? this.threonine,
+      tryptophan: tryptophan ?? this.tryptophan,
+      arginine: arginine ?? this.arginine,
+      valine: valine ?? this.valine,
+      isoleucine: isoleucine ?? this.isoleucine,
+      leucine: leucine ?? this.leucine,
+      zinc: zinc ?? this.zinc,
+      copper: copper ?? this.copper,
+      iron: iron ?? this.iron,
+      manganese: manganese ?? this.manganese,
+      selenium: selenium ?? this.selenium,
+      iodine: iodine ?? this.iodine,
+      vitA: vitA ?? this.vitA,
+      vitD3: vitD3 ?? this.vitD3,
+      vitE: vitE ?? this.vitE,
+      vitK: vitK ?? this.vitK,
+      vitB1: vitB1 ?? this.vitB1,
+      vitB2: vitB2 ?? this.vitB2,
+      vitB6: vitB6 ?? this.vitB6,
+      vitB12: vitB12 ?? this.vitB12,
+      niacin: niacin ?? this.niacin,
+      pantothenicAcid: pantothenicAcid ?? this.pantothenicAcid,
+      biotin: biotin ?? this.biotin,
+      folicAcid: folicAcid ?? this.folicAcid,
+      recommendedStages: recommendedStages ?? this.recommendedStages,
+      maxRatioPercent: maxRatioPercent ?? this.maxRatioPercent,
+      minRatioPercent: minRatioPercent ?? this.minRatioPercent,
+      needsSoaking: needsSoaking ?? this.needsSoaking,
+      canSprout: canSprout ?? this.canSprout,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (isHulled.present) {
+      map['is_hulled'] = Variable<bool>(isHulled.value);
+    }
+    if (basis.present) {
+      map['basis'] = Variable<String>(basis.value);
+    }
+    if (dataSource.present) {
+      map['data_source'] = Variable<String>(dataSource.value);
+    }
+    if (dataConfidence.present) {
+      map['data_confidence'] = Variable<String>(dataConfidence.value);
+    }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
+    if (moisture.present) {
+      map['moisture'] = Variable<double>(moisture.value);
+    }
+    if (crudeProtein.present) {
+      map['crude_protein'] = Variable<double>(crudeProtein.value);
+    }
+    if (crudeFat.present) {
+      map['crude_fat'] = Variable<double>(crudeFat.value);
+    }
+    if (crudeFiber.present) {
+      map['crude_fiber'] = Variable<double>(crudeFiber.value);
+    }
+    if (crudeAsh.present) {
+      map['crude_ash'] = Variable<double>(crudeAsh.value);
+    }
+    if (metabolizableEnergy.present) {
+      map['metabolizable_energy'] = Variable<double>(metabolizableEnergy.value);
+    }
+    if (calcium.present) {
+      map['calcium'] = Variable<double>(calcium.value);
+    }
+    if (phosphorus.present) {
+      map['phosphorus'] = Variable<double>(phosphorus.value);
+    }
+    if (magnesium.present) {
+      map['magnesium'] = Variable<double>(magnesium.value);
+    }
+    if (potassium.present) {
+      map['potassium'] = Variable<double>(potassium.value);
+    }
+    if (sodium.present) {
+      map['sodium'] = Variable<double>(sodium.value);
+    }
+    if (omega3.present) {
+      map['omega3'] = Variable<double>(omega3.value);
+    }
+    if (omega6.present) {
+      map['omega6'] = Variable<double>(omega6.value);
+    }
+    if (linoleicAcid.present) {
+      map['linoleic_acid'] = Variable<double>(linoleicAcid.value);
+    }
+    if (ala.present) {
+      map['ala'] = Variable<double>(ala.value);
+    }
+    if (lysine.present) {
+      map['lysine'] = Variable<double>(lysine.value);
+    }
+    if (methionine.present) {
+      map['methionine'] = Variable<double>(methionine.value);
+    }
+    if (cystine.present) {
+      map['cystine'] = Variable<double>(cystine.value);
+    }
+    if (threonine.present) {
+      map['threonine'] = Variable<double>(threonine.value);
+    }
+    if (tryptophan.present) {
+      map['tryptophan'] = Variable<double>(tryptophan.value);
+    }
+    if (arginine.present) {
+      map['arginine'] = Variable<double>(arginine.value);
+    }
+    if (valine.present) {
+      map['valine'] = Variable<double>(valine.value);
+    }
+    if (isoleucine.present) {
+      map['isoleucine'] = Variable<double>(isoleucine.value);
+    }
+    if (leucine.present) {
+      map['leucine'] = Variable<double>(leucine.value);
+    }
+    if (zinc.present) {
+      map['zinc'] = Variable<double>(zinc.value);
+    }
+    if (copper.present) {
+      map['copper'] = Variable<double>(copper.value);
+    }
+    if (iron.present) {
+      map['iron'] = Variable<double>(iron.value);
+    }
+    if (manganese.present) {
+      map['manganese'] = Variable<double>(manganese.value);
+    }
+    if (selenium.present) {
+      map['selenium'] = Variable<double>(selenium.value);
+    }
+    if (iodine.present) {
+      map['iodine'] = Variable<double>(iodine.value);
+    }
+    if (vitA.present) {
+      map['vit_a'] = Variable<double>(vitA.value);
+    }
+    if (vitD3.present) {
+      map['vit_d3'] = Variable<double>(vitD3.value);
+    }
+    if (vitE.present) {
+      map['vit_e'] = Variable<double>(vitE.value);
+    }
+    if (vitK.present) {
+      map['vit_k'] = Variable<double>(vitK.value);
+    }
+    if (vitB1.present) {
+      map['vit_b1'] = Variable<double>(vitB1.value);
+    }
+    if (vitB2.present) {
+      map['vit_b2'] = Variable<double>(vitB2.value);
+    }
+    if (vitB6.present) {
+      map['vit_b6'] = Variable<double>(vitB6.value);
+    }
+    if (vitB12.present) {
+      map['vit_b12'] = Variable<double>(vitB12.value);
+    }
+    if (niacin.present) {
+      map['niacin'] = Variable<double>(niacin.value);
+    }
+    if (pantothenicAcid.present) {
+      map['pantothenic_acid'] = Variable<double>(pantothenicAcid.value);
+    }
+    if (biotin.present) {
+      map['biotin'] = Variable<double>(biotin.value);
+    }
+    if (folicAcid.present) {
+      map['folic_acid'] = Variable<double>(folicAcid.value);
+    }
+    if (recommendedStages.present) {
+      map['recommended_stages'] = Variable<String>(recommendedStages.value);
+    }
+    if (maxRatioPercent.present) {
+      map['max_ratio_percent'] = Variable<double>(maxRatioPercent.value);
+    }
+    if (minRatioPercent.present) {
+      map['min_ratio_percent'] = Variable<double>(minRatioPercent.value);
+    }
+    if (needsSoaking.present) {
+      map['needs_soaking'] = Variable<bool>(needsSoaking.value);
+    }
+    if (canSprout.present) {
+      map['can_sprout'] = Variable<bool>(canSprout.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FoodsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('category: $category, ')
+          ..write('isHulled: $isHulled, ')
+          ..write('basis: $basis, ')
+          ..write('dataSource: $dataSource, ')
+          ..write('dataConfidence: $dataConfidence, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('moisture: $moisture, ')
+          ..write('crudeProtein: $crudeProtein, ')
+          ..write('crudeFat: $crudeFat, ')
+          ..write('crudeFiber: $crudeFiber, ')
+          ..write('crudeAsh: $crudeAsh, ')
+          ..write('metabolizableEnergy: $metabolizableEnergy, ')
+          ..write('calcium: $calcium, ')
+          ..write('phosphorus: $phosphorus, ')
+          ..write('magnesium: $magnesium, ')
+          ..write('potassium: $potassium, ')
+          ..write('sodium: $sodium, ')
+          ..write('omega3: $omega3, ')
+          ..write('omega6: $omega6, ')
+          ..write('linoleicAcid: $linoleicAcid, ')
+          ..write('ala: $ala, ')
+          ..write('lysine: $lysine, ')
+          ..write('methionine: $methionine, ')
+          ..write('cystine: $cystine, ')
+          ..write('threonine: $threonine, ')
+          ..write('tryptophan: $tryptophan, ')
+          ..write('arginine: $arginine, ')
+          ..write('valine: $valine, ')
+          ..write('isoleucine: $isoleucine, ')
+          ..write('leucine: $leucine, ')
+          ..write('zinc: $zinc, ')
+          ..write('copper: $copper, ')
+          ..write('iron: $iron, ')
+          ..write('manganese: $manganese, ')
+          ..write('selenium: $selenium, ')
+          ..write('iodine: $iodine, ')
+          ..write('vitA: $vitA, ')
+          ..write('vitD3: $vitD3, ')
+          ..write('vitE: $vitE, ')
+          ..write('vitK: $vitK, ')
+          ..write('vitB1: $vitB1, ')
+          ..write('vitB2: $vitB2, ')
+          ..write('vitB6: $vitB6, ')
+          ..write('vitB12: $vitB12, ')
+          ..write('niacin: $niacin, ')
+          ..write('pantothenicAcid: $pantothenicAcid, ')
+          ..write('biotin: $biotin, ')
+          ..write('folicAcid: $folicAcid, ')
+          ..write('recommendedStages: $recommendedStages, ')
+          ..write('maxRatioPercent: $maxRatioPercent, ')
+          ..write('minRatioPercent: $minRatioPercent, ')
+          ..write('needsSoaking: $needsSoaking, ')
+          ..write('canSprout: $canSprout, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BlendsTable extends Blends with TableInfo<$BlendsTable, Blend> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BlendsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _descriptionMeta =
+      const VerificationMeta('description');
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+      'description', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _isActiveMeta =
+      const VerificationMeta('isActive');
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+      'is_active', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_active" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, name, description, isActive, createdAt, updatedAt, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'blends';
+  @override
+  VerificationContext validateIntegrity(Insertable<Blend> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+          _descriptionMeta,
+          description.isAcceptableOrUnknown(
+              data['description']!, _descriptionMeta));
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(_isActiveMeta,
+          isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Blend map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Blend(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      description: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}description']),
+      isActive: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_active'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $BlendsTable createAlias(String alias) {
+    return $BlendsTable(attachedDatabase, alias);
+  }
+}
+
+class Blend extends DataClass implements Insertable<Blend> {
+  final int id;
+  final String uuid;
+
+  /// 配方名称（必填，唯一标识）
+  final String name;
+
+  /// 描述
+  final String? description;
+
+  /// 是否启用
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Blend(
+      {required this.id,
+      required this.uuid,
+      required this.name,
+      this.description,
+      required this.isActive,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  BlendsCompanion toCompanion(bool nullToAbsent) {
+    return BlendsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Blend.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Blend(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Blend copyWith(
+          {int? id,
+          String? uuid,
+          String? name,
+          Value<String?> description = const Value.absent(),
+          bool? isActive,
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      Blend(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        name: name ?? this.name,
+        description: description.present ? description.value : this.description,
+        isActive: isActive ?? this.isActive,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  Blend copyWithCompanion(BlendsCompanion data) {
+    return Blend(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      name: data.name.present ? data.name.value : this.name,
+      description:
+          data.description.present ? data.description.value : this.description,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Blend(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, uuid, name, description, isActive, createdAt, updatedAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Blend &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class BlendsCompanion extends UpdateCompanion<Blend> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<String> name;
+  final Value<String?> description;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  const BlendsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  BlendsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required String name,
+    this.description = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        name = Value(name);
+  static Insertable<Blend> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  BlendsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<String>? name,
+      Value<String?>? description,
+      Value<bool>? isActive,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt}) {
+    return BlendsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlendsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BlendItemsTable extends BlendItems
+    with TableInfo<$BlendItemsTable, BlendItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BlendItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _blendIdMeta =
+      const VerificationMeta('blendId');
+  @override
+  late final GeneratedColumn<int> blendId = GeneratedColumn<int>(
+      'blend_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES blends (id) ON DELETE CASCADE'));
+  static const VerificationMeta _foodIdMeta = const VerificationMeta('foodId');
+  @override
+  late final GeneratedColumn<int> foodId = GeneratedColumn<int>(
+      'food_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES foods (id) ON DELETE CASCADE'));
+  static const VerificationMeta _percentMeta =
+      const VerificationMeta('percent');
+  @override
+  late final GeneratedColumn<double> percent = GeneratedColumn<double>(
+      'percent', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, blendId, foodId, percent, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'blend_items';
+  @override
+  VerificationContext validateIntegrity(Insertable<BlendItem> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('blend_id')) {
+      context.handle(_blendIdMeta,
+          blendId.isAcceptableOrUnknown(data['blend_id']!, _blendIdMeta));
+    } else if (isInserting) {
+      context.missing(_blendIdMeta);
+    }
+    if (data.containsKey('food_id')) {
+      context.handle(_foodIdMeta,
+          foodId.isAcceptableOrUnknown(data['food_id']!, _foodIdMeta));
+    } else if (isInserting) {
+      context.missing(_foodIdMeta);
+    }
+    if (data.containsKey('percent')) {
+      context.handle(_percentMeta,
+          percent.isAcceptableOrUnknown(data['percent']!, _percentMeta));
+    } else if (isInserting) {
+      context.missing(_percentMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BlendItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BlendItem(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      blendId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}blend_id'])!,
+      foodId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}food_id'])!,
+      percent: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}percent'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $BlendItemsTable createAlias(String alias) {
+    return $BlendItemsTable(attachedDatabase, alias);
+  }
+}
+
+class BlendItem extends DataClass implements Insertable<BlendItem> {
+  final int id;
+  final String uuid;
+
+  /// 关联配方
+  final int blendId;
+
+  /// 关联食材
+  final int foodId;
+
+  /// 该食材在配方中的占比 %（所有项之和应为 100）
+  final double percent;
+  final DateTime createdAt;
+  const BlendItem(
+      {required this.id,
+      required this.uuid,
+      required this.blendId,
+      required this.foodId,
+      required this.percent,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['blend_id'] = Variable<int>(blendId);
+    map['food_id'] = Variable<int>(foodId);
+    map['percent'] = Variable<double>(percent);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  BlendItemsCompanion toCompanion(bool nullToAbsent) {
+    return BlendItemsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      blendId: Value(blendId),
+      foodId: Value(foodId),
+      percent: Value(percent),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BlendItem.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BlendItem(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      blendId: serializer.fromJson<int>(json['blendId']),
+      foodId: serializer.fromJson<int>(json['foodId']),
+      percent: serializer.fromJson<double>(json['percent']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'blendId': serializer.toJson<int>(blendId),
+      'foodId': serializer.toJson<int>(foodId),
+      'percent': serializer.toJson<double>(percent),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  BlendItem copyWith(
+          {int? id,
+          String? uuid,
+          int? blendId,
+          int? foodId,
+          double? percent,
+          DateTime? createdAt}) =>
+      BlendItem(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        blendId: blendId ?? this.blendId,
+        foodId: foodId ?? this.foodId,
+        percent: percent ?? this.percent,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  BlendItem copyWithCompanion(BlendItemsCompanion data) {
+    return BlendItem(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      blendId: data.blendId.present ? data.blendId.value : this.blendId,
+      foodId: data.foodId.present ? data.foodId.value : this.foodId,
+      percent: data.percent.present ? data.percent.value : this.percent,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlendItem(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('blendId: $blendId, ')
+          ..write('foodId: $foodId, ')
+          ..write('percent: $percent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, uuid, blendId, foodId, percent, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BlendItem &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.blendId == this.blendId &&
+          other.foodId == this.foodId &&
+          other.percent == this.percent &&
+          other.createdAt == this.createdAt);
+}
+
+class BlendItemsCompanion extends UpdateCompanion<BlendItem> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> blendId;
+  final Value<int> foodId;
+  final Value<double> percent;
+  final Value<DateTime> createdAt;
+  const BlendItemsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.blendId = const Value.absent(),
+    this.foodId = const Value.absent(),
+    this.percent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  BlendItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int blendId,
+    required int foodId,
+    required double percent,
+    this.createdAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        blendId = Value(blendId),
+        foodId = Value(foodId),
+        percent = Value(percent);
+  static Insertable<BlendItem> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? blendId,
+    Expression<int>? foodId,
+    Expression<double>? percent,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (blendId != null) 'blend_id': blendId,
+      if (foodId != null) 'food_id': foodId,
+      if (percent != null) 'percent': percent,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  BlendItemsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? blendId,
+      Value<int>? foodId,
+      Value<double>? percent,
+      Value<DateTime>? createdAt}) {
+    return BlendItemsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      blendId: blendId ?? this.blendId,
+      foodId: foodId ?? this.foodId,
+      percent: percent ?? this.percent,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (blendId.present) {
+      map['blend_id'] = Variable<int>(blendId.value);
+    }
+    if (foodId.present) {
+      map['food_id'] = Variable<int>(foodId.value);
+    }
+    if (percent.present) {
+      map['percent'] = Variable<double>(percent.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlendItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('blendId: $blendId, ')
+          ..write('foodId: $foodId, ')
+          ..write('percent: $percent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BlendBindingsTable extends BlendBindings
+    with TableInfo<$BlendBindingsTable, BlendBinding> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BlendBindingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _blendIdMeta =
+      const VerificationMeta('blendId');
+  @override
+  late final GeneratedColumn<int> blendId = GeneratedColumn<int>(
+      'blend_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES blends (id) ON DELETE CASCADE'));
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES species (id)'));
+  static const VerificationMeta _stageMeta = const VerificationMeta('stage');
+  @override
+  late final GeneratedColumn<String> stage = GeneratedColumn<String>(
+      'stage', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, blendId, speciesId, stage, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'blend_bindings';
+  @override
+  VerificationContext validateIntegrity(Insertable<BlendBinding> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('blend_id')) {
+      context.handle(_blendIdMeta,
+          blendId.isAcceptableOrUnknown(data['blend_id']!, _blendIdMeta));
+    } else if (isInserting) {
+      context.missing(_blendIdMeta);
+    }
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    }
+    if (data.containsKey('stage')) {
+      context.handle(
+          _stageMeta, stage.isAcceptableOrUnknown(data['stage']!, _stageMeta));
+    } else if (isInserting) {
+      context.missing(_stageMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {blendId, speciesId, stage},
+      ];
+  @override
+  BlendBinding map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BlendBinding(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      blendId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}blend_id'])!,
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id']),
+      stage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stage'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $BlendBindingsTable createAlias(String alias) {
+    return $BlendBindingsTable(attachedDatabase, alias);
+  }
+}
+
+class BlendBinding extends DataClass implements Insertable<BlendBinding> {
+  final int id;
+  final String uuid;
+
+  /// 关联配方
+  final int blendId;
+
+  /// 关联物种（null = 适用所有物种）
+  final int? speciesId;
+
+  /// 生理阶段
+  final String stage;
+  final DateTime createdAt;
+  const BlendBinding(
+      {required this.id,
+      required this.uuid,
+      required this.blendId,
+      this.speciesId,
+      required this.stage,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['blend_id'] = Variable<int>(blendId);
+    if (!nullToAbsent || speciesId != null) {
+      map['species_id'] = Variable<int>(speciesId);
+    }
+    map['stage'] = Variable<String>(stage);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  BlendBindingsCompanion toCompanion(bool nullToAbsent) {
+    return BlendBindingsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      blendId: Value(blendId),
+      speciesId: speciesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speciesId),
+      stage: Value(stage),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BlendBinding.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BlendBinding(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      blendId: serializer.fromJson<int>(json['blendId']),
+      speciesId: serializer.fromJson<int?>(json['speciesId']),
+      stage: serializer.fromJson<String>(json['stage']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'blendId': serializer.toJson<int>(blendId),
+      'speciesId': serializer.toJson<int?>(speciesId),
+      'stage': serializer.toJson<String>(stage),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  BlendBinding copyWith(
+          {int? id,
+          String? uuid,
+          int? blendId,
+          Value<int?> speciesId = const Value.absent(),
+          String? stage,
+          DateTime? createdAt}) =>
+      BlendBinding(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        blendId: blendId ?? this.blendId,
+        speciesId: speciesId.present ? speciesId.value : this.speciesId,
+        stage: stage ?? this.stage,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  BlendBinding copyWithCompanion(BlendBindingsCompanion data) {
+    return BlendBinding(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      blendId: data.blendId.present ? data.blendId.value : this.blendId,
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      stage: data.stage.present ? data.stage.value : this.stage,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlendBinding(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('blendId: $blendId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('stage: $stage, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, uuid, blendId, speciesId, stage, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BlendBinding &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.blendId == this.blendId &&
+          other.speciesId == this.speciesId &&
+          other.stage == this.stage &&
+          other.createdAt == this.createdAt);
+}
+
+class BlendBindingsCompanion extends UpdateCompanion<BlendBinding> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> blendId;
+  final Value<int?> speciesId;
+  final Value<String> stage;
+  final Value<DateTime> createdAt;
+  const BlendBindingsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.blendId = const Value.absent(),
+    this.speciesId = const Value.absent(),
+    this.stage = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  BlendBindingsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int blendId,
+    this.speciesId = const Value.absent(),
+    required String stage,
+    this.createdAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        blendId = Value(blendId),
+        stage = Value(stage);
+  static Insertable<BlendBinding> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? blendId,
+    Expression<int>? speciesId,
+    Expression<String>? stage,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (blendId != null) 'blend_id': blendId,
+      if (speciesId != null) 'species_id': speciesId,
+      if (stage != null) 'stage': stage,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  BlendBindingsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? blendId,
+      Value<int?>? speciesId,
+      Value<String>? stage,
+      Value<DateTime>? createdAt}) {
+    return BlendBindingsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      blendId: blendId ?? this.blendId,
+      speciesId: speciesId ?? this.speciesId,
+      stage: stage ?? this.stage,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (blendId.present) {
+      map['blend_id'] = Variable<int>(blendId.value);
+    }
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (stage.present) {
+      map['stage'] = Variable<String>(stage.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlendBindingsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('blendId: $blendId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('stage: $stage, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FeedingPlansTable extends FeedingPlans
+    with TableInfo<$FeedingPlansTable, FeedingPlan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedingPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+  @override
+  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
+      'bird_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE CASCADE'));
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES species (id)'));
+  static const VerificationMeta _stageMeta = const VerificationMeta('stage');
+  @override
+  late final GeneratedColumn<String> stage = GeneratedColumn<String>(
+      'stage', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _isActiveMeta =
+      const VerificationMeta('isActive');
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+      'is_active', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_active" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 500),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        uuid,
+        birdId,
+        speciesId,
+        stage,
+        isActive,
+        notes,
+        createdAt,
+        updatedAt,
+        deletedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feeding_plans';
+  @override
+  VerificationContext validateIntegrity(Insertable<FeedingPlan> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('bird_id')) {
+      context.handle(_birdIdMeta,
+          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
+    }
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    }
+    if (data.containsKey('stage')) {
+      context.handle(
+          _stageMeta, stage.isAcceptableOrUnknown(data['stage']!, _stageMeta));
+    } else if (isInserting) {
+      context.missing(_stageMeta);
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(_isActiveMeta,
+          isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedingPlan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedingPlan(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      birdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bird_id']),
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id']),
+      stage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stage'])!,
+      isActive: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_active'])!,
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $FeedingPlansTable createAlias(String alias) {
+    return $FeedingPlansTable(attachedDatabase, alias);
+  }
+}
+
+class FeedingPlan extends DataClass implements Insertable<FeedingPlan> {
+  final int id;
+  final String uuid;
+
+  /// 关联鸟（null = 品种默认方案）
+  final int? birdId;
+
+  /// 关联物种（品种默认方案时必填，鸟覆盖时可 null 表示继承品种）
+  final int? speciesId;
+
+  /// 适用阶段
+  final String stage;
+
+  /// 是否启用
+  final bool isActive;
+
+  /// 备注
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const FeedingPlan(
+      {required this.id,
+      required this.uuid,
+      this.birdId,
+      this.speciesId,
+      required this.stage,
+      required this.isActive,
+      this.notes,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    if (!nullToAbsent || birdId != null) {
+      map['bird_id'] = Variable<int>(birdId);
+    }
+    if (!nullToAbsent || speciesId != null) {
+      map['species_id'] = Variable<int>(speciesId);
+    }
+    map['stage'] = Variable<String>(stage);
+    map['is_active'] = Variable<bool>(isActive);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  FeedingPlansCompanion toCompanion(bool nullToAbsent) {
+    return FeedingPlansCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      birdId:
+          birdId == null && nullToAbsent ? const Value.absent() : Value(birdId),
+      speciesId: speciesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speciesId),
+      stage: Value(stage),
+      isActive: Value(isActive),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory FeedingPlan.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedingPlan(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      birdId: serializer.fromJson<int?>(json['birdId']),
+      speciesId: serializer.fromJson<int?>(json['speciesId']),
+      stage: serializer.fromJson<String>(json['stage']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'birdId': serializer.toJson<int?>(birdId),
+      'speciesId': serializer.toJson<int?>(speciesId),
+      'stage': serializer.toJson<String>(stage),
+      'isActive': serializer.toJson<bool>(isActive),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  FeedingPlan copyWith(
+          {int? id,
+          String? uuid,
+          Value<int?> birdId = const Value.absent(),
+          Value<int?> speciesId = const Value.absent(),
+          String? stage,
+          bool? isActive,
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      FeedingPlan(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        birdId: birdId.present ? birdId.value : this.birdId,
+        speciesId: speciesId.present ? speciesId.value : this.speciesId,
+        stage: stage ?? this.stage,
+        isActive: isActive ?? this.isActive,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  FeedingPlan copyWithCompanion(FeedingPlansCompanion data) {
+    return FeedingPlan(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      birdId: data.birdId.present ? data.birdId.value : this.birdId,
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      stage: data.stage.present ? data.stage.value : this.stage,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlan(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('birdId: $birdId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('stage: $stage, ')
+          ..write('isActive: $isActive, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uuid, birdId, speciesId, stage, isActive,
+      notes, createdAt, updatedAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedingPlan &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.birdId == this.birdId &&
+          other.speciesId == this.speciesId &&
+          other.stage == this.stage &&
+          other.isActive == this.isActive &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class FeedingPlansCompanion extends UpdateCompanion<FeedingPlan> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int?> birdId;
+  final Value<int?> speciesId;
+  final Value<String> stage;
+  final Value<bool> isActive;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  const FeedingPlansCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.birdId = const Value.absent(),
+    this.speciesId = const Value.absent(),
+    this.stage = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  FeedingPlansCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    this.birdId = const Value.absent(),
+    this.speciesId = const Value.absent(),
+    required String stage,
+    this.isActive = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        stage = Value(stage);
+  static Insertable<FeedingPlan> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? birdId,
+    Expression<int>? speciesId,
+    Expression<String>? stage,
+    Expression<bool>? isActive,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (birdId != null) 'bird_id': birdId,
+      if (speciesId != null) 'species_id': speciesId,
+      if (stage != null) 'stage': stage,
+      if (isActive != null) 'is_active': isActive,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  FeedingPlansCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int?>? birdId,
+      Value<int?>? speciesId,
+      Value<String>? stage,
+      Value<bool>? isActive,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt}) {
+    return FeedingPlansCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      birdId: birdId ?? this.birdId,
+      speciesId: speciesId ?? this.speciesId,
+      stage: stage ?? this.stage,
+      isActive: isActive ?? this.isActive,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (birdId.present) {
+      map['bird_id'] = Variable<int>(birdId.value);
+    }
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (stage.present) {
+      map['stage'] = Variable<String>(stage.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlansCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('birdId: $birdId, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('stage: $stage, ')
+          ..write('isActive: $isActive, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FeedingPlanMealsTable extends FeedingPlanMeals
+    with TableInfo<$FeedingPlanMealsTable, FeedingPlanMeal> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedingPlanMealsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<int> planId = GeneratedColumn<int>(
+      'plan_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES feeding_plans (id) ON DELETE CASCADE'));
+  static const VerificationMeta _mealNameMeta =
+      const VerificationMeta('mealName');
+  @override
+  late final GeneratedColumn<String> mealName = GeneratedColumn<String>(
+      'meal_name', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _timeOfDayMeta =
+      const VerificationMeta('timeOfDay');
+  @override
+  late final GeneratedColumn<String> timeOfDay = GeneratedColumn<String>(
+      'time_of_day', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 10),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  static const VerificationMeta _gramsMeta = const VerificationMeta('grams');
+  @override
+  late final GeneratedColumn<double> grams = GeneratedColumn<double>(
+      'grams', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _sortOrderMeta =
+      const VerificationMeta('sortOrder');
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+      'sort_order', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, planId, mealName, timeOfDay, grams, sortOrder, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feeding_plan_meals';
+  @override
+  VerificationContext validateIntegrity(Insertable<FeedingPlanMeal> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(_planIdMeta,
+          planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta));
+    } else if (isInserting) {
+      context.missing(_planIdMeta);
+    }
+    if (data.containsKey('meal_name')) {
+      context.handle(_mealNameMeta,
+          mealName.isAcceptableOrUnknown(data['meal_name']!, _mealNameMeta));
+    } else if (isInserting) {
+      context.missing(_mealNameMeta);
+    }
+    if (data.containsKey('time_of_day')) {
+      context.handle(
+          _timeOfDayMeta,
+          timeOfDay.isAcceptableOrUnknown(
+              data['time_of_day']!, _timeOfDayMeta));
+    }
+    if (data.containsKey('grams')) {
+      context.handle(
+          _gramsMeta, grams.isAcceptableOrUnknown(data['grams']!, _gramsMeta));
+    } else if (isInserting) {
+      context.missing(_gramsMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(_sortOrderMeta,
+          sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedingPlanMeal map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedingPlanMeal(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      planId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}plan_id'])!,
+      mealName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}meal_name'])!,
+      timeOfDay: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}time_of_day']),
+      grams: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}grams'])!,
+      sortOrder: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FeedingPlanMealsTable createAlias(String alias) {
+    return $FeedingPlanMealsTable(attachedDatabase, alias);
+  }
+}
+
+class FeedingPlanMeal extends DataClass implements Insertable<FeedingPlanMeal> {
+  final int id;
+  final String uuid;
+
+  /// 关联喂养方案
+  final int planId;
+
+  /// 餐次名（如"早餐"）
+  final String mealName;
+
+  /// 时间（如 "07:00"，选填）
+  final String? timeOfDay;
+
+  /// 该餐总克数
+  final double grams;
+
+  /// 排序序号
+  final int sortOrder;
+  final DateTime createdAt;
+  const FeedingPlanMeal(
+      {required this.id,
+      required this.uuid,
+      required this.planId,
+      required this.mealName,
+      this.timeOfDay,
+      required this.grams,
+      required this.sortOrder,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['plan_id'] = Variable<int>(planId);
+    map['meal_name'] = Variable<String>(mealName);
+    if (!nullToAbsent || timeOfDay != null) {
+      map['time_of_day'] = Variable<String>(timeOfDay);
+    }
+    map['grams'] = Variable<double>(grams);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FeedingPlanMealsCompanion toCompanion(bool nullToAbsent) {
+    return FeedingPlanMealsCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      planId: Value(planId),
+      mealName: Value(mealName),
+      timeOfDay: timeOfDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timeOfDay),
+      grams: Value(grams),
+      sortOrder: Value(sortOrder),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FeedingPlanMeal.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedingPlanMeal(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      planId: serializer.fromJson<int>(json['planId']),
+      mealName: serializer.fromJson<String>(json['mealName']),
+      timeOfDay: serializer.fromJson<String?>(json['timeOfDay']),
+      grams: serializer.fromJson<double>(json['grams']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'planId': serializer.toJson<int>(planId),
+      'mealName': serializer.toJson<String>(mealName),
+      'timeOfDay': serializer.toJson<String?>(timeOfDay),
+      'grams': serializer.toJson<double>(grams),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FeedingPlanMeal copyWith(
+          {int? id,
+          String? uuid,
+          int? planId,
+          String? mealName,
+          Value<String?> timeOfDay = const Value.absent(),
+          double? grams,
+          int? sortOrder,
+          DateTime? createdAt}) =>
+      FeedingPlanMeal(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        planId: planId ?? this.planId,
+        mealName: mealName ?? this.mealName,
+        timeOfDay: timeOfDay.present ? timeOfDay.value : this.timeOfDay,
+        grams: grams ?? this.grams,
+        sortOrder: sortOrder ?? this.sortOrder,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FeedingPlanMeal copyWithCompanion(FeedingPlanMealsCompanion data) {
+    return FeedingPlanMeal(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      mealName: data.mealName.present ? data.mealName.value : this.mealName,
+      timeOfDay: data.timeOfDay.present ? data.timeOfDay.value : this.timeOfDay,
+      grams: data.grams.present ? data.grams.value : this.grams,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlanMeal(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('planId: $planId, ')
+          ..write('mealName: $mealName, ')
+          ..write('timeOfDay: $timeOfDay, ')
+          ..write('grams: $grams, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, uuid, planId, mealName, timeOfDay, grams, sortOrder, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedingPlanMeal &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.planId == this.planId &&
+          other.mealName == this.mealName &&
+          other.timeOfDay == this.timeOfDay &&
+          other.grams == this.grams &&
+          other.sortOrder == this.sortOrder &&
+          other.createdAt == this.createdAt);
+}
+
+class FeedingPlanMealsCompanion extends UpdateCompanion<FeedingPlanMeal> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> planId;
+  final Value<String> mealName;
+  final Value<String?> timeOfDay;
+  final Value<double> grams;
+  final Value<int> sortOrder;
+  final Value<DateTime> createdAt;
+  const FeedingPlanMealsCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.mealName = const Value.absent(),
+    this.timeOfDay = const Value.absent(),
+    this.grams = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FeedingPlanMealsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int planId,
+    required String mealName,
+    this.timeOfDay = const Value.absent(),
+    required double grams,
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        planId = Value(planId),
+        mealName = Value(mealName),
+        grams = Value(grams);
+  static Insertable<FeedingPlanMeal> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? planId,
+    Expression<String>? mealName,
+    Expression<String>? timeOfDay,
+    Expression<double>? grams,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (planId != null) 'plan_id': planId,
+      if (mealName != null) 'meal_name': mealName,
+      if (timeOfDay != null) 'time_of_day': timeOfDay,
+      if (grams != null) 'grams': grams,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FeedingPlanMealsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? planId,
+      Value<String>? mealName,
+      Value<String?>? timeOfDay,
+      Value<double>? grams,
+      Value<int>? sortOrder,
+      Value<DateTime>? createdAt}) {
+    return FeedingPlanMealsCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      planId: planId ?? this.planId,
+      mealName: mealName ?? this.mealName,
+      timeOfDay: timeOfDay ?? this.timeOfDay,
+      grams: grams ?? this.grams,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<int>(planId.value);
+    }
+    if (mealName.present) {
+      map['meal_name'] = Variable<String>(mealName.value);
+    }
+    if (timeOfDay.present) {
+      map['time_of_day'] = Variable<String>(timeOfDay.value);
+    }
+    if (grams.present) {
+      map['grams'] = Variable<double>(grams.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlanMealsCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('planId: $planId, ')
+          ..write('mealName: $mealName, ')
+          ..write('timeOfDay: $timeOfDay, ')
+          ..write('grams: $grams, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FeedingPlanMealRecipesTable extends FeedingPlanMealRecipes
+    with TableInfo<$FeedingPlanMealRecipesTable, FeedingPlanMealRecipe> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedingPlanMealRecipesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _planMealIdMeta =
+      const VerificationMeta('planMealId');
+  @override
+  late final GeneratedColumn<int> planMealId = GeneratedColumn<int>(
+      'plan_meal_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES feeding_plan_meals (id) ON DELETE CASCADE'));
+  static const VerificationMeta _blendIdMeta =
+      const VerificationMeta('blendId');
+  @override
+  late final GeneratedColumn<int> blendId = GeneratedColumn<int>(
+      'blend_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES blends (id) ON DELETE CASCADE'));
+  static const VerificationMeta _percentMeta =
+      const VerificationMeta('percent');
+  @override
+  late final GeneratedColumn<double> percent = GeneratedColumn<double>(
+      'percent', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, uuid, planMealId, blendId, percent, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feeding_plan_meal_recipes';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<FeedingPlanMealRecipe> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('plan_meal_id')) {
+      context.handle(
+          _planMealIdMeta,
+          planMealId.isAcceptableOrUnknown(
+              data['plan_meal_id']!, _planMealIdMeta));
+    } else if (isInserting) {
+      context.missing(_planMealIdMeta);
+    }
+    if (data.containsKey('blend_id')) {
+      context.handle(_blendIdMeta,
+          blendId.isAcceptableOrUnknown(data['blend_id']!, _blendIdMeta));
+    } else if (isInserting) {
+      context.missing(_blendIdMeta);
+    }
+    if (data.containsKey('percent')) {
+      context.handle(_percentMeta,
+          percent.isAcceptableOrUnknown(data['percent']!, _percentMeta));
+    } else if (isInserting) {
+      context.missing(_percentMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedingPlanMealRecipe map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedingPlanMealRecipe(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      planMealId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}plan_meal_id'])!,
+      blendId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}blend_id'])!,
+      percent: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}percent'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FeedingPlanMealRecipesTable createAlias(String alias) {
+    return $FeedingPlanMealRecipesTable(attachedDatabase, alias);
+  }
+}
+
+class FeedingPlanMealRecipe extends DataClass
+    implements Insertable<FeedingPlanMealRecipe> {
+  final int id;
+  final String uuid;
+
+  /// 关联餐次
+  final int planMealId;
+
+  /// 关联配方
+  final int blendId;
+
+  /// 该配方在此餐中的占比 %（所有项之和应为 100）
+  final double percent;
+  final DateTime createdAt;
+  const FeedingPlanMealRecipe(
+      {required this.id,
+      required this.uuid,
+      required this.planMealId,
+      required this.blendId,
+      required this.percent,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uuid'] = Variable<String>(uuid);
+    map['plan_meal_id'] = Variable<int>(planMealId);
+    map['blend_id'] = Variable<int>(blendId);
+    map['percent'] = Variable<double>(percent);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FeedingPlanMealRecipesCompanion toCompanion(bool nullToAbsent) {
+    return FeedingPlanMealRecipesCompanion(
+      id: Value(id),
+      uuid: Value(uuid),
+      planMealId: Value(planMealId),
+      blendId: Value(blendId),
+      percent: Value(percent),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FeedingPlanMealRecipe.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedingPlanMealRecipe(
+      id: serializer.fromJson<int>(json['id']),
+      uuid: serializer.fromJson<String>(json['uuid']),
+      planMealId: serializer.fromJson<int>(json['planMealId']),
+      blendId: serializer.fromJson<int>(json['blendId']),
+      percent: serializer.fromJson<double>(json['percent']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uuid': serializer.toJson<String>(uuid),
+      'planMealId': serializer.toJson<int>(planMealId),
+      'blendId': serializer.toJson<int>(blendId),
+      'percent': serializer.toJson<double>(percent),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FeedingPlanMealRecipe copyWith(
+          {int? id,
+          String? uuid,
+          int? planMealId,
+          int? blendId,
+          double? percent,
+          DateTime? createdAt}) =>
+      FeedingPlanMealRecipe(
+        id: id ?? this.id,
+        uuid: uuid ?? this.uuid,
+        planMealId: planMealId ?? this.planMealId,
+        blendId: blendId ?? this.blendId,
+        percent: percent ?? this.percent,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FeedingPlanMealRecipe copyWithCompanion(
+      FeedingPlanMealRecipesCompanion data) {
+    return FeedingPlanMealRecipe(
+      id: data.id.present ? data.id.value : this.id,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      planMealId:
+          data.planMealId.present ? data.planMealId.value : this.planMealId,
+      blendId: data.blendId.present ? data.blendId.value : this.blendId,
+      percent: data.percent.present ? data.percent.value : this.percent,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlanMealRecipe(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('planMealId: $planMealId, ')
+          ..write('blendId: $blendId, ')
+          ..write('percent: $percent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, uuid, planMealId, blendId, percent, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedingPlanMealRecipe &&
+          other.id == this.id &&
+          other.uuid == this.uuid &&
+          other.planMealId == this.planMealId &&
+          other.blendId == this.blendId &&
+          other.percent == this.percent &&
+          other.createdAt == this.createdAt);
+}
+
+class FeedingPlanMealRecipesCompanion
+    extends UpdateCompanion<FeedingPlanMealRecipe> {
+  final Value<int> id;
+  final Value<String> uuid;
+  final Value<int> planMealId;
+  final Value<int> blendId;
+  final Value<double> percent;
+  final Value<DateTime> createdAt;
+  const FeedingPlanMealRecipesCompanion({
+    this.id = const Value.absent(),
+    this.uuid = const Value.absent(),
+    this.planMealId = const Value.absent(),
+    this.blendId = const Value.absent(),
+    this.percent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FeedingPlanMealRecipesCompanion.insert({
+    this.id = const Value.absent(),
+    required String uuid,
+    required int planMealId,
+    required int blendId,
+    required double percent,
+    this.createdAt = const Value.absent(),
+  })  : uuid = Value(uuid),
+        planMealId = Value(planMealId),
+        blendId = Value(blendId),
+        percent = Value(percent);
+  static Insertable<FeedingPlanMealRecipe> custom({
+    Expression<int>? id,
+    Expression<String>? uuid,
+    Expression<int>? planMealId,
+    Expression<int>? blendId,
+    Expression<double>? percent,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
+      if (planMealId != null) 'plan_meal_id': planMealId,
+      if (blendId != null) 'blend_id': blendId,
+      if (percent != null) 'percent': percent,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FeedingPlanMealRecipesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? uuid,
+      Value<int>? planMealId,
+      Value<int>? blendId,
+      Value<double>? percent,
+      Value<DateTime>? createdAt}) {
+    return FeedingPlanMealRecipesCompanion(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      planMealId: planMealId ?? this.planMealId,
+      blendId: blendId ?? this.blendId,
+      percent: percent ?? this.percent,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (planMealId.present) {
+      map['plan_meal_id'] = Variable<int>(planMealId.value);
+    }
+    if (blendId.present) {
+      map['blend_id'] = Variable<int>(blendId.value);
+    }
+    if (percent.present) {
+      map['percent'] = Variable<double>(percent.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedingPlanMealRecipesCompanion(')
+          ..write('id: $id, ')
+          ..write('uuid: $uuid, ')
+          ..write('planMealId: $planMealId, ')
+          ..write('blendId: $blendId, ')
+          ..write('percent: $percent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BirdStagesTable extends BirdStages
+    with TableInfo<$BirdStagesTable, BirdStage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BirdStagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _birdIdMeta = const VerificationMeta('birdId');
+  @override
+  late final GeneratedColumn<int> birdId = GeneratedColumn<int>(
+      'bird_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES birds (id) ON DELETE CASCADE'));
+  static const VerificationMeta _stageMeta = const VerificationMeta('stage');
+  @override
+  late final GeneratedColumn<String> stage = GeneratedColumn<String>(
+      'stage', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+      'source', aliasedName, false,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 20),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('auto'));
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [id, birdId, stage, source, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bird_stages';
+  @override
+  VerificationContext validateIntegrity(Insertable<BirdStage> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('bird_id')) {
+      context.handle(_birdIdMeta,
+          birdId.isAcceptableOrUnknown(data['bird_id']!, _birdIdMeta));
+    } else if (isInserting) {
+      context.missing(_birdIdMeta);
+    }
+    if (data.containsKey('stage')) {
+      context.handle(
+          _stageMeta, stage.isAcceptableOrUnknown(data['stage']!, _stageMeta));
+    } else if (isInserting) {
+      context.missing(_stageMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(_sourceMeta,
+          source.isAcceptableOrUnknown(data['source']!, _sourceMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BirdStage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BirdStage(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      birdId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bird_id'])!,
+      stage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stage'])!,
+      source: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $BirdStagesTable createAlias(String alias) {
+    return $BirdStagesTable(attachedDatabase, alias);
+  }
+}
+
+class BirdStage extends DataClass implements Insertable<BirdStage> {
+  final int id;
+
+  /// 关联鸟（唯一，一只鸟只有一条当前阶段记录）
+  final int birdId;
+
+  /// 当前阶段，取值为 RecipeStage 常量（雏鸟/断奶期/亚成体/成鸟维护期/
+  /// 繁殖准备期/产蛋孵化期/育雏期/换羽期）
+  final String stage;
+
+  /// 阶段来源：auto（自动推断）/ manual（手动覆盖）/ breeding（繁殖状态）
+  final String source;
+  final DateTime updatedAt;
+  const BirdStage(
+      {required this.id,
+      required this.birdId,
+      required this.stage,
+      required this.source,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['bird_id'] = Variable<int>(birdId);
+    map['stage'] = Variable<String>(stage);
+    map['source'] = Variable<String>(source);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  BirdStagesCompanion toCompanion(bool nullToAbsent) {
+    return BirdStagesCompanion(
+      id: Value(id),
+      birdId: Value(birdId),
+      stage: Value(stage),
+      source: Value(source),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BirdStage.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BirdStage(
+      id: serializer.fromJson<int>(json['id']),
+      birdId: serializer.fromJson<int>(json['birdId']),
+      stage: serializer.fromJson<String>(json['stage']),
+      source: serializer.fromJson<String>(json['source']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'birdId': serializer.toJson<int>(birdId),
+      'stage': serializer.toJson<String>(stage),
+      'source': serializer.toJson<String>(source),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  BirdStage copyWith(
+          {int? id,
+          int? birdId,
+          String? stage,
+          String? source,
+          DateTime? updatedAt}) =>
+      BirdStage(
+        id: id ?? this.id,
+        birdId: birdId ?? this.birdId,
+        stage: stage ?? this.stage,
+        source: source ?? this.source,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  BirdStage copyWithCompanion(BirdStagesCompanion data) {
+    return BirdStage(
+      id: data.id.present ? data.id.value : this.id,
+      birdId: data.birdId.present ? data.birdId.value : this.birdId,
+      stage: data.stage.present ? data.stage.value : this.stage,
+      source: data.source.present ? data.source.value : this.source,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BirdStage(')
+          ..write('id: $id, ')
+          ..write('birdId: $birdId, ')
+          ..write('stage: $stage, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, birdId, stage, source, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BirdStage &&
+          other.id == this.id &&
+          other.birdId == this.birdId &&
+          other.stage == this.stage &&
+          other.source == this.source &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BirdStagesCompanion extends UpdateCompanion<BirdStage> {
+  final Value<int> id;
+  final Value<int> birdId;
+  final Value<String> stage;
+  final Value<String> source;
+  final Value<DateTime> updatedAt;
+  const BirdStagesCompanion({
+    this.id = const Value.absent(),
+    this.birdId = const Value.absent(),
+    this.stage = const Value.absent(),
+    this.source = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  BirdStagesCompanion.insert({
+    this.id = const Value.absent(),
+    required int birdId,
+    required String stage,
+    this.source = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : birdId = Value(birdId),
+        stage = Value(stage);
+  static Insertable<BirdStage> custom({
+    Expression<int>? id,
+    Expression<int>? birdId,
+    Expression<String>? stage,
+    Expression<String>? source,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (birdId != null) 'bird_id': birdId,
+      if (stage != null) 'stage': stage,
+      if (source != null) 'source': source,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  BirdStagesCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? birdId,
+      Value<String>? stage,
+      Value<String>? source,
+      Value<DateTime>? updatedAt}) {
+    return BirdStagesCompanion(
+      id: id ?? this.id,
+      birdId: birdId ?? this.birdId,
+      stage: stage ?? this.stage,
+      source: source ?? this.source,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (birdId.present) {
+      map['bird_id'] = Variable<int>(birdId.value);
+    }
+    if (stage.present) {
+      map['stage'] = Variable<String>(stage.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BirdStagesCompanion(')
+          ..write('id: $id, ')
+          ..write('birdId: $birdId, ')
+          ..write('stage: $stage, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8937,7 +18005,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TasksTable tasks = $TasksTable(this);
   late final $AlertRecordsTable alertRecords = $AlertRecordsTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $DrugLibraryTable drugLibrary = $DrugLibraryTable(this);
+  late final $DrugFormulationsTable drugFormulations =
+      $DrugFormulationsTable(this);
+  late final $DiseaseCatalogTable diseaseCatalog = $DiseaseCatalogTable(this);
+  late final $DoseRulesTable doseRules = $DoseRulesTable(this);
   late final $MedicationsTable medications = $MedicationsTable(this);
+  late final $FeedingRecordsTable feedingRecords = $FeedingRecordsTable(this);
+  late final $SideEffectRecordsTable sideEffectRecords =
+      $SideEffectRecordsTable(this);
+  late final $StopConditionsTable stopConditions = $StopConditionsTable(this);
   late final $BreedingPairsTable breedingPairs = $BreedingPairsTable(this);
   late final $BreedingRecordsTable breedingRecords =
       $BreedingRecordsTable(this);
@@ -8946,6 +18023,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ActivityLogsTable activityLogs = $ActivityLogsTable(this);
   late final $BirdPhotosTable birdPhotos = $BirdPhotosTable(this);
   late final $BirdAvatarsTable birdAvatars = $BirdAvatarsTable(this);
+  late final $FoodsTable foods = $FoodsTable(this);
+  late final $BlendsTable blends = $BlendsTable(this);
+  late final $BlendItemsTable blendItems = $BlendItemsTable(this);
+  late final $BlendBindingsTable blendBindings = $BlendBindingsTable(this);
+  late final $FeedingPlansTable feedingPlans = $FeedingPlansTable(this);
+  late final $FeedingPlanMealsTable feedingPlanMeals =
+      $FeedingPlanMealsTable(this);
+  late final $FeedingPlanMealRecipesTable feedingPlanMealRecipes =
+      $FeedingPlanMealRecipesTable(this);
+  late final $BirdStagesTable birdStages = $BirdStagesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8960,14 +18047,29 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         tasks,
         alertRecords,
         syncQueue,
+        drugLibrary,
+        drugFormulations,
+        diseaseCatalog,
+        doseRules,
         medications,
+        feedingRecords,
+        sideEffectRecords,
+        stopConditions,
         breedingPairs,
         breedingRecords,
         eggs,
         matingEvents,
         activityLogs,
         birdPhotos,
-        birdAvatars
+        birdAvatars,
+        foods,
+        blends,
+        blendItems,
+        blendBindings,
+        feedingPlans,
+        feedingPlanMeals,
+        feedingPlanMealRecipes,
+        birdStages
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -9008,10 +18110,94 @@ abstract class _$AppDatabase extends GeneratedDatabase {
             ],
           ),
           WritePropagation(
+            on: TableUpdateQuery.onTableName('drug_library',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('drug_formulations', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('drug_library',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('dose_rules', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('disease_catalog',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('dose_rules', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
             on: TableUpdateQuery.onTableName('birds',
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('medications', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('drug_library',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('medications', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('drug_formulations',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('medications', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('disease_catalog',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('medications', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('dose_rules',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('medications', kind: UpdateKind.update),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('medications',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_records', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_records', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('medications',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('side_effect_records', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('side_effect_records', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('medications',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('stop_conditions', kind: UpdateKind.delete),
             ],
           ),
           WritePropagation(
@@ -9084,6 +18270,62 @@ abstract class _$AppDatabase extends GeneratedDatabase {
               TableUpdate('bird_avatars', kind: UpdateKind.delete),
             ],
           ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('blends',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('blend_items', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('foods',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('blend_items', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('blends',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('blend_bindings', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_plans', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('feeding_plans',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_plan_meals', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('feeding_plan_meals',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_plan_meal_recipes', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('blends',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('feeding_plan_meal_recipes', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('birds',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('bird_stages', kind: UpdateKind.delete),
+            ],
+          ),
         ],
       );
 }
@@ -9097,6 +18339,8 @@ typedef $$SpeciesTableCreateCompanionBuilder = SpeciesCompanion Function({
   Value<int> nestlingWeighIntervalDays,
   Value<int> juvenileWeighIntervalDays,
   Value<int> adultWeighIntervalDays,
+  Value<double?> minWeightG,
+  Value<double?> maxWeightG,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> deletedAt,
@@ -9110,6 +18354,8 @@ typedef $$SpeciesTableUpdateCompanionBuilder = SpeciesCompanion Function({
   Value<int> nestlingWeighIntervalDays,
   Value<int> juvenileWeighIntervalDays,
   Value<int> adultWeighIntervalDays,
+  Value<double?> minWeightG,
+  Value<double?> maxWeightG,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> deletedAt,
@@ -9129,6 +18375,36 @@ final class $$SpeciesTableReferences
         .filter((f) => f.speciesId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_birdsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$BlendBindingsTable, List<BlendBinding>>
+      _blendBindingsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.blendBindings,
+              aliasName: $_aliasNameGenerator(
+                  db.species.id, db.blendBindings.speciesId));
+
+  $$BlendBindingsTableProcessedTableManager get blendBindingsRefs {
+    final manager = $$BlendBindingsTableTableManager($_db, $_db.blendBindings)
+        .filter((f) => f.speciesId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_blendBindingsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$FeedingPlansTable, List<FeedingPlan>>
+      _feedingPlansRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.feedingPlans,
+          aliasName:
+              $_aliasNameGenerator(db.species.id, db.feedingPlans.speciesId));
+
+  $$FeedingPlansTableProcessedTableManager get feedingPlansRefs {
+    final manager = $$FeedingPlansTableTableManager($_db, $_db.feedingPlans)
+        .filter((f) => f.speciesId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_feedingPlansRefsTable($_db));
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
@@ -9172,6 +18448,12 @@ class $$SpeciesTableFilterComposer
       column: $table.adultWeighIntervalDays,
       builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<double> get minWeightG => $composableBuilder(
+      column: $table.minWeightG, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get maxWeightG => $composableBuilder(
+      column: $table.maxWeightG, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -9194,6 +18476,48 @@ class $$SpeciesTableFilterComposer
             $$BirdsTableFilterComposer(
               $db: $db,
               $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> blendBindingsRefs(
+      Expression<bool> Function($$BlendBindingsTableFilterComposer f) f) {
+    final $$BlendBindingsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendBindings,
+        getReferencedColumn: (t) => t.speciesId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendBindingsTableFilterComposer(
+              $db: $db,
+              $table: $db.blendBindings,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> feedingPlansRefs(
+      Expression<bool> Function($$FeedingPlansTableFilterComposer f) f) {
+    final $$FeedingPlansTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.speciesId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -9241,6 +18565,12 @@ class $$SpeciesTableOrderingComposer
       column: $table.adultWeighIntervalDays,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get minWeightG => $composableBuilder(
+      column: $table.minWeightG, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get maxWeightG => $composableBuilder(
+      column: $table.maxWeightG, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -9284,6 +18614,12 @@ class $$SpeciesTableAnnotationComposer
   GeneratedColumn<int> get adultWeighIntervalDays => $composableBuilder(
       column: $table.adultWeighIntervalDays, builder: (column) => column);
 
+  GeneratedColumn<double> get minWeightG => $composableBuilder(
+      column: $table.minWeightG, builder: (column) => column);
+
+  GeneratedColumn<double> get maxWeightG => $composableBuilder(
+      column: $table.maxWeightG, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -9313,6 +18649,48 @@ class $$SpeciesTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> blendBindingsRefs<T extends Object>(
+      Expression<T> Function($$BlendBindingsTableAnnotationComposer a) f) {
+    final $$BlendBindingsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendBindings,
+        getReferencedColumn: (t) => t.speciesId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendBindingsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blendBindings,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> feedingPlansRefs<T extends Object>(
+      Expression<T> Function($$FeedingPlansTableAnnotationComposer a) f) {
+    final $$FeedingPlansTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.speciesId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$SpeciesTableTableManager extends RootTableManager<
@@ -9326,7 +18704,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
     $$SpeciesTableUpdateCompanionBuilder,
     (Specy, $$SpeciesTableReferences),
     Specy,
-    PrefetchHooks Function({bool birdsRefs})> {
+    PrefetchHooks Function(
+        {bool birdsRefs, bool blendBindingsRefs, bool feedingPlansRefs})> {
   $$SpeciesTableTableManager(_$AppDatabase db, $SpeciesTable table)
       : super(TableManagerState(
           db: db,
@@ -9346,6 +18725,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             Value<int> nestlingWeighIntervalDays = const Value.absent(),
             Value<int> juvenileWeighIntervalDays = const Value.absent(),
             Value<int> adultWeighIntervalDays = const Value.absent(),
+            Value<double?> minWeightG = const Value.absent(),
+            Value<double?> maxWeightG = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
@@ -9359,6 +18740,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             nestlingWeighIntervalDays: nestlingWeighIntervalDays,
             juvenileWeighIntervalDays: juvenileWeighIntervalDays,
             adultWeighIntervalDays: adultWeighIntervalDays,
+            minWeightG: minWeightG,
+            maxWeightG: maxWeightG,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt,
@@ -9372,6 +18755,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             Value<int> nestlingWeighIntervalDays = const Value.absent(),
             Value<int> juvenileWeighIntervalDays = const Value.absent(),
             Value<int> adultWeighIntervalDays = const Value.absent(),
+            Value<double?> minWeightG = const Value.absent(),
+            Value<double?> maxWeightG = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
@@ -9385,6 +18770,8 @@ class $$SpeciesTableTableManager extends RootTableManager<
             nestlingWeighIntervalDays: nestlingWeighIntervalDays,
             juvenileWeighIntervalDays: juvenileWeighIntervalDays,
             adultWeighIntervalDays: adultWeighIntervalDays,
+            minWeightG: minWeightG,
+            maxWeightG: maxWeightG,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt,
@@ -9393,10 +18780,17 @@ class $$SpeciesTableTableManager extends RootTableManager<
               .map((e) =>
                   (e.readTable(table), $$SpeciesTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({birdsRefs = false}) {
+          prefetchHooksCallback: (
+              {birdsRefs = false,
+              blendBindingsRefs = false,
+              feedingPlansRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (birdsRefs) db.birds],
+              explicitlyWatchedTables: [
+                if (birdsRefs) db.birds,
+                if (blendBindingsRefs) db.blendBindings,
+                if (feedingPlansRefs) db.feedingPlans
+              ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
@@ -9407,6 +18801,32 @@ class $$SpeciesTableTableManager extends RootTableManager<
                             $$SpeciesTableReferences._birdsRefsTable(db),
                         managerFromTypedResult: (p0) =>
                             $$SpeciesTableReferences(db, table, p0).birdsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.speciesId == item.id),
+                        typedResults: items),
+                  if (blendBindingsRefs)
+                    await $_getPrefetchedData<Specy, $SpeciesTable,
+                            BlendBinding>(
+                        currentTable: table,
+                        referencedTable: $$SpeciesTableReferences
+                            ._blendBindingsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$SpeciesTableReferences(db, table, p0)
+                                .blendBindingsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.speciesId == item.id),
+                        typedResults: items),
+                  if (feedingPlansRefs)
+                    await $_getPrefetchedData<Specy, $SpeciesTable,
+                            FeedingPlan>(
+                        currentTable: table,
+                        referencedTable:
+                            $$SpeciesTableReferences._feedingPlansRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$SpeciesTableReferences(db, table, p0)
+                                .feedingPlansRefs,
                         referencedItemsForCurrentItem:
                             (item, referencedItems) => referencedItems
                                 .where((e) => e.speciesId == item.id),
@@ -9429,7 +18849,8 @@ typedef $$SpeciesTableProcessedTableManager = ProcessedTableManager<
     $$SpeciesTableUpdateCompanionBuilder,
     (Specy, $$SpeciesTableReferences),
     Specy,
-    PrefetchHooks Function({bool birdsRefs})>;
+    PrefetchHooks Function(
+        {bool birdsRefs, bool blendBindingsRefs, bool feedingPlansRefs})>;
 typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   Value<int> id,
   required String uuid,
@@ -10703,6 +20124,7 @@ typedef $$BirdsTableCreateCompanionBuilder = BirdsCompanion Function({
   Value<int?> weighIntervalDays,
   Value<double?> manualBaselineG,
   Value<bool?> weaningOverride,
+  Value<String?> stageOverride,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -10723,6 +20145,7 @@ typedef $$BirdsTableUpdateCompanionBuilder = BirdsCompanion Function({
   Value<int?> weighIntervalDays,
   Value<double?> manualBaselineG,
   Value<bool?> weaningOverride,
+  Value<String?> stageOverride,
   Value<String> status,
   Value<String?> notes,
   Value<DateTime> createdAt,
@@ -10833,6 +20256,38 @@ final class $$BirdsTableReferences
         manager.$state.copyWith(prefetchedData: cache));
   }
 
+  static MultiTypedResultKey<$FeedingRecordsTable, List<FeedingRecord>>
+      _feedingRecordsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.feedingRecords,
+              aliasName:
+                  $_aliasNameGenerator(db.birds.id, db.feedingRecords.birdId));
+
+  $$FeedingRecordsTableProcessedTableManager get feedingRecordsRefs {
+    final manager = $$FeedingRecordsTableTableManager($_db, $_db.feedingRecords)
+        .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_feedingRecordsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$SideEffectRecordsTable, List<SideEffectRecord>>
+      _sideEffectRecordsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.sideEffectRecords,
+              aliasName: $_aliasNameGenerator(
+                  db.birds.id, db.sideEffectRecords.birdId));
+
+  $$SideEffectRecordsTableProcessedTableManager get sideEffectRecordsRefs {
+    final manager =
+        $$SideEffectRecordsTableTableManager($_db, $_db.sideEffectRecords)
+            .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_sideEffectRecordsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
   static MultiTypedResultKey<$BreedingPairsTable, List<BreedingPair>>
       _maleBreedingPairsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.breedingPairs,
@@ -10919,6 +20374,34 @@ final class $$BirdsTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
+
+  static MultiTypedResultKey<$FeedingPlansTable, List<FeedingPlan>>
+      _feedingPlansRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.feedingPlans,
+          aliasName: $_aliasNameGenerator(db.birds.id, db.feedingPlans.birdId));
+
+  $$FeedingPlansTableProcessedTableManager get feedingPlansRefs {
+    final manager = $$FeedingPlansTableTableManager($_db, $_db.feedingPlans)
+        .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_feedingPlansRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$BirdStagesTable, List<BirdStage>>
+      _birdStagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.birdStages,
+          aliasName: $_aliasNameGenerator(db.birds.id, db.birdStages.birdId));
+
+  $$BirdStagesTableProcessedTableManager get birdStagesRefs {
+    final manager = $$BirdStagesTableTableManager($_db, $_db.birdStages)
+        .filter((f) => f.birdId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_birdStagesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
@@ -10961,6 +20444,9 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
   ColumnFilters<bool> get weaningOverride => $composableBuilder(
       column: $table.weaningOverride,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stageOverride => $composableBuilder(
+      column: $table.stageOverride, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
@@ -11121,6 +20607,48 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
     return f(composer);
   }
 
+  Expression<bool> feedingRecordsRefs(
+      Expression<bool> Function($$FeedingRecordsTableFilterComposer f) f) {
+    final $$FeedingRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingRecords,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> sideEffectRecordsRefs(
+      Expression<bool> Function($$SideEffectRecordsTableFilterComposer f) f) {
+    final $$SideEffectRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.sideEffectRecords,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SideEffectRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.sideEffectRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
   Expression<bool> maleBreedingPairs(
       Expression<bool> Function($$BreedingPairsTableFilterComposer f) f) {
     final $$BreedingPairsTableFilterComposer composer = $composerBuilder(
@@ -11246,6 +20774,48 @@ class $$BirdsTableFilterComposer extends Composer<_$AppDatabase, $BirdsTable> {
             ));
     return f(composer);
   }
+
+  Expression<bool> feedingPlansRefs(
+      Expression<bool> Function($$FeedingPlansTableFilterComposer f) f) {
+    final $$FeedingPlansTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> birdStagesRefs(
+      Expression<bool> Function($$BirdStagesTableFilterComposer f) f) {
+    final $$BirdStagesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.birdStages,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdStagesTableFilterComposer(
+              $db: $db,
+              $table: $db.birdStages,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$BirdsTableOrderingComposer
@@ -11288,6 +20858,10 @@ class $$BirdsTableOrderingComposer
 
   ColumnOrderings<bool> get weaningOverride => $composableBuilder(
       column: $table.weaningOverride,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stageOverride => $composableBuilder(
+      column: $table.stageOverride,
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get status => $composableBuilder(
@@ -11404,6 +20978,9 @@ class $$BirdsTableAnnotationComposer
 
   GeneratedColumn<bool> get weaningOverride => $composableBuilder(
       column: $table.weaningOverride, builder: (column) => column);
+
+  GeneratedColumn<String> get stageOverride => $composableBuilder(
+      column: $table.stageOverride, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -11564,6 +21141,49 @@ class $$BirdsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> feedingRecordsRefs<T extends Object>(
+      Expression<T> Function($$FeedingRecordsTableAnnotationComposer a) f) {
+    final $$FeedingRecordsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingRecords,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingRecordsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> sideEffectRecordsRefs<T extends Object>(
+      Expression<T> Function($$SideEffectRecordsTableAnnotationComposer a) f) {
+    final $$SideEffectRecordsTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.sideEffectRecords,
+            getReferencedColumn: (t) => t.birdId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$SideEffectRecordsTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.sideEffectRecords,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+
   Expression<T> maleBreedingPairs<T extends Object>(
       Expression<T> Function($$BreedingPairsTableAnnotationComposer a) f) {
     final $$BreedingPairsTableAnnotationComposer composer = $composerBuilder(
@@ -11689,6 +21309,48 @@ class $$BirdsTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> feedingPlansRefs<T extends Object>(
+      Expression<T> Function($$FeedingPlansTableAnnotationComposer a) f) {
+    final $$FeedingPlansTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> birdStagesRefs<T extends Object>(
+      Expression<T> Function($$BirdStagesTableAnnotationComposer a) f) {
+    final $$BirdStagesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.birdStages,
+        getReferencedColumn: (t) => t.birdId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdStagesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birdStages,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$BirdsTableTableManager extends RootTableManager<
@@ -11710,12 +21372,16 @@ class $$BirdsTableTableManager extends RootTableManager<
         bool tasksRefs,
         bool alertRecordsRefs,
         bool medicationsRefs,
+        bool feedingRecordsRefs,
+        bool sideEffectRecordsRefs,
         bool maleBreedingPairs,
         bool femaleBreedingPairs,
         bool eggsRefs,
         bool activityLogsRefs,
         bool birdPhotosRefs,
-        bool birdAvatarsRefs})> {
+        bool birdAvatarsRefs,
+        bool feedingPlansRefs,
+        bool birdStagesRefs})> {
   $$BirdsTableTableManager(_$AppDatabase db, $BirdsTable table)
       : super(TableManagerState(
           db: db,
@@ -11740,6 +21406,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<int?> weighIntervalDays = const Value.absent(),
             Value<double?> manualBaselineG = const Value.absent(),
             Value<bool?> weaningOverride = const Value.absent(),
+            Value<String?> stageOverride = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -11760,6 +21427,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             weighIntervalDays: weighIntervalDays,
             manualBaselineG: manualBaselineG,
             weaningOverride: weaningOverride,
+            stageOverride: stageOverride,
             status: status,
             notes: notes,
             createdAt: createdAt,
@@ -11780,6 +21448,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             Value<int?> weighIntervalDays = const Value.absent(),
             Value<double?> manualBaselineG = const Value.absent(),
             Value<bool?> weaningOverride = const Value.absent(),
+            Value<String?> stageOverride = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -11800,6 +21469,7 @@ class $$BirdsTableTableManager extends RootTableManager<
             weighIntervalDays: weighIntervalDays,
             manualBaselineG: manualBaselineG,
             weaningOverride: weaningOverride,
+            stageOverride: stageOverride,
             status: status,
             notes: notes,
             createdAt: createdAt,
@@ -11818,12 +21488,16 @@ class $$BirdsTableTableManager extends RootTableManager<
               tasksRefs = false,
               alertRecordsRefs = false,
               medicationsRefs = false,
+              feedingRecordsRefs = false,
+              sideEffectRecordsRefs = false,
               maleBreedingPairs = false,
               femaleBreedingPairs = false,
               eggsRefs = false,
               activityLogsRefs = false,
               birdPhotosRefs = false,
-              birdAvatarsRefs = false}) {
+              birdAvatarsRefs = false,
+              feedingPlansRefs = false,
+              birdStagesRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
@@ -11831,12 +21505,16 @@ class $$BirdsTableTableManager extends RootTableManager<
                 if (tasksRefs) db.tasks,
                 if (alertRecordsRefs) db.alertRecords,
                 if (medicationsRefs) db.medications,
+                if (feedingRecordsRefs) db.feedingRecords,
+                if (sideEffectRecordsRefs) db.sideEffectRecords,
                 if (maleBreedingPairs) db.breedingPairs,
                 if (femaleBreedingPairs) db.breedingPairs,
                 if (eggsRefs) db.eggs,
                 if (activityLogsRefs) db.activityLogs,
                 if (birdPhotosRefs) db.birdPhotos,
-                if (birdAvatarsRefs) db.birdAvatars
+                if (birdAvatarsRefs) db.birdAvatars,
+                if (feedingPlansRefs) db.feedingPlans,
+                if (birdStagesRefs) db.birdStages
               ],
               addJoins: <
                   T extends TableManagerState<
@@ -11930,6 +21608,31 @@ class $$BirdsTableTableManager extends RootTableManager<
                                 referencedItems) =>
                             referencedItems.where((e) => e.birdId == item.id),
                         typedResults: items),
+                  if (feedingRecordsRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, FeedingRecord>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BirdsTableReferences._feedingRecordsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .feedingRecordsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.birdId == item.id),
+                        typedResults: items),
+                  if (sideEffectRecordsRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable,
+                            SideEffectRecord>(
+                        currentTable: table,
+                        referencedTable: $$BirdsTableReferences
+                            ._sideEffectRecordsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .sideEffectRecordsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.birdId == item.id),
+                        typedResults: items),
                   if (maleBreedingPairs)
                     await $_getPrefetchedData<Bird, $BirdsTable, BreedingPair>(
                         currentTable: table,
@@ -12000,6 +21703,30 @@ class $$BirdsTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem: (item,
                                 referencedItems) =>
                             referencedItems.where((e) => e.birdId == item.id),
+                        typedResults: items),
+                  if (feedingPlansRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, FeedingPlan>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BirdsTableReferences._feedingPlansRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .feedingPlansRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.birdId == item.id),
+                        typedResults: items),
+                  if (birdStagesRefs)
+                    await $_getPrefetchedData<Bird, $BirdsTable, BirdStage>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BirdsTableReferences._birdStagesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BirdsTableReferences(db, table, p0)
+                                .birdStagesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.birdId == item.id),
                         typedResults: items)
                 ];
               },
@@ -12027,12 +21754,16 @@ typedef $$BirdsTableProcessedTableManager = ProcessedTableManager<
         bool tasksRefs,
         bool alertRecordsRefs,
         bool medicationsRefs,
+        bool feedingRecordsRefs,
+        bool sideEffectRecordsRefs,
         bool maleBreedingPairs,
         bool femaleBreedingPairs,
         bool eggsRefs,
         bool activityLogsRefs,
         bool birdPhotosRefs,
-        bool birdAvatarsRefs})>;
+        bool birdAvatarsRefs,
+        bool feedingPlansRefs,
+        bool birdStagesRefs})>;
 typedef $$WeightsTableCreateCompanionBuilder = WeightsCompanion Function({
   Value<int> id,
   required String uuid,
@@ -13704,19 +23435,1764 @@ typedef $$SyncQueueTableProcessedTableManager = ProcessedTableManager<
     (SyncQueueData, $$SyncQueueTableReferences),
     SyncQueueData,
     PrefetchHooks Function({bool userId})>;
+typedef $$DrugLibraryTableCreateCompanionBuilder = DrugLibraryCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  required String drugName,
+  Value<String?> brandName,
+  Value<String?> activeIngredient,
+  Value<String> drugCategory,
+  Value<String> formulationType,
+  Value<String?> storageInstructions,
+  Value<int?> openedExpiryDays,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+typedef $$DrugLibraryTableUpdateCompanionBuilder = DrugLibraryCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<String> drugName,
+  Value<String?> brandName,
+  Value<String?> activeIngredient,
+  Value<String> drugCategory,
+  Value<String> formulationType,
+  Value<String?> storageInstructions,
+  Value<int?> openedExpiryDays,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+final class $$DrugLibraryTableReferences
+    extends BaseReferences<_$AppDatabase, $DrugLibraryTable, DrugLibraryData> {
+  $$DrugLibraryTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$DrugFormulationsTable, List<DrugFormulation>>
+      _drugFormulationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.drugFormulations,
+              aliasName: $_aliasNameGenerator(
+                  db.drugLibrary.id, db.drugFormulations.drugId));
+
+  $$DrugFormulationsTableProcessedTableManager get drugFormulationsRefs {
+    final manager =
+        $$DrugFormulationsTableTableManager($_db, $_db.drugFormulations)
+            .filter((f) => f.drugId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_drugFormulationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$DoseRulesTable, List<DoseRule>>
+      _doseRulesRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.doseRules,
+              aliasName:
+                  $_aliasNameGenerator(db.drugLibrary.id, db.doseRules.drugId));
+
+  $$DoseRulesTableProcessedTableManager get doseRulesRefs {
+    final manager = $$DoseRulesTableTableManager($_db, $_db.doseRules)
+        .filter((f) => f.drugId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_doseRulesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$MedicationsTable, List<Medication>>
+      _medicationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.medications,
+              aliasName: $_aliasNameGenerator(
+                  db.drugLibrary.id, db.medications.drugLibraryId));
+
+  $$MedicationsTableProcessedTableManager get medicationsRefs {
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.drugLibraryId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$DrugLibraryTableFilterComposer
+    extends Composer<_$AppDatabase, $DrugLibraryTable> {
+  $$DrugLibraryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get drugName => $composableBuilder(
+      column: $table.drugName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get brandName => $composableBuilder(
+      column: $table.brandName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get activeIngredient => $composableBuilder(
+      column: $table.activeIngredient,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get drugCategory => $composableBuilder(
+      column: $table.drugCategory, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get formulationType => $composableBuilder(
+      column: $table.formulationType,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get storageInstructions => $composableBuilder(
+      column: $table.storageInstructions,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get openedExpiryDays => $composableBuilder(
+      column: $table.openedExpiryDays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  Expression<bool> drugFormulationsRefs(
+      Expression<bool> Function($$DrugFormulationsTableFilterComposer f) f) {
+    final $$DrugFormulationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.drugFormulations,
+        getReferencedColumn: (t) => t.drugId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugFormulationsTableFilterComposer(
+              $db: $db,
+              $table: $db.drugFormulations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> doseRulesRefs(
+      Expression<bool> Function($$DoseRulesTableFilterComposer f) f) {
+    final $$DoseRulesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.drugId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableFilterComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> medicationsRefs(
+      Expression<bool> Function($$MedicationsTableFilterComposer f) f) {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.drugLibraryId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DrugLibraryTableOrderingComposer
+    extends Composer<_$AppDatabase, $DrugLibraryTable> {
+  $$DrugLibraryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get drugName => $composableBuilder(
+      column: $table.drugName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get brandName => $composableBuilder(
+      column: $table.brandName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get activeIngredient => $composableBuilder(
+      column: $table.activeIngredient,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get drugCategory => $composableBuilder(
+      column: $table.drugCategory,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get formulationType => $composableBuilder(
+      column: $table.formulationType,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get storageInstructions => $composableBuilder(
+      column: $table.storageInstructions,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get openedExpiryDays => $composableBuilder(
+      column: $table.openedExpiryDays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$DrugLibraryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DrugLibraryTable> {
+  $$DrugLibraryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get drugName =>
+      $composableBuilder(column: $table.drugName, builder: (column) => column);
+
+  GeneratedColumn<String> get brandName =>
+      $composableBuilder(column: $table.brandName, builder: (column) => column);
+
+  GeneratedColumn<String> get activeIngredient => $composableBuilder(
+      column: $table.activeIngredient, builder: (column) => column);
+
+  GeneratedColumn<String> get drugCategory => $composableBuilder(
+      column: $table.drugCategory, builder: (column) => column);
+
+  GeneratedColumn<String> get formulationType => $composableBuilder(
+      column: $table.formulationType, builder: (column) => column);
+
+  GeneratedColumn<String> get storageInstructions => $composableBuilder(
+      column: $table.storageInstructions, builder: (column) => column);
+
+  GeneratedColumn<int> get openedExpiryDays => $composableBuilder(
+      column: $table.openedExpiryDays, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> drugFormulationsRefs<T extends Object>(
+      Expression<T> Function($$DrugFormulationsTableAnnotationComposer a) f) {
+    final $$DrugFormulationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.drugFormulations,
+        getReferencedColumn: (t) => t.drugId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugFormulationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.drugFormulations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> doseRulesRefs<T extends Object>(
+      Expression<T> Function($$DoseRulesTableAnnotationComposer a) f) {
+    final $$DoseRulesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.drugId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> medicationsRefs<T extends Object>(
+      Expression<T> Function($$MedicationsTableAnnotationComposer a) f) {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.drugLibraryId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DrugLibraryTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DrugLibraryTable,
+    DrugLibraryData,
+    $$DrugLibraryTableFilterComposer,
+    $$DrugLibraryTableOrderingComposer,
+    $$DrugLibraryTableAnnotationComposer,
+    $$DrugLibraryTableCreateCompanionBuilder,
+    $$DrugLibraryTableUpdateCompanionBuilder,
+    (DrugLibraryData, $$DrugLibraryTableReferences),
+    DrugLibraryData,
+    PrefetchHooks Function(
+        {bool drugFormulationsRefs,
+        bool doseRulesRefs,
+        bool medicationsRefs})> {
+  $$DrugLibraryTableTableManager(_$AppDatabase db, $DrugLibraryTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DrugLibraryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DrugLibraryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DrugLibraryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<String> drugName = const Value.absent(),
+            Value<String?> brandName = const Value.absent(),
+            Value<String?> activeIngredient = const Value.absent(),
+            Value<String> drugCategory = const Value.absent(),
+            Value<String> formulationType = const Value.absent(),
+            Value<String?> storageInstructions = const Value.absent(),
+            Value<int?> openedExpiryDays = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DrugLibraryCompanion(
+            id: id,
+            uuid: uuid,
+            drugName: drugName,
+            brandName: brandName,
+            activeIngredient: activeIngredient,
+            drugCategory: drugCategory,
+            formulationType: formulationType,
+            storageInstructions: storageInstructions,
+            openedExpiryDays: openedExpiryDays,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required String drugName,
+            Value<String?> brandName = const Value.absent(),
+            Value<String?> activeIngredient = const Value.absent(),
+            Value<String> drugCategory = const Value.absent(),
+            Value<String> formulationType = const Value.absent(),
+            Value<String?> storageInstructions = const Value.absent(),
+            Value<int?> openedExpiryDays = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DrugLibraryCompanion.insert(
+            id: id,
+            uuid: uuid,
+            drugName: drugName,
+            brandName: brandName,
+            activeIngredient: activeIngredient,
+            drugCategory: drugCategory,
+            formulationType: formulationType,
+            storageInstructions: storageInstructions,
+            openedExpiryDays: openedExpiryDays,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$DrugLibraryTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {drugFormulationsRefs = false,
+              doseRulesRefs = false,
+              medicationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (drugFormulationsRefs) db.drugFormulations,
+                if (doseRulesRefs) db.doseRules,
+                if (medicationsRefs) db.medications
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (drugFormulationsRefs)
+                    await $_getPrefetchedData<DrugLibraryData,
+                            $DrugLibraryTable, DrugFormulation>(
+                        currentTable: table,
+                        referencedTable: $$DrugLibraryTableReferences
+                            ._drugFormulationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DrugLibraryTableReferences(db, table, p0)
+                                .drugFormulationsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.drugId == item.id),
+                        typedResults: items),
+                  if (doseRulesRefs)
+                    await $_getPrefetchedData<DrugLibraryData,
+                            $DrugLibraryTable, DoseRule>(
+                        currentTable: table,
+                        referencedTable: $$DrugLibraryTableReferences
+                            ._doseRulesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DrugLibraryTableReferences(db, table, p0)
+                                .doseRulesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.drugId == item.id),
+                        typedResults: items),
+                  if (medicationsRefs)
+                    await $_getPrefetchedData<DrugLibraryData,
+                            $DrugLibraryTable, Medication>(
+                        currentTable: table,
+                        referencedTable: $$DrugLibraryTableReferences
+                            ._medicationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DrugLibraryTableReferences(db, table, p0)
+                                .medicationsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.drugLibraryId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$DrugLibraryTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DrugLibraryTable,
+    DrugLibraryData,
+    $$DrugLibraryTableFilterComposer,
+    $$DrugLibraryTableOrderingComposer,
+    $$DrugLibraryTableAnnotationComposer,
+    $$DrugLibraryTableCreateCompanionBuilder,
+    $$DrugLibraryTableUpdateCompanionBuilder,
+    (DrugLibraryData, $$DrugLibraryTableReferences),
+    DrugLibraryData,
+    PrefetchHooks Function(
+        {bool drugFormulationsRefs, bool doseRulesRefs, bool medicationsRefs})>;
+typedef $$DrugFormulationsTableCreateCompanionBuilder
+    = DrugFormulationsCompanion Function({
+  Value<int> id,
+  required int drugId,
+  required double concentration,
+  Value<String> unit,
+  Value<bool> isDefault,
+  Value<String?> label,
+  Value<DateTime> createdAt,
+});
+typedef $$DrugFormulationsTableUpdateCompanionBuilder
+    = DrugFormulationsCompanion Function({
+  Value<int> id,
+  Value<int> drugId,
+  Value<double> concentration,
+  Value<String> unit,
+  Value<bool> isDefault,
+  Value<String?> label,
+  Value<DateTime> createdAt,
+});
+
+final class $$DrugFormulationsTableReferences extends BaseReferences<
+    _$AppDatabase, $DrugFormulationsTable, DrugFormulation> {
+  $$DrugFormulationsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $DrugLibraryTable _drugIdTable(_$AppDatabase db) =>
+      db.drugLibrary.createAlias(
+          $_aliasNameGenerator(db.drugFormulations.drugId, db.drugLibrary.id));
+
+  $$DrugLibraryTableProcessedTableManager get drugId {
+    final $_column = $_itemColumn<int>('drug_id')!;
+
+    final manager = $$DrugLibraryTableTableManager($_db, $_db.drugLibrary)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_drugIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$MedicationsTable, List<Medication>>
+      _medicationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.medications,
+              aliasName: $_aliasNameGenerator(
+                  db.drugFormulations.id, db.medications.formulationId));
+
+  $$MedicationsTableProcessedTableManager get medicationsRefs {
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.formulationId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$DrugFormulationsTableFilterComposer
+    extends Composer<_$AppDatabase, $DrugFormulationsTable> {
+  $$DrugFormulationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get concentration => $composableBuilder(
+      column: $table.concentration, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+      column: $table.isDefault, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get label => $composableBuilder(
+      column: $table.label, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$DrugLibraryTableFilterComposer get drugId {
+    final $$DrugLibraryTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableFilterComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> medicationsRefs(
+      Expression<bool> Function($$MedicationsTableFilterComposer f) f) {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.formulationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DrugFormulationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DrugFormulationsTable> {
+  $$DrugFormulationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get concentration => $composableBuilder(
+      column: $table.concentration,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+      column: $table.isDefault, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get label => $composableBuilder(
+      column: $table.label, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$DrugLibraryTableOrderingComposer get drugId {
+    final $$DrugLibraryTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableOrderingComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$DrugFormulationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DrugFormulationsTable> {
+  $$DrugFormulationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get concentration => $composableBuilder(
+      column: $table.concentration, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$DrugLibraryTableAnnotationComposer get drugId {
+    final $$DrugLibraryTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableAnnotationComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> medicationsRefs<T extends Object>(
+      Expression<T> Function($$MedicationsTableAnnotationComposer a) f) {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.formulationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DrugFormulationsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DrugFormulationsTable,
+    DrugFormulation,
+    $$DrugFormulationsTableFilterComposer,
+    $$DrugFormulationsTableOrderingComposer,
+    $$DrugFormulationsTableAnnotationComposer,
+    $$DrugFormulationsTableCreateCompanionBuilder,
+    $$DrugFormulationsTableUpdateCompanionBuilder,
+    (DrugFormulation, $$DrugFormulationsTableReferences),
+    DrugFormulation,
+    PrefetchHooks Function({bool drugId, bool medicationsRefs})> {
+  $$DrugFormulationsTableTableManager(
+      _$AppDatabase db, $DrugFormulationsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DrugFormulationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DrugFormulationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DrugFormulationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> drugId = const Value.absent(),
+            Value<double> concentration = const Value.absent(),
+            Value<String> unit = const Value.absent(),
+            Value<bool> isDefault = const Value.absent(),
+            Value<String?> label = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              DrugFormulationsCompanion(
+            id: id,
+            drugId: drugId,
+            concentration: concentration,
+            unit: unit,
+            isDefault: isDefault,
+            label: label,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int drugId,
+            required double concentration,
+            Value<String> unit = const Value.absent(),
+            Value<bool> isDefault = const Value.absent(),
+            Value<String?> label = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              DrugFormulationsCompanion.insert(
+            id: id,
+            drugId: drugId,
+            concentration: concentration,
+            unit: unit,
+            isDefault: isDefault,
+            label: label,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$DrugFormulationsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({drugId = false, medicationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (medicationsRefs) db.medications],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (drugId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.drugId,
+                    referencedTable:
+                        $$DrugFormulationsTableReferences._drugIdTable(db),
+                    referencedColumn:
+                        $$DrugFormulationsTableReferences._drugIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (medicationsRefs)
+                    await $_getPrefetchedData<DrugFormulation,
+                            $DrugFormulationsTable, Medication>(
+                        currentTable: table,
+                        referencedTable: $$DrugFormulationsTableReferences
+                            ._medicationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DrugFormulationsTableReferences(db, table, p0)
+                                .medicationsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.formulationId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$DrugFormulationsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DrugFormulationsTable,
+    DrugFormulation,
+    $$DrugFormulationsTableFilterComposer,
+    $$DrugFormulationsTableOrderingComposer,
+    $$DrugFormulationsTableAnnotationComposer,
+    $$DrugFormulationsTableCreateCompanionBuilder,
+    $$DrugFormulationsTableUpdateCompanionBuilder,
+    (DrugFormulation, $$DrugFormulationsTableReferences),
+    DrugFormulation,
+    PrefetchHooks Function({bool drugId, bool medicationsRefs})>;
+typedef $$DiseaseCatalogTableCreateCompanionBuilder = DiseaseCatalogCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  required String diseaseName,
+  Value<String?> description,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+typedef $$DiseaseCatalogTableUpdateCompanionBuilder = DiseaseCatalogCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<String> diseaseName,
+  Value<String?> description,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+final class $$DiseaseCatalogTableReferences extends BaseReferences<
+    _$AppDatabase, $DiseaseCatalogTable, DiseaseCatalogData> {
+  $$DiseaseCatalogTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$DoseRulesTable, List<DoseRule>>
+      _doseRulesRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.doseRules,
+              aliasName: $_aliasNameGenerator(
+                  db.diseaseCatalog.id, db.doseRules.diseaseId));
+
+  $$DoseRulesTableProcessedTableManager get doseRulesRefs {
+    final manager = $$DoseRulesTableTableManager($_db, $_db.doseRules)
+        .filter((f) => f.diseaseId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_doseRulesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$MedicationsTable, List<Medication>>
+      _medicationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.medications,
+              aliasName: $_aliasNameGenerator(
+                  db.diseaseCatalog.id, db.medications.diseaseCatalogId));
+
+  $$MedicationsTableProcessedTableManager get medicationsRefs {
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter(
+            (f) => f.diseaseCatalogId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$DiseaseCatalogTableFilterComposer
+    extends Composer<_$AppDatabase, $DiseaseCatalogTable> {
+  $$DiseaseCatalogTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get diseaseName => $composableBuilder(
+      column: $table.diseaseName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  Expression<bool> doseRulesRefs(
+      Expression<bool> Function($$DoseRulesTableFilterComposer f) f) {
+    final $$DoseRulesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.diseaseId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableFilterComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> medicationsRefs(
+      Expression<bool> Function($$MedicationsTableFilterComposer f) f) {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.diseaseCatalogId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DiseaseCatalogTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiseaseCatalogTable> {
+  $$DiseaseCatalogTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get diseaseName => $composableBuilder(
+      column: $table.diseaseName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$DiseaseCatalogTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiseaseCatalogTable> {
+  $$DiseaseCatalogTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get diseaseName => $composableBuilder(
+      column: $table.diseaseName, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> doseRulesRefs<T extends Object>(
+      Expression<T> Function($$DoseRulesTableAnnotationComposer a) f) {
+    final $$DoseRulesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.diseaseId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> medicationsRefs<T extends Object>(
+      Expression<T> Function($$MedicationsTableAnnotationComposer a) f) {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.diseaseCatalogId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DiseaseCatalogTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DiseaseCatalogTable,
+    DiseaseCatalogData,
+    $$DiseaseCatalogTableFilterComposer,
+    $$DiseaseCatalogTableOrderingComposer,
+    $$DiseaseCatalogTableAnnotationComposer,
+    $$DiseaseCatalogTableCreateCompanionBuilder,
+    $$DiseaseCatalogTableUpdateCompanionBuilder,
+    (DiseaseCatalogData, $$DiseaseCatalogTableReferences),
+    DiseaseCatalogData,
+    PrefetchHooks Function({bool doseRulesRefs, bool medicationsRefs})> {
+  $$DiseaseCatalogTableTableManager(
+      _$AppDatabase db, $DiseaseCatalogTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiseaseCatalogTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DiseaseCatalogTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DiseaseCatalogTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<String> diseaseName = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DiseaseCatalogCompanion(
+            id: id,
+            uuid: uuid,
+            diseaseName: diseaseName,
+            description: description,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required String diseaseName,
+            Value<String?> description = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DiseaseCatalogCompanion.insert(
+            id: id,
+            uuid: uuid,
+            diseaseName: diseaseName,
+            description: description,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$DiseaseCatalogTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {doseRulesRefs = false, medicationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (doseRulesRefs) db.doseRules,
+                if (medicationsRefs) db.medications
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (doseRulesRefs)
+                    await $_getPrefetchedData<DiseaseCatalogData,
+                            $DiseaseCatalogTable, DoseRule>(
+                        currentTable: table,
+                        referencedTable: $$DiseaseCatalogTableReferences
+                            ._doseRulesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DiseaseCatalogTableReferences(db, table, p0)
+                                .doseRulesRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.diseaseId == item.id),
+                        typedResults: items),
+                  if (medicationsRefs)
+                    await $_getPrefetchedData<DiseaseCatalogData,
+                            $DiseaseCatalogTable, Medication>(
+                        currentTable: table,
+                        referencedTable: $$DiseaseCatalogTableReferences
+                            ._medicationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DiseaseCatalogTableReferences(db, table, p0)
+                                .medicationsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.diseaseCatalogId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$DiseaseCatalogTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DiseaseCatalogTable,
+    DiseaseCatalogData,
+    $$DiseaseCatalogTableFilterComposer,
+    $$DiseaseCatalogTableOrderingComposer,
+    $$DiseaseCatalogTableAnnotationComposer,
+    $$DiseaseCatalogTableCreateCompanionBuilder,
+    $$DiseaseCatalogTableUpdateCompanionBuilder,
+    (DiseaseCatalogData, $$DiseaseCatalogTableReferences),
+    DiseaseCatalogData,
+    PrefetchHooks Function({bool doseRulesRefs, bool medicationsRefs})>;
+typedef $$DoseRulesTableCreateCompanionBuilder = DoseRulesCompanion Function({
+  Value<int> id,
+  required int drugId,
+  required int diseaseId,
+  Value<int?> speciesId,
+  required double mgKgDose,
+  required int timesPerDay,
+  required int durationDays,
+  Value<String> administrationRoute,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+typedef $$DoseRulesTableUpdateCompanionBuilder = DoseRulesCompanion Function({
+  Value<int> id,
+  Value<int> drugId,
+  Value<int> diseaseId,
+  Value<int?> speciesId,
+  Value<double> mgKgDose,
+  Value<int> timesPerDay,
+  Value<int> durationDays,
+  Value<String> administrationRoute,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+final class $$DoseRulesTableReferences
+    extends BaseReferences<_$AppDatabase, $DoseRulesTable, DoseRule> {
+  $$DoseRulesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $DrugLibraryTable _drugIdTable(_$AppDatabase db) =>
+      db.drugLibrary.createAlias(
+          $_aliasNameGenerator(db.doseRules.drugId, db.drugLibrary.id));
+
+  $$DrugLibraryTableProcessedTableManager get drugId {
+    final $_column = $_itemColumn<int>('drug_id')!;
+
+    final manager = $$DrugLibraryTableTableManager($_db, $_db.drugLibrary)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_drugIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $DiseaseCatalogTable _diseaseIdTable(_$AppDatabase db) =>
+      db.diseaseCatalog.createAlias(
+          $_aliasNameGenerator(db.doseRules.diseaseId, db.diseaseCatalog.id));
+
+  $$DiseaseCatalogTableProcessedTableManager get diseaseId {
+    final $_column = $_itemColumn<int>('disease_id')!;
+
+    final manager = $$DiseaseCatalogTableTableManager($_db, $_db.diseaseCatalog)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_diseaseIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$MedicationsTable, List<Medication>>
+      _medicationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.medications,
+          aliasName:
+              $_aliasNameGenerator(db.doseRules.id, db.medications.doseRuleId));
+
+  $$MedicationsTableProcessedTableManager get medicationsRefs {
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.doseRuleId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$DoseRulesTableFilterComposer
+    extends Composer<_$AppDatabase, $DoseRulesTable> {
+  $$DoseRulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get mgKgDose => $composableBuilder(
+      column: $table.mgKgDose, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get timesPerDay => $composableBuilder(
+      column: $table.timesPerDay, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get durationDays => $composableBuilder(
+      column: $table.durationDays, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get administrationRoute => $composableBuilder(
+      column: $table.administrationRoute,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  $$DrugLibraryTableFilterComposer get drugId {
+    final $$DrugLibraryTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableFilterComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableFilterComposer get diseaseId {
+    final $$DiseaseCatalogTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableFilterComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> medicationsRefs(
+      Expression<bool> Function($$MedicationsTableFilterComposer f) f) {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.doseRuleId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DoseRulesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DoseRulesTable> {
+  $$DoseRulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get mgKgDose => $composableBuilder(
+      column: $table.mgKgDose, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get timesPerDay => $composableBuilder(
+      column: $table.timesPerDay, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get durationDays => $composableBuilder(
+      column: $table.durationDays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get administrationRoute => $composableBuilder(
+      column: $table.administrationRoute,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$DrugLibraryTableOrderingComposer get drugId {
+    final $$DrugLibraryTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableOrderingComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableOrderingComposer get diseaseId {
+    final $$DiseaseCatalogTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableOrderingComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$DoseRulesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DoseRulesTable> {
+  $$DoseRulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get speciesId =>
+      $composableBuilder(column: $table.speciesId, builder: (column) => column);
+
+  GeneratedColumn<double> get mgKgDose =>
+      $composableBuilder(column: $table.mgKgDose, builder: (column) => column);
+
+  GeneratedColumn<int> get timesPerDay => $composableBuilder(
+      column: $table.timesPerDay, builder: (column) => column);
+
+  GeneratedColumn<int> get durationDays => $composableBuilder(
+      column: $table.durationDays, builder: (column) => column);
+
+  GeneratedColumn<String> get administrationRoute => $composableBuilder(
+      column: $table.administrationRoute, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$DrugLibraryTableAnnotationComposer get drugId {
+    final $$DrugLibraryTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableAnnotationComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableAnnotationComposer get diseaseId {
+    final $$DiseaseCatalogTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableAnnotationComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> medicationsRefs<T extends Object>(
+      Expression<T> Function($$MedicationsTableAnnotationComposer a) f) {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.doseRuleId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$DoseRulesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DoseRulesTable,
+    DoseRule,
+    $$DoseRulesTableFilterComposer,
+    $$DoseRulesTableOrderingComposer,
+    $$DoseRulesTableAnnotationComposer,
+    $$DoseRulesTableCreateCompanionBuilder,
+    $$DoseRulesTableUpdateCompanionBuilder,
+    (DoseRule, $$DoseRulesTableReferences),
+    DoseRule,
+    PrefetchHooks Function(
+        {bool drugId, bool diseaseId, bool medicationsRefs})> {
+  $$DoseRulesTableTableManager(_$AppDatabase db, $DoseRulesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DoseRulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DoseRulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DoseRulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> drugId = const Value.absent(),
+            Value<int> diseaseId = const Value.absent(),
+            Value<int?> speciesId = const Value.absent(),
+            Value<double> mgKgDose = const Value.absent(),
+            Value<int> timesPerDay = const Value.absent(),
+            Value<int> durationDays = const Value.absent(),
+            Value<String> administrationRoute = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DoseRulesCompanion(
+            id: id,
+            drugId: drugId,
+            diseaseId: diseaseId,
+            speciesId: speciesId,
+            mgKgDose: mgKgDose,
+            timesPerDay: timesPerDay,
+            durationDays: durationDays,
+            administrationRoute: administrationRoute,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int drugId,
+            required int diseaseId,
+            Value<int?> speciesId = const Value.absent(),
+            required double mgKgDose,
+            required int timesPerDay,
+            required int durationDays,
+            Value<String> administrationRoute = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              DoseRulesCompanion.insert(
+            id: id,
+            drugId: drugId,
+            diseaseId: diseaseId,
+            speciesId: speciesId,
+            mgKgDose: mgKgDose,
+            timesPerDay: timesPerDay,
+            durationDays: durationDays,
+            administrationRoute: administrationRoute,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$DoseRulesTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {drugId = false, diseaseId = false, medicationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (medicationsRefs) db.medications],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (drugId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.drugId,
+                    referencedTable:
+                        $$DoseRulesTableReferences._drugIdTable(db),
+                    referencedColumn:
+                        $$DoseRulesTableReferences._drugIdTable(db).id,
+                  ) as T;
+                }
+                if (diseaseId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.diseaseId,
+                    referencedTable:
+                        $$DoseRulesTableReferences._diseaseIdTable(db),
+                    referencedColumn:
+                        $$DoseRulesTableReferences._diseaseIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (medicationsRefs)
+                    await $_getPrefetchedData<DoseRule, $DoseRulesTable,
+                            Medication>(
+                        currentTable: table,
+                        referencedTable: $$DoseRulesTableReferences
+                            ._medicationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DoseRulesTableReferences(db, table, p0)
+                                .medicationsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.doseRuleId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$DoseRulesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DoseRulesTable,
+    DoseRule,
+    $$DoseRulesTableFilterComposer,
+    $$DoseRulesTableOrderingComposer,
+    $$DoseRulesTableAnnotationComposer,
+    $$DoseRulesTableCreateCompanionBuilder,
+    $$DoseRulesTableUpdateCompanionBuilder,
+    (DoseRule, $$DoseRulesTableReferences),
+    DoseRule,
+    PrefetchHooks Function(
+        {bool drugId, bool diseaseId, bool medicationsRefs})>;
 typedef $$MedicationsTableCreateCompanionBuilder = MedicationsCompanion
     Function({
   Value<int> id,
   required String uuid,
   required int birdId,
-  required String drugName,
-  Value<String> drugType,
-  required String dosage,
+  required int drugLibraryId,
+  required int formulationId,
+  required int diseaseCatalogId,
+  Value<int?> doseRuleId,
+  required String calculatedDosage,
+  Value<String?> manualDosage,
   Value<int> timesPerDay,
   required DateTime startDate,
   Value<DateTime?> endDate,
   Value<String?> notes,
   Value<bool> active,
+  Value<String?> stopReason,
+  Value<DateTime?> actualStopDate,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -13725,14 +25201,19 @@ typedef $$MedicationsTableUpdateCompanionBuilder = MedicationsCompanion
   Value<int> id,
   Value<String> uuid,
   Value<int> birdId,
-  Value<String> drugName,
-  Value<String> drugType,
-  Value<String> dosage,
+  Value<int> drugLibraryId,
+  Value<int> formulationId,
+  Value<int> diseaseCatalogId,
+  Value<int?> doseRuleId,
+  Value<String> calculatedDosage,
+  Value<String?> manualDosage,
   Value<int> timesPerDay,
   Value<DateTime> startDate,
   Value<DateTime?> endDate,
   Value<String?> notes,
   Value<bool> active,
+  Value<String?> stopReason,
+  Value<DateTime?> actualStopDate,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -13754,6 +25235,114 @@ final class $$MedicationsTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
   }
+
+  static $DrugLibraryTable _drugLibraryIdTable(_$AppDatabase db) =>
+      db.drugLibrary.createAlias($_aliasNameGenerator(
+          db.medications.drugLibraryId, db.drugLibrary.id));
+
+  $$DrugLibraryTableProcessedTableManager get drugLibraryId {
+    final $_column = $_itemColumn<int>('drug_library_id')!;
+
+    final manager = $$DrugLibraryTableTableManager($_db, $_db.drugLibrary)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_drugLibraryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $DrugFormulationsTable _formulationIdTable(_$AppDatabase db) =>
+      db.drugFormulations.createAlias($_aliasNameGenerator(
+          db.medications.formulationId, db.drugFormulations.id));
+
+  $$DrugFormulationsTableProcessedTableManager get formulationId {
+    final $_column = $_itemColumn<int>('formulation_id')!;
+
+    final manager =
+        $$DrugFormulationsTableTableManager($_db, $_db.drugFormulations)
+            .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_formulationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $DiseaseCatalogTable _diseaseCatalogIdTable(_$AppDatabase db) =>
+      db.diseaseCatalog.createAlias($_aliasNameGenerator(
+          db.medications.diseaseCatalogId, db.diseaseCatalog.id));
+
+  $$DiseaseCatalogTableProcessedTableManager get diseaseCatalogId {
+    final $_column = $_itemColumn<int>('disease_catalog_id')!;
+
+    final manager = $$DiseaseCatalogTableTableManager($_db, $_db.diseaseCatalog)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_diseaseCatalogIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $DoseRulesTable _doseRuleIdTable(_$AppDatabase db) =>
+      db.doseRules.createAlias(
+          $_aliasNameGenerator(db.medications.doseRuleId, db.doseRules.id));
+
+  $$DoseRulesTableProcessedTableManager? get doseRuleId {
+    final $_column = $_itemColumn<int>('dose_rule_id');
+    if ($_column == null) return null;
+    final manager = $$DoseRulesTableTableManager($_db, $_db.doseRules)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_doseRuleIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$FeedingRecordsTable, List<FeedingRecord>>
+      _feedingRecordsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.feedingRecords,
+              aliasName: $_aliasNameGenerator(
+                  db.medications.id, db.feedingRecords.medicationId));
+
+  $$FeedingRecordsTableProcessedTableManager get feedingRecordsRefs {
+    final manager = $$FeedingRecordsTableTableManager($_db, $_db.feedingRecords)
+        .filter((f) => f.medicationId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_feedingRecordsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$SideEffectRecordsTable, List<SideEffectRecord>>
+      _sideEffectRecordsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.sideEffectRecords,
+              aliasName: $_aliasNameGenerator(
+                  db.medications.id, db.sideEffectRecords.medicationId));
+
+  $$SideEffectRecordsTableProcessedTableManager get sideEffectRecordsRefs {
+    final manager = $$SideEffectRecordsTableTableManager(
+            $_db, $_db.sideEffectRecords)
+        .filter((f) => f.medicationId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_sideEffectRecordsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$StopConditionsTable, List<StopCondition>>
+      _stopConditionsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.stopConditions,
+              aliasName: $_aliasNameGenerator(
+                  db.medications.id, db.stopConditions.medicationId));
+
+  $$StopConditionsTableProcessedTableManager get stopConditionsRefs {
+    final manager = $$StopConditionsTableTableManager($_db, $_db.stopConditions)
+        .filter((f) => f.medicationId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_stopConditionsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$MedicationsTableFilterComposer
@@ -13771,14 +25360,12 @@ class $$MedicationsTableFilterComposer
   ColumnFilters<String> get uuid => $composableBuilder(
       column: $table.uuid, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get drugName => $composableBuilder(
-      column: $table.drugName, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get calculatedDosage => $composableBuilder(
+      column: $table.calculatedDosage,
+      builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get drugType => $composableBuilder(
-      column: $table.drugType, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get dosage => $composableBuilder(
-      column: $table.dosage, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get manualDosage => $composableBuilder(
+      column: $table.manualDosage, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get timesPerDay => $composableBuilder(
       column: $table.timesPerDay, builder: (column) => ColumnFilters(column));
@@ -13794,6 +25381,13 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<bool> get active => $composableBuilder(
       column: $table.active, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stopReason => $composableBuilder(
+      column: $table.stopReason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -13820,6 +25414,149 @@ class $$MedicationsTableFilterComposer
             ));
     return composer;
   }
+
+  $$DrugLibraryTableFilterComposer get drugLibraryId {
+    final $$DrugLibraryTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugLibraryId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableFilterComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DrugFormulationsTableFilterComposer get formulationId {
+    final $$DrugFormulationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.formulationId,
+        referencedTable: $db.drugFormulations,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugFormulationsTableFilterComposer(
+              $db: $db,
+              $table: $db.drugFormulations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableFilterComposer get diseaseCatalogId {
+    final $$DiseaseCatalogTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseCatalogId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableFilterComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DoseRulesTableFilterComposer get doseRuleId {
+    final $$DoseRulesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.doseRuleId,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableFilterComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> feedingRecordsRefs(
+      Expression<bool> Function($$FeedingRecordsTableFilterComposer f) f) {
+    final $$FeedingRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingRecords,
+        getReferencedColumn: (t) => t.medicationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> sideEffectRecordsRefs(
+      Expression<bool> Function($$SideEffectRecordsTableFilterComposer f) f) {
+    final $$SideEffectRecordsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.sideEffectRecords,
+        getReferencedColumn: (t) => t.medicationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SideEffectRecordsTableFilterComposer(
+              $db: $db,
+              $table: $db.sideEffectRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> stopConditionsRefs(
+      Expression<bool> Function($$StopConditionsTableFilterComposer f) f) {
+    final $$StopConditionsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.stopConditions,
+        getReferencedColumn: (t) => t.medicationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StopConditionsTableFilterComposer(
+              $db: $db,
+              $table: $db.stopConditions,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$MedicationsTableOrderingComposer
@@ -13837,14 +25574,13 @@ class $$MedicationsTableOrderingComposer
   ColumnOrderings<String> get uuid => $composableBuilder(
       column: $table.uuid, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get drugName => $composableBuilder(
-      column: $table.drugName, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get calculatedDosage => $composableBuilder(
+      column: $table.calculatedDosage,
+      builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get drugType => $composableBuilder(
-      column: $table.drugType, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get dosage => $composableBuilder(
-      column: $table.dosage, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get manualDosage => $composableBuilder(
+      column: $table.manualDosage,
+      builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get timesPerDay => $composableBuilder(
       column: $table.timesPerDay, builder: (column) => ColumnOrderings(column));
@@ -13860,6 +25596,13 @@ class $$MedicationsTableOrderingComposer
 
   ColumnOrderings<bool> get active => $composableBuilder(
       column: $table.active, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stopReason => $composableBuilder(
+      column: $table.stopReason, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate,
+      builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
@@ -13886,6 +25629,86 @@ class $$MedicationsTableOrderingComposer
             ));
     return composer;
   }
+
+  $$DrugLibraryTableOrderingComposer get drugLibraryId {
+    final $$DrugLibraryTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugLibraryId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableOrderingComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DrugFormulationsTableOrderingComposer get formulationId {
+    final $$DrugFormulationsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.formulationId,
+        referencedTable: $db.drugFormulations,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugFormulationsTableOrderingComposer(
+              $db: $db,
+              $table: $db.drugFormulations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableOrderingComposer get diseaseCatalogId {
+    final $$DiseaseCatalogTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseCatalogId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableOrderingComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DoseRulesTableOrderingComposer get doseRuleId {
+    final $$DoseRulesTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.doseRuleId,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableOrderingComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
 }
 
 class $$MedicationsTableAnnotationComposer
@@ -13903,14 +25726,11 @@ class $$MedicationsTableAnnotationComposer
   GeneratedColumn<String> get uuid =>
       $composableBuilder(column: $table.uuid, builder: (column) => column);
 
-  GeneratedColumn<String> get drugName =>
-      $composableBuilder(column: $table.drugName, builder: (column) => column);
+  GeneratedColumn<String> get calculatedDosage => $composableBuilder(
+      column: $table.calculatedDosage, builder: (column) => column);
 
-  GeneratedColumn<String> get drugType =>
-      $composableBuilder(column: $table.drugType, builder: (column) => column);
-
-  GeneratedColumn<String> get dosage =>
-      $composableBuilder(column: $table.dosage, builder: (column) => column);
+  GeneratedColumn<String> get manualDosage => $composableBuilder(
+      column: $table.manualDosage, builder: (column) => column);
 
   GeneratedColumn<int> get timesPerDay => $composableBuilder(
       column: $table.timesPerDay, builder: (column) => column);
@@ -13926,6 +25746,12 @@ class $$MedicationsTableAnnotationComposer
 
   GeneratedColumn<bool> get active =>
       $composableBuilder(column: $table.active, builder: (column) => column);
+
+  GeneratedColumn<String> get stopReason => $composableBuilder(
+      column: $table.stopReason, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -13952,6 +25778,150 @@ class $$MedicationsTableAnnotationComposer
             ));
     return composer;
   }
+
+  $$DrugLibraryTableAnnotationComposer get drugLibraryId {
+    final $$DrugLibraryTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.drugLibraryId,
+        referencedTable: $db.drugLibrary,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugLibraryTableAnnotationComposer(
+              $db: $db,
+              $table: $db.drugLibrary,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DrugFormulationsTableAnnotationComposer get formulationId {
+    final $$DrugFormulationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.formulationId,
+        referencedTable: $db.drugFormulations,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DrugFormulationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.drugFormulations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DiseaseCatalogTableAnnotationComposer get diseaseCatalogId {
+    final $$DiseaseCatalogTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.diseaseCatalogId,
+        referencedTable: $db.diseaseCatalog,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DiseaseCatalogTableAnnotationComposer(
+              $db: $db,
+              $table: $db.diseaseCatalog,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$DoseRulesTableAnnotationComposer get doseRuleId {
+    final $$DoseRulesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.doseRuleId,
+        referencedTable: $db.doseRules,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DoseRulesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.doseRules,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> feedingRecordsRefs<T extends Object>(
+      Expression<T> Function($$FeedingRecordsTableAnnotationComposer a) f) {
+    final $$FeedingRecordsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingRecords,
+        getReferencedColumn: (t) => t.medicationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingRecordsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingRecords,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> sideEffectRecordsRefs<T extends Object>(
+      Expression<T> Function($$SideEffectRecordsTableAnnotationComposer a) f) {
+    final $$SideEffectRecordsTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.sideEffectRecords,
+            getReferencedColumn: (t) => t.medicationId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$SideEffectRecordsTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.sideEffectRecords,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+
+  Expression<T> stopConditionsRefs<T extends Object>(
+      Expression<T> Function($$StopConditionsTableAnnotationComposer a) f) {
+    final $$StopConditionsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.stopConditions,
+        getReferencedColumn: (t) => t.medicationId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StopConditionsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.stopConditions,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$MedicationsTableTableManager extends RootTableManager<
@@ -13965,7 +25935,15 @@ class $$MedicationsTableTableManager extends RootTableManager<
     $$MedicationsTableUpdateCompanionBuilder,
     (Medication, $$MedicationsTableReferences),
     Medication,
-    PrefetchHooks Function({bool birdId})> {
+    PrefetchHooks Function(
+        {bool birdId,
+        bool drugLibraryId,
+        bool formulationId,
+        bool diseaseCatalogId,
+        bool doseRuleId,
+        bool feedingRecordsRefs,
+        bool sideEffectRecordsRefs,
+        bool stopConditionsRefs})> {
   $$MedicationsTableTableManager(_$AppDatabase db, $MedicationsTable table)
       : super(TableManagerState(
           db: db,
@@ -13980,14 +25958,19 @@ class $$MedicationsTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             Value<String> uuid = const Value.absent(),
             Value<int> birdId = const Value.absent(),
-            Value<String> drugName = const Value.absent(),
-            Value<String> drugType = const Value.absent(),
-            Value<String> dosage = const Value.absent(),
+            Value<int> drugLibraryId = const Value.absent(),
+            Value<int> formulationId = const Value.absent(),
+            Value<int> diseaseCatalogId = const Value.absent(),
+            Value<int?> doseRuleId = const Value.absent(),
+            Value<String> calculatedDosage = const Value.absent(),
+            Value<String?> manualDosage = const Value.absent(),
             Value<int> timesPerDay = const Value.absent(),
             Value<DateTime> startDate = const Value.absent(),
             Value<DateTime?> endDate = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<bool> active = const Value.absent(),
+            Value<String?> stopReason = const Value.absent(),
+            Value<DateTime?> actualStopDate = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -13995,14 +25978,19 @@ class $$MedicationsTableTableManager extends RootTableManager<
             id: id,
             uuid: uuid,
             birdId: birdId,
-            drugName: drugName,
-            drugType: drugType,
-            dosage: dosage,
+            drugLibraryId: drugLibraryId,
+            formulationId: formulationId,
+            diseaseCatalogId: diseaseCatalogId,
+            doseRuleId: doseRuleId,
+            calculatedDosage: calculatedDosage,
+            manualDosage: manualDosage,
             timesPerDay: timesPerDay,
             startDate: startDate,
             endDate: endDate,
             notes: notes,
             active: active,
+            stopReason: stopReason,
+            actualStopDate: actualStopDate,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -14010,14 +25998,19 @@ class $$MedicationsTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             required String uuid,
             required int birdId,
-            required String drugName,
-            Value<String> drugType = const Value.absent(),
-            required String dosage,
+            required int drugLibraryId,
+            required int formulationId,
+            required int diseaseCatalogId,
+            Value<int?> doseRuleId = const Value.absent(),
+            required String calculatedDosage,
+            Value<String?> manualDosage = const Value.absent(),
             Value<int> timesPerDay = const Value.absent(),
             required DateTime startDate,
             Value<DateTime?> endDate = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<bool> active = const Value.absent(),
+            Value<String?> stopReason = const Value.absent(),
+            Value<DateTime?> actualStopDate = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -14025,14 +26018,19 @@ class $$MedicationsTableTableManager extends RootTableManager<
             id: id,
             uuid: uuid,
             birdId: birdId,
-            drugName: drugName,
-            drugType: drugType,
-            dosage: dosage,
+            drugLibraryId: drugLibraryId,
+            formulationId: formulationId,
+            diseaseCatalogId: diseaseCatalogId,
+            doseRuleId: doseRuleId,
+            calculatedDosage: calculatedDosage,
+            manualDosage: manualDosage,
             timesPerDay: timesPerDay,
             startDate: startDate,
             endDate: endDate,
             notes: notes,
             active: active,
+            stopReason: stopReason,
+            actualStopDate: actualStopDate,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -14042,10 +26040,22 @@ class $$MedicationsTableTableManager extends RootTableManager<
                     $$MedicationsTableReferences(db, table, e)
                   ))
               .toList(),
-          prefetchHooksCallback: ({birdId = false}) {
+          prefetchHooksCallback: (
+              {birdId = false,
+              drugLibraryId = false,
+              formulationId = false,
+              diseaseCatalogId = false,
+              doseRuleId = false,
+              feedingRecordsRefs = false,
+              sideEffectRecordsRefs = false,
+              stopConditionsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [],
+              explicitlyWatchedTables: [
+                if (feedingRecordsRefs) db.feedingRecords,
+                if (sideEffectRecordsRefs) db.sideEffectRecords,
+                if (stopConditionsRefs) db.stopConditions
+              ],
               addJoins: <
                   T extends TableManagerState<
                       dynamic,
@@ -14069,11 +26079,92 @@ class $$MedicationsTableTableManager extends RootTableManager<
                         $$MedicationsTableReferences._birdIdTable(db).id,
                   ) as T;
                 }
+                if (drugLibraryId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.drugLibraryId,
+                    referencedTable:
+                        $$MedicationsTableReferences._drugLibraryIdTable(db),
+                    referencedColumn:
+                        $$MedicationsTableReferences._drugLibraryIdTable(db).id,
+                  ) as T;
+                }
+                if (formulationId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.formulationId,
+                    referencedTable:
+                        $$MedicationsTableReferences._formulationIdTable(db),
+                    referencedColumn:
+                        $$MedicationsTableReferences._formulationIdTable(db).id,
+                  ) as T;
+                }
+                if (diseaseCatalogId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.diseaseCatalogId,
+                    referencedTable:
+                        $$MedicationsTableReferences._diseaseCatalogIdTable(db),
+                    referencedColumn: $$MedicationsTableReferences
+                        ._diseaseCatalogIdTable(db)
+                        .id,
+                  ) as T;
+                }
+                if (doseRuleId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.doseRuleId,
+                    referencedTable:
+                        $$MedicationsTableReferences._doseRuleIdTable(db),
+                    referencedColumn:
+                        $$MedicationsTableReferences._doseRuleIdTable(db).id,
+                  ) as T;
+                }
 
                 return state;
               },
               getPrefetchedDataCallback: (items) async {
-                return [];
+                return [
+                  if (feedingRecordsRefs)
+                    await $_getPrefetchedData<Medication, $MedicationsTable,
+                            FeedingRecord>(
+                        currentTable: table,
+                        referencedTable: $$MedicationsTableReferences
+                            ._feedingRecordsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$MedicationsTableReferences(db, table, p0)
+                                .feedingRecordsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.medicationId == item.id),
+                        typedResults: items),
+                  if (sideEffectRecordsRefs)
+                    await $_getPrefetchedData<Medication, $MedicationsTable,
+                            SideEffectRecord>(
+                        currentTable: table,
+                        referencedTable: $$MedicationsTableReferences
+                            ._sideEffectRecordsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$MedicationsTableReferences(db, table, p0)
+                                .sideEffectRecordsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.medicationId == item.id),
+                        typedResults: items),
+                  if (stopConditionsRefs)
+                    await $_getPrefetchedData<Medication, $MedicationsTable,
+                            StopCondition>(
+                        currentTable: table,
+                        referencedTable: $$MedicationsTableReferences
+                            ._stopConditionsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$MedicationsTableReferences(db, table, p0)
+                                .stopConditionsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.medicationId == item.id),
+                        typedResults: items)
+                ];
               },
             );
           },
@@ -14091,7 +26182,1122 @@ typedef $$MedicationsTableProcessedTableManager = ProcessedTableManager<
     $$MedicationsTableUpdateCompanionBuilder,
     (Medication, $$MedicationsTableReferences),
     Medication,
-    PrefetchHooks Function({bool birdId})>;
+    PrefetchHooks Function(
+        {bool birdId,
+        bool drugLibraryId,
+        bool formulationId,
+        bool diseaseCatalogId,
+        bool doseRuleId,
+        bool feedingRecordsRefs,
+        bool sideEffectRecordsRefs,
+        bool stopConditionsRefs})>;
+typedef $$FeedingRecordsTableCreateCompanionBuilder = FeedingRecordsCompanion
+    Function({
+  Value<int> id,
+  required int medicationId,
+  required int birdId,
+  Value<int?> taskId,
+  required String feedingStatus,
+  required DateTime fedAt,
+  Value<int?> fedBy,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+typedef $$FeedingRecordsTableUpdateCompanionBuilder = FeedingRecordsCompanion
+    Function({
+  Value<int> id,
+  Value<int> medicationId,
+  Value<int> birdId,
+  Value<int?> taskId,
+  Value<String> feedingStatus,
+  Value<DateTime> fedAt,
+  Value<int?> fedBy,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+
+final class $$FeedingRecordsTableReferences
+    extends BaseReferences<_$AppDatabase, $FeedingRecordsTable, FeedingRecord> {
+  $$FeedingRecordsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $MedicationsTable _medicationIdTable(_$AppDatabase db) =>
+      db.medications.createAlias($_aliasNameGenerator(
+          db.feedingRecords.medicationId, db.medications.id));
+
+  $$MedicationsTableProcessedTableManager get medicationId {
+    final $_column = $_itemColumn<int>('medication_id')!;
+
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_medicationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds
+      .createAlias($_aliasNameGenerator(db.feedingRecords.birdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager get birdId {
+    final $_column = $_itemColumn<int>('bird_id')!;
+
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$FeedingRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedingRecordsTable> {
+  $$FeedingRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get taskId => $composableBuilder(
+      column: $table.taskId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get feedingStatus => $composableBuilder(
+      column: $table.feedingStatus, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fedAt => $composableBuilder(
+      column: $table.fedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get fedBy => $composableBuilder(
+      column: $table.fedBy, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$MedicationsTableFilterComposer get medicationId {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableFilterComposer get birdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedingRecordsTable> {
+  $$FeedingRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get taskId => $composableBuilder(
+      column: $table.taskId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get feedingStatus => $composableBuilder(
+      column: $table.feedingStatus,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fedAt => $composableBuilder(
+      column: $table.fedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get fedBy => $composableBuilder(
+      column: $table.fedBy, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$MedicationsTableOrderingComposer get medicationId {
+    final $$MedicationsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableOrderingComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableOrderingComposer get birdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedingRecordsTable> {
+  $$FeedingRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<String> get feedingStatus => $composableBuilder(
+      column: $table.feedingStatus, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fedAt =>
+      $composableBuilder(column: $table.fedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get fedBy =>
+      $composableBuilder(column: $table.fedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$MedicationsTableAnnotationComposer get medicationId {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableAnnotationComposer get birdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingRecordsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FeedingRecordsTable,
+    FeedingRecord,
+    $$FeedingRecordsTableFilterComposer,
+    $$FeedingRecordsTableOrderingComposer,
+    $$FeedingRecordsTableAnnotationComposer,
+    $$FeedingRecordsTableCreateCompanionBuilder,
+    $$FeedingRecordsTableUpdateCompanionBuilder,
+    (FeedingRecord, $$FeedingRecordsTableReferences),
+    FeedingRecord,
+    PrefetchHooks Function({bool medicationId, bool birdId})> {
+  $$FeedingRecordsTableTableManager(
+      _$AppDatabase db, $FeedingRecordsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedingRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedingRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedingRecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> medicationId = const Value.absent(),
+            Value<int> birdId = const Value.absent(),
+            Value<int?> taskId = const Value.absent(),
+            Value<String> feedingStatus = const Value.absent(),
+            Value<DateTime> fedAt = const Value.absent(),
+            Value<int?> fedBy = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingRecordsCompanion(
+            id: id,
+            medicationId: medicationId,
+            birdId: birdId,
+            taskId: taskId,
+            feedingStatus: feedingStatus,
+            fedAt: fedAt,
+            fedBy: fedBy,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int medicationId,
+            required int birdId,
+            Value<int?> taskId = const Value.absent(),
+            required String feedingStatus,
+            required DateTime fedAt,
+            Value<int?> fedBy = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingRecordsCompanion.insert(
+            id: id,
+            medicationId: medicationId,
+            birdId: birdId,
+            taskId: taskId,
+            feedingStatus: feedingStatus,
+            fedAt: fedAt,
+            fedBy: fedBy,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$FeedingRecordsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({medicationId = false, birdId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (medicationId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.medicationId,
+                    referencedTable:
+                        $$FeedingRecordsTableReferences._medicationIdTable(db),
+                    referencedColumn: $$FeedingRecordsTableReferences
+                        ._medicationIdTable(db)
+                        .id,
+                  ) as T;
+                }
+                if (birdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.birdId,
+                    referencedTable:
+                        $$FeedingRecordsTableReferences._birdIdTable(db),
+                    referencedColumn:
+                        $$FeedingRecordsTableReferences._birdIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$FeedingRecordsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FeedingRecordsTable,
+    FeedingRecord,
+    $$FeedingRecordsTableFilterComposer,
+    $$FeedingRecordsTableOrderingComposer,
+    $$FeedingRecordsTableAnnotationComposer,
+    $$FeedingRecordsTableCreateCompanionBuilder,
+    $$FeedingRecordsTableUpdateCompanionBuilder,
+    (FeedingRecord, $$FeedingRecordsTableReferences),
+    FeedingRecord,
+    PrefetchHooks Function({bool medicationId, bool birdId})>;
+typedef $$SideEffectRecordsTableCreateCompanionBuilder
+    = SideEffectRecordsCompanion Function({
+  Value<int> id,
+  required int medicationId,
+  required int birdId,
+  required String sideEffectCategory,
+  Value<String?> description,
+  Value<String> severity,
+  required DateTime observedAt,
+  Value<DateTime?> resolvedAt,
+  Value<DateTime> createdAt,
+});
+typedef $$SideEffectRecordsTableUpdateCompanionBuilder
+    = SideEffectRecordsCompanion Function({
+  Value<int> id,
+  Value<int> medicationId,
+  Value<int> birdId,
+  Value<String> sideEffectCategory,
+  Value<String?> description,
+  Value<String> severity,
+  Value<DateTime> observedAt,
+  Value<DateTime?> resolvedAt,
+  Value<DateTime> createdAt,
+});
+
+final class $$SideEffectRecordsTableReferences extends BaseReferences<
+    _$AppDatabase, $SideEffectRecordsTable, SideEffectRecord> {
+  $$SideEffectRecordsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $MedicationsTable _medicationIdTable(_$AppDatabase db) =>
+      db.medications.createAlias($_aliasNameGenerator(
+          db.sideEffectRecords.medicationId, db.medications.id));
+
+  $$MedicationsTableProcessedTableManager get medicationId {
+    final $_column = $_itemColumn<int>('medication_id')!;
+
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_medicationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds.createAlias(
+      $_aliasNameGenerator(db.sideEffectRecords.birdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager get birdId {
+    final $_column = $_itemColumn<int>('bird_id')!;
+
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$SideEffectRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $SideEffectRecordsTable> {
+  $$SideEffectRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sideEffectCategory => $composableBuilder(
+      column: $table.sideEffectCategory,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get severity => $composableBuilder(
+      column: $table.severity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get observedAt => $composableBuilder(
+      column: $table.observedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+      column: $table.resolvedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$MedicationsTableFilterComposer get medicationId {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableFilterComposer get birdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$SideEffectRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SideEffectRecordsTable> {
+  $$SideEffectRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sideEffectCategory => $composableBuilder(
+      column: $table.sideEffectCategory,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get severity => $composableBuilder(
+      column: $table.severity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get observedAt => $composableBuilder(
+      column: $table.observedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+      column: $table.resolvedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$MedicationsTableOrderingComposer get medicationId {
+    final $$MedicationsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableOrderingComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableOrderingComposer get birdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$SideEffectRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SideEffectRecordsTable> {
+  $$SideEffectRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sideEffectCategory => $composableBuilder(
+      column: $table.sideEffectCategory, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<String> get severity =>
+      $composableBuilder(column: $table.severity, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get observedAt => $composableBuilder(
+      column: $table.observedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+      column: $table.resolvedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$MedicationsTableAnnotationComposer get medicationId {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BirdsTableAnnotationComposer get birdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$SideEffectRecordsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $SideEffectRecordsTable,
+    SideEffectRecord,
+    $$SideEffectRecordsTableFilterComposer,
+    $$SideEffectRecordsTableOrderingComposer,
+    $$SideEffectRecordsTableAnnotationComposer,
+    $$SideEffectRecordsTableCreateCompanionBuilder,
+    $$SideEffectRecordsTableUpdateCompanionBuilder,
+    (SideEffectRecord, $$SideEffectRecordsTableReferences),
+    SideEffectRecord,
+    PrefetchHooks Function({bool medicationId, bool birdId})> {
+  $$SideEffectRecordsTableTableManager(
+      _$AppDatabase db, $SideEffectRecordsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SideEffectRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SideEffectRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SideEffectRecordsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> medicationId = const Value.absent(),
+            Value<int> birdId = const Value.absent(),
+            Value<String> sideEffectCategory = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<String> severity = const Value.absent(),
+            Value<DateTime> observedAt = const Value.absent(),
+            Value<DateTime?> resolvedAt = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              SideEffectRecordsCompanion(
+            id: id,
+            medicationId: medicationId,
+            birdId: birdId,
+            sideEffectCategory: sideEffectCategory,
+            description: description,
+            severity: severity,
+            observedAt: observedAt,
+            resolvedAt: resolvedAt,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int medicationId,
+            required int birdId,
+            required String sideEffectCategory,
+            Value<String?> description = const Value.absent(),
+            Value<String> severity = const Value.absent(),
+            required DateTime observedAt,
+            Value<DateTime?> resolvedAt = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              SideEffectRecordsCompanion.insert(
+            id: id,
+            medicationId: medicationId,
+            birdId: birdId,
+            sideEffectCategory: sideEffectCategory,
+            description: description,
+            severity: severity,
+            observedAt: observedAt,
+            resolvedAt: resolvedAt,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$SideEffectRecordsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({medicationId = false, birdId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (medicationId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.medicationId,
+                    referencedTable: $$SideEffectRecordsTableReferences
+                        ._medicationIdTable(db),
+                    referencedColumn: $$SideEffectRecordsTableReferences
+                        ._medicationIdTable(db)
+                        .id,
+                  ) as T;
+                }
+                if (birdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.birdId,
+                    referencedTable:
+                        $$SideEffectRecordsTableReferences._birdIdTable(db),
+                    referencedColumn:
+                        $$SideEffectRecordsTableReferences._birdIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$SideEffectRecordsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $SideEffectRecordsTable,
+    SideEffectRecord,
+    $$SideEffectRecordsTableFilterComposer,
+    $$SideEffectRecordsTableOrderingComposer,
+    $$SideEffectRecordsTableAnnotationComposer,
+    $$SideEffectRecordsTableCreateCompanionBuilder,
+    $$SideEffectRecordsTableUpdateCompanionBuilder,
+    (SideEffectRecord, $$SideEffectRecordsTableReferences),
+    SideEffectRecord,
+    PrefetchHooks Function({bool medicationId, bool birdId})>;
+typedef $$StopConditionsTableCreateCompanionBuilder = StopConditionsCompanion
+    Function({
+  Value<int> id,
+  required int medicationId,
+  required String reason,
+  required DateTime actualStopDate,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+typedef $$StopConditionsTableUpdateCompanionBuilder = StopConditionsCompanion
+    Function({
+  Value<int> id,
+  Value<int> medicationId,
+  Value<String> reason,
+  Value<DateTime> actualStopDate,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+});
+
+final class $$StopConditionsTableReferences
+    extends BaseReferences<_$AppDatabase, $StopConditionsTable, StopCondition> {
+  $$StopConditionsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $MedicationsTable _medicationIdTable(_$AppDatabase db) =>
+      db.medications.createAlias($_aliasNameGenerator(
+          db.stopConditions.medicationId, db.medications.id));
+
+  $$MedicationsTableProcessedTableManager get medicationId {
+    final $_column = $_itemColumn<int>('medication_id')!;
+
+    final manager = $$MedicationsTableTableManager($_db, $_db.medications)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_medicationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$StopConditionsTableFilterComposer
+    extends Composer<_$AppDatabase, $StopConditionsTable> {
+  $$StopConditionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get reason => $composableBuilder(
+      column: $table.reason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$MedicationsTableFilterComposer get medicationId {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$StopConditionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $StopConditionsTable> {
+  $$StopConditionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+      column: $table.reason, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$MedicationsTableOrderingComposer get medicationId {
+    final $$MedicationsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableOrderingComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$StopConditionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StopConditionsTable> {
+  $$StopConditionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get actualStopDate => $composableBuilder(
+      column: $table.actualStopDate, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$MedicationsTableAnnotationComposer get medicationId {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.medicationId,
+        referencedTable: $db.medications,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$MedicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.medications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$StopConditionsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $StopConditionsTable,
+    StopCondition,
+    $$StopConditionsTableFilterComposer,
+    $$StopConditionsTableOrderingComposer,
+    $$StopConditionsTableAnnotationComposer,
+    $$StopConditionsTableCreateCompanionBuilder,
+    $$StopConditionsTableUpdateCompanionBuilder,
+    (StopCondition, $$StopConditionsTableReferences),
+    StopCondition,
+    PrefetchHooks Function({bool medicationId})> {
+  $$StopConditionsTableTableManager(
+      _$AppDatabase db, $StopConditionsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StopConditionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StopConditionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StopConditionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> medicationId = const Value.absent(),
+            Value<String> reason = const Value.absent(),
+            Value<DateTime> actualStopDate = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              StopConditionsCompanion(
+            id: id,
+            medicationId: medicationId,
+            reason: reason,
+            actualStopDate: actualStopDate,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int medicationId,
+            required String reason,
+            required DateTime actualStopDate,
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              StopConditionsCompanion.insert(
+            id: id,
+            medicationId: medicationId,
+            reason: reason,
+            actualStopDate: actualStopDate,
+            notes: notes,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$StopConditionsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({medicationId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (medicationId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.medicationId,
+                    referencedTable:
+                        $$StopConditionsTableReferences._medicationIdTable(db),
+                    referencedColumn: $$StopConditionsTableReferences
+                        ._medicationIdTable(db)
+                        .id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$StopConditionsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $StopConditionsTable,
+    StopCondition,
+    $$StopConditionsTableFilterComposer,
+    $$StopConditionsTableOrderingComposer,
+    $$StopConditionsTableAnnotationComposer,
+    $$StopConditionsTableCreateCompanionBuilder,
+    $$StopConditionsTableUpdateCompanionBuilder,
+    (StopCondition, $$StopConditionsTableReferences),
+    StopCondition,
+    PrefetchHooks Function({bool medicationId})>;
 typedef $$BreedingPairsTableCreateCompanionBuilder = BreedingPairsCompanion
     Function({
   Value<int> id,
@@ -16882,6 +30088,3784 @@ typedef $$BirdAvatarsTableProcessedTableManager = ProcessedTableManager<
     (BirdAvatar, $$BirdAvatarsTableReferences),
     BirdAvatar,
     PrefetchHooks Function({bool birdId})>;
+typedef $$FoodsTableCreateCompanionBuilder = FoodsCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required String name,
+  Value<String> category,
+  Value<bool> isHulled,
+  Value<String> basis,
+  required String dataSource,
+  Value<String?> dataConfidence,
+  Value<String?> imageUrl,
+  Value<double> moisture,
+  Value<double> crudeProtein,
+  Value<double> crudeFat,
+  Value<double> crudeFiber,
+  Value<double?> crudeAsh,
+  Value<double?> metabolizableEnergy,
+  Value<double?> calcium,
+  Value<double?> phosphorus,
+  Value<double?> magnesium,
+  Value<double?> potassium,
+  Value<double?> sodium,
+  Value<double?> omega3,
+  Value<double?> omega6,
+  Value<double?> linoleicAcid,
+  Value<double?> ala,
+  Value<double?> lysine,
+  Value<double?> methionine,
+  Value<double?> cystine,
+  Value<double?> threonine,
+  Value<double?> tryptophan,
+  Value<double?> arginine,
+  Value<double?> valine,
+  Value<double?> isoleucine,
+  Value<double?> leucine,
+  Value<double?> zinc,
+  Value<double?> copper,
+  Value<double?> iron,
+  Value<double?> manganese,
+  Value<double?> selenium,
+  Value<double?> iodine,
+  Value<double?> vitA,
+  Value<double?> vitD3,
+  Value<double?> vitE,
+  Value<double?> vitK,
+  Value<double?> vitB1,
+  Value<double?> vitB2,
+  Value<double?> vitB6,
+  Value<double?> vitB12,
+  Value<double?> niacin,
+  Value<double?> pantothenicAcid,
+  Value<double?> biotin,
+  Value<double?> folicAcid,
+  Value<String?> recommendedStages,
+  Value<double> maxRatioPercent,
+  Value<double?> minRatioPercent,
+  Value<bool?> needsSoaking,
+  Value<bool?> canSprout,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+typedef $$FoodsTableUpdateCompanionBuilder = FoodsCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<String> name,
+  Value<String> category,
+  Value<bool> isHulled,
+  Value<String> basis,
+  Value<String> dataSource,
+  Value<String?> dataConfidence,
+  Value<String?> imageUrl,
+  Value<double> moisture,
+  Value<double> crudeProtein,
+  Value<double> crudeFat,
+  Value<double> crudeFiber,
+  Value<double?> crudeAsh,
+  Value<double?> metabolizableEnergy,
+  Value<double?> calcium,
+  Value<double?> phosphorus,
+  Value<double?> magnesium,
+  Value<double?> potassium,
+  Value<double?> sodium,
+  Value<double?> omega3,
+  Value<double?> omega6,
+  Value<double?> linoleicAcid,
+  Value<double?> ala,
+  Value<double?> lysine,
+  Value<double?> methionine,
+  Value<double?> cystine,
+  Value<double?> threonine,
+  Value<double?> tryptophan,
+  Value<double?> arginine,
+  Value<double?> valine,
+  Value<double?> isoleucine,
+  Value<double?> leucine,
+  Value<double?> zinc,
+  Value<double?> copper,
+  Value<double?> iron,
+  Value<double?> manganese,
+  Value<double?> selenium,
+  Value<double?> iodine,
+  Value<double?> vitA,
+  Value<double?> vitD3,
+  Value<double?> vitE,
+  Value<double?> vitK,
+  Value<double?> vitB1,
+  Value<double?> vitB2,
+  Value<double?> vitB6,
+  Value<double?> vitB12,
+  Value<double?> niacin,
+  Value<double?> pantothenicAcid,
+  Value<double?> biotin,
+  Value<double?> folicAcid,
+  Value<String?> recommendedStages,
+  Value<double> maxRatioPercent,
+  Value<double?> minRatioPercent,
+  Value<bool?> needsSoaking,
+  Value<bool?> canSprout,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+
+final class $$FoodsTableReferences
+    extends BaseReferences<_$AppDatabase, $FoodsTable, Food> {
+  $$FoodsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BlendItemsTable, List<BlendItem>>
+      _blendItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.blendItems,
+          aliasName: $_aliasNameGenerator(db.foods.id, db.blendItems.foodId));
+
+  $$BlendItemsTableProcessedTableManager get blendItemsRefs {
+    final manager = $$BlendItemsTableTableManager($_db, $_db.blendItems)
+        .filter((f) => f.foodId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_blendItemsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$FoodsTableFilterComposer extends Composer<_$AppDatabase, $FoodsTable> {
+  $$FoodsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get category => $composableBuilder(
+      column: $table.category, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isHulled => $composableBuilder(
+      column: $table.isHulled, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get basis => $composableBuilder(
+      column: $table.basis, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get dataSource => $composableBuilder(
+      column: $table.dataSource, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get dataConfidence => $composableBuilder(
+      column: $table.dataConfidence,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+      column: $table.imageUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get moisture => $composableBuilder(
+      column: $table.moisture, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get crudeProtein => $composableBuilder(
+      column: $table.crudeProtein, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get crudeFat => $composableBuilder(
+      column: $table.crudeFat, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get crudeFiber => $composableBuilder(
+      column: $table.crudeFiber, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get crudeAsh => $composableBuilder(
+      column: $table.crudeAsh, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get metabolizableEnergy => $composableBuilder(
+      column: $table.metabolizableEnergy,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get calcium => $composableBuilder(
+      column: $table.calcium, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get phosphorus => $composableBuilder(
+      column: $table.phosphorus, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get magnesium => $composableBuilder(
+      column: $table.magnesium, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get potassium => $composableBuilder(
+      column: $table.potassium, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get sodium => $composableBuilder(
+      column: $table.sodium, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get omega3 => $composableBuilder(
+      column: $table.omega3, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get omega6 => $composableBuilder(
+      column: $table.omega6, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get linoleicAcid => $composableBuilder(
+      column: $table.linoleicAcid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ala => $composableBuilder(
+      column: $table.ala, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lysine => $composableBuilder(
+      column: $table.lysine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get methionine => $composableBuilder(
+      column: $table.methionine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cystine => $composableBuilder(
+      column: $table.cystine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get threonine => $composableBuilder(
+      column: $table.threonine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get tryptophan => $composableBuilder(
+      column: $table.tryptophan, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get arginine => $composableBuilder(
+      column: $table.arginine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get valine => $composableBuilder(
+      column: $table.valine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get isoleucine => $composableBuilder(
+      column: $table.isoleucine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get leucine => $composableBuilder(
+      column: $table.leucine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get zinc => $composableBuilder(
+      column: $table.zinc, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get copper => $composableBuilder(
+      column: $table.copper, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get iron => $composableBuilder(
+      column: $table.iron, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get manganese => $composableBuilder(
+      column: $table.manganese, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get selenium => $composableBuilder(
+      column: $table.selenium, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get iodine => $composableBuilder(
+      column: $table.iodine, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitA => $composableBuilder(
+      column: $table.vitA, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitD3 => $composableBuilder(
+      column: $table.vitD3, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitE => $composableBuilder(
+      column: $table.vitE, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitK => $composableBuilder(
+      column: $table.vitK, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitB1 => $composableBuilder(
+      column: $table.vitB1, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitB2 => $composableBuilder(
+      column: $table.vitB2, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitB6 => $composableBuilder(
+      column: $table.vitB6, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vitB12 => $composableBuilder(
+      column: $table.vitB12, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get niacin => $composableBuilder(
+      column: $table.niacin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get pantothenicAcid => $composableBuilder(
+      column: $table.pantothenicAcid,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get biotin => $composableBuilder(
+      column: $table.biotin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get folicAcid => $composableBuilder(
+      column: $table.folicAcid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get recommendedStages => $composableBuilder(
+      column: $table.recommendedStages,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get maxRatioPercent => $composableBuilder(
+      column: $table.maxRatioPercent,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get minRatioPercent => $composableBuilder(
+      column: $table.minRatioPercent,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get needsSoaking => $composableBuilder(
+      column: $table.needsSoaking, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get canSprout => $composableBuilder(
+      column: $table.canSprout, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  Expression<bool> blendItemsRefs(
+      Expression<bool> Function($$BlendItemsTableFilterComposer f) f) {
+    final $$BlendItemsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendItems,
+        getReferencedColumn: (t) => t.foodId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendItemsTableFilterComposer(
+              $db: $db,
+              $table: $db.blendItems,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$FoodsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FoodsTable> {
+  $$FoodsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get category => $composableBuilder(
+      column: $table.category, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isHulled => $composableBuilder(
+      column: $table.isHulled, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get basis => $composableBuilder(
+      column: $table.basis, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get dataSource => $composableBuilder(
+      column: $table.dataSource, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get dataConfidence => $composableBuilder(
+      column: $table.dataConfidence,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+      column: $table.imageUrl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get moisture => $composableBuilder(
+      column: $table.moisture, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get crudeProtein => $composableBuilder(
+      column: $table.crudeProtein,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get crudeFat => $composableBuilder(
+      column: $table.crudeFat, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get crudeFiber => $composableBuilder(
+      column: $table.crudeFiber, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get crudeAsh => $composableBuilder(
+      column: $table.crudeAsh, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get metabolizableEnergy => $composableBuilder(
+      column: $table.metabolizableEnergy,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get calcium => $composableBuilder(
+      column: $table.calcium, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get phosphorus => $composableBuilder(
+      column: $table.phosphorus, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get magnesium => $composableBuilder(
+      column: $table.magnesium, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get potassium => $composableBuilder(
+      column: $table.potassium, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get sodium => $composableBuilder(
+      column: $table.sodium, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get omega3 => $composableBuilder(
+      column: $table.omega3, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get omega6 => $composableBuilder(
+      column: $table.omega6, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get linoleicAcid => $composableBuilder(
+      column: $table.linoleicAcid,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ala => $composableBuilder(
+      column: $table.ala, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lysine => $composableBuilder(
+      column: $table.lysine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get methionine => $composableBuilder(
+      column: $table.methionine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cystine => $composableBuilder(
+      column: $table.cystine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get threonine => $composableBuilder(
+      column: $table.threonine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get tryptophan => $composableBuilder(
+      column: $table.tryptophan, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get arginine => $composableBuilder(
+      column: $table.arginine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get valine => $composableBuilder(
+      column: $table.valine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get isoleucine => $composableBuilder(
+      column: $table.isoleucine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get leucine => $composableBuilder(
+      column: $table.leucine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get zinc => $composableBuilder(
+      column: $table.zinc, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get copper => $composableBuilder(
+      column: $table.copper, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get iron => $composableBuilder(
+      column: $table.iron, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get manganese => $composableBuilder(
+      column: $table.manganese, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get selenium => $composableBuilder(
+      column: $table.selenium, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get iodine => $composableBuilder(
+      column: $table.iodine, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitA => $composableBuilder(
+      column: $table.vitA, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitD3 => $composableBuilder(
+      column: $table.vitD3, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitE => $composableBuilder(
+      column: $table.vitE, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitK => $composableBuilder(
+      column: $table.vitK, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitB1 => $composableBuilder(
+      column: $table.vitB1, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitB2 => $composableBuilder(
+      column: $table.vitB2, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitB6 => $composableBuilder(
+      column: $table.vitB6, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vitB12 => $composableBuilder(
+      column: $table.vitB12, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get niacin => $composableBuilder(
+      column: $table.niacin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get pantothenicAcid => $composableBuilder(
+      column: $table.pantothenicAcid,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get biotin => $composableBuilder(
+      column: $table.biotin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get folicAcid => $composableBuilder(
+      column: $table.folicAcid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get recommendedStages => $composableBuilder(
+      column: $table.recommendedStages,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get maxRatioPercent => $composableBuilder(
+      column: $table.maxRatioPercent,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get minRatioPercent => $composableBuilder(
+      column: $table.minRatioPercent,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get needsSoaking => $composableBuilder(
+      column: $table.needsSoaking,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get canSprout => $composableBuilder(
+      column: $table.canSprout, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FoodsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FoodsTable> {
+  $$FoodsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<bool> get isHulled =>
+      $composableBuilder(column: $table.isHulled, builder: (column) => column);
+
+  GeneratedColumn<String> get basis =>
+      $composableBuilder(column: $table.basis, builder: (column) => column);
+
+  GeneratedColumn<String> get dataSource => $composableBuilder(
+      column: $table.dataSource, builder: (column) => column);
+
+  GeneratedColumn<String> get dataConfidence => $composableBuilder(
+      column: $table.dataConfidence, builder: (column) => column);
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
+
+  GeneratedColumn<double> get moisture =>
+      $composableBuilder(column: $table.moisture, builder: (column) => column);
+
+  GeneratedColumn<double> get crudeProtein => $composableBuilder(
+      column: $table.crudeProtein, builder: (column) => column);
+
+  GeneratedColumn<double> get crudeFat =>
+      $composableBuilder(column: $table.crudeFat, builder: (column) => column);
+
+  GeneratedColumn<double> get crudeFiber => $composableBuilder(
+      column: $table.crudeFiber, builder: (column) => column);
+
+  GeneratedColumn<double> get crudeAsh =>
+      $composableBuilder(column: $table.crudeAsh, builder: (column) => column);
+
+  GeneratedColumn<double> get metabolizableEnergy => $composableBuilder(
+      column: $table.metabolizableEnergy, builder: (column) => column);
+
+  GeneratedColumn<double> get calcium =>
+      $composableBuilder(column: $table.calcium, builder: (column) => column);
+
+  GeneratedColumn<double> get phosphorus => $composableBuilder(
+      column: $table.phosphorus, builder: (column) => column);
+
+  GeneratedColumn<double> get magnesium =>
+      $composableBuilder(column: $table.magnesium, builder: (column) => column);
+
+  GeneratedColumn<double> get potassium =>
+      $composableBuilder(column: $table.potassium, builder: (column) => column);
+
+  GeneratedColumn<double> get sodium =>
+      $composableBuilder(column: $table.sodium, builder: (column) => column);
+
+  GeneratedColumn<double> get omega3 =>
+      $composableBuilder(column: $table.omega3, builder: (column) => column);
+
+  GeneratedColumn<double> get omega6 =>
+      $composableBuilder(column: $table.omega6, builder: (column) => column);
+
+  GeneratedColumn<double> get linoleicAcid => $composableBuilder(
+      column: $table.linoleicAcid, builder: (column) => column);
+
+  GeneratedColumn<double> get ala =>
+      $composableBuilder(column: $table.ala, builder: (column) => column);
+
+  GeneratedColumn<double> get lysine =>
+      $composableBuilder(column: $table.lysine, builder: (column) => column);
+
+  GeneratedColumn<double> get methionine => $composableBuilder(
+      column: $table.methionine, builder: (column) => column);
+
+  GeneratedColumn<double> get cystine =>
+      $composableBuilder(column: $table.cystine, builder: (column) => column);
+
+  GeneratedColumn<double> get threonine =>
+      $composableBuilder(column: $table.threonine, builder: (column) => column);
+
+  GeneratedColumn<double> get tryptophan => $composableBuilder(
+      column: $table.tryptophan, builder: (column) => column);
+
+  GeneratedColumn<double> get arginine =>
+      $composableBuilder(column: $table.arginine, builder: (column) => column);
+
+  GeneratedColumn<double> get valine =>
+      $composableBuilder(column: $table.valine, builder: (column) => column);
+
+  GeneratedColumn<double> get isoleucine => $composableBuilder(
+      column: $table.isoleucine, builder: (column) => column);
+
+  GeneratedColumn<double> get leucine =>
+      $composableBuilder(column: $table.leucine, builder: (column) => column);
+
+  GeneratedColumn<double> get zinc =>
+      $composableBuilder(column: $table.zinc, builder: (column) => column);
+
+  GeneratedColumn<double> get copper =>
+      $composableBuilder(column: $table.copper, builder: (column) => column);
+
+  GeneratedColumn<double> get iron =>
+      $composableBuilder(column: $table.iron, builder: (column) => column);
+
+  GeneratedColumn<double> get manganese =>
+      $composableBuilder(column: $table.manganese, builder: (column) => column);
+
+  GeneratedColumn<double> get selenium =>
+      $composableBuilder(column: $table.selenium, builder: (column) => column);
+
+  GeneratedColumn<double> get iodine =>
+      $composableBuilder(column: $table.iodine, builder: (column) => column);
+
+  GeneratedColumn<double> get vitA =>
+      $composableBuilder(column: $table.vitA, builder: (column) => column);
+
+  GeneratedColumn<double> get vitD3 =>
+      $composableBuilder(column: $table.vitD3, builder: (column) => column);
+
+  GeneratedColumn<double> get vitE =>
+      $composableBuilder(column: $table.vitE, builder: (column) => column);
+
+  GeneratedColumn<double> get vitK =>
+      $composableBuilder(column: $table.vitK, builder: (column) => column);
+
+  GeneratedColumn<double> get vitB1 =>
+      $composableBuilder(column: $table.vitB1, builder: (column) => column);
+
+  GeneratedColumn<double> get vitB2 =>
+      $composableBuilder(column: $table.vitB2, builder: (column) => column);
+
+  GeneratedColumn<double> get vitB6 =>
+      $composableBuilder(column: $table.vitB6, builder: (column) => column);
+
+  GeneratedColumn<double> get vitB12 =>
+      $composableBuilder(column: $table.vitB12, builder: (column) => column);
+
+  GeneratedColumn<double> get niacin =>
+      $composableBuilder(column: $table.niacin, builder: (column) => column);
+
+  GeneratedColumn<double> get pantothenicAcid => $composableBuilder(
+      column: $table.pantothenicAcid, builder: (column) => column);
+
+  GeneratedColumn<double> get biotin =>
+      $composableBuilder(column: $table.biotin, builder: (column) => column);
+
+  GeneratedColumn<double> get folicAcid =>
+      $composableBuilder(column: $table.folicAcid, builder: (column) => column);
+
+  GeneratedColumn<String> get recommendedStages => $composableBuilder(
+      column: $table.recommendedStages, builder: (column) => column);
+
+  GeneratedColumn<double> get maxRatioPercent => $composableBuilder(
+      column: $table.maxRatioPercent, builder: (column) => column);
+
+  GeneratedColumn<double> get minRatioPercent => $composableBuilder(
+      column: $table.minRatioPercent, builder: (column) => column);
+
+  GeneratedColumn<bool> get needsSoaking => $composableBuilder(
+      column: $table.needsSoaking, builder: (column) => column);
+
+  GeneratedColumn<bool> get canSprout =>
+      $composableBuilder(column: $table.canSprout, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  Expression<T> blendItemsRefs<T extends Object>(
+      Expression<T> Function($$BlendItemsTableAnnotationComposer a) f) {
+    final $$BlendItemsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendItems,
+        getReferencedColumn: (t) => t.foodId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendItemsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blendItems,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$FoodsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FoodsTable,
+    Food,
+    $$FoodsTableFilterComposer,
+    $$FoodsTableOrderingComposer,
+    $$FoodsTableAnnotationComposer,
+    $$FoodsTableCreateCompanionBuilder,
+    $$FoodsTableUpdateCompanionBuilder,
+    (Food, $$FoodsTableReferences),
+    Food,
+    PrefetchHooks Function({bool blendItemsRefs})> {
+  $$FoodsTableTableManager(_$AppDatabase db, $FoodsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FoodsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FoodsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FoodsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<String> category = const Value.absent(),
+            Value<bool> isHulled = const Value.absent(),
+            Value<String> basis = const Value.absent(),
+            Value<String> dataSource = const Value.absent(),
+            Value<String?> dataConfidence = const Value.absent(),
+            Value<String?> imageUrl = const Value.absent(),
+            Value<double> moisture = const Value.absent(),
+            Value<double> crudeProtein = const Value.absent(),
+            Value<double> crudeFat = const Value.absent(),
+            Value<double> crudeFiber = const Value.absent(),
+            Value<double?> crudeAsh = const Value.absent(),
+            Value<double?> metabolizableEnergy = const Value.absent(),
+            Value<double?> calcium = const Value.absent(),
+            Value<double?> phosphorus = const Value.absent(),
+            Value<double?> magnesium = const Value.absent(),
+            Value<double?> potassium = const Value.absent(),
+            Value<double?> sodium = const Value.absent(),
+            Value<double?> omega3 = const Value.absent(),
+            Value<double?> omega6 = const Value.absent(),
+            Value<double?> linoleicAcid = const Value.absent(),
+            Value<double?> ala = const Value.absent(),
+            Value<double?> lysine = const Value.absent(),
+            Value<double?> methionine = const Value.absent(),
+            Value<double?> cystine = const Value.absent(),
+            Value<double?> threonine = const Value.absent(),
+            Value<double?> tryptophan = const Value.absent(),
+            Value<double?> arginine = const Value.absent(),
+            Value<double?> valine = const Value.absent(),
+            Value<double?> isoleucine = const Value.absent(),
+            Value<double?> leucine = const Value.absent(),
+            Value<double?> zinc = const Value.absent(),
+            Value<double?> copper = const Value.absent(),
+            Value<double?> iron = const Value.absent(),
+            Value<double?> manganese = const Value.absent(),
+            Value<double?> selenium = const Value.absent(),
+            Value<double?> iodine = const Value.absent(),
+            Value<double?> vitA = const Value.absent(),
+            Value<double?> vitD3 = const Value.absent(),
+            Value<double?> vitE = const Value.absent(),
+            Value<double?> vitK = const Value.absent(),
+            Value<double?> vitB1 = const Value.absent(),
+            Value<double?> vitB2 = const Value.absent(),
+            Value<double?> vitB6 = const Value.absent(),
+            Value<double?> vitB12 = const Value.absent(),
+            Value<double?> niacin = const Value.absent(),
+            Value<double?> pantothenicAcid = const Value.absent(),
+            Value<double?> biotin = const Value.absent(),
+            Value<double?> folicAcid = const Value.absent(),
+            Value<String?> recommendedStages = const Value.absent(),
+            Value<double> maxRatioPercent = const Value.absent(),
+            Value<double?> minRatioPercent = const Value.absent(),
+            Value<bool?> needsSoaking = const Value.absent(),
+            Value<bool?> canSprout = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              FoodsCompanion(
+            id: id,
+            uuid: uuid,
+            name: name,
+            category: category,
+            isHulled: isHulled,
+            basis: basis,
+            dataSource: dataSource,
+            dataConfidence: dataConfidence,
+            imageUrl: imageUrl,
+            moisture: moisture,
+            crudeProtein: crudeProtein,
+            crudeFat: crudeFat,
+            crudeFiber: crudeFiber,
+            crudeAsh: crudeAsh,
+            metabolizableEnergy: metabolizableEnergy,
+            calcium: calcium,
+            phosphorus: phosphorus,
+            magnesium: magnesium,
+            potassium: potassium,
+            sodium: sodium,
+            omega3: omega3,
+            omega6: omega6,
+            linoleicAcid: linoleicAcid,
+            ala: ala,
+            lysine: lysine,
+            methionine: methionine,
+            cystine: cystine,
+            threonine: threonine,
+            tryptophan: tryptophan,
+            arginine: arginine,
+            valine: valine,
+            isoleucine: isoleucine,
+            leucine: leucine,
+            zinc: zinc,
+            copper: copper,
+            iron: iron,
+            manganese: manganese,
+            selenium: selenium,
+            iodine: iodine,
+            vitA: vitA,
+            vitD3: vitD3,
+            vitE: vitE,
+            vitK: vitK,
+            vitB1: vitB1,
+            vitB2: vitB2,
+            vitB6: vitB6,
+            vitB12: vitB12,
+            niacin: niacin,
+            pantothenicAcid: pantothenicAcid,
+            biotin: biotin,
+            folicAcid: folicAcid,
+            recommendedStages: recommendedStages,
+            maxRatioPercent: maxRatioPercent,
+            minRatioPercent: minRatioPercent,
+            needsSoaking: needsSoaking,
+            canSprout: canSprout,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required String name,
+            Value<String> category = const Value.absent(),
+            Value<bool> isHulled = const Value.absent(),
+            Value<String> basis = const Value.absent(),
+            required String dataSource,
+            Value<String?> dataConfidence = const Value.absent(),
+            Value<String?> imageUrl = const Value.absent(),
+            Value<double> moisture = const Value.absent(),
+            Value<double> crudeProtein = const Value.absent(),
+            Value<double> crudeFat = const Value.absent(),
+            Value<double> crudeFiber = const Value.absent(),
+            Value<double?> crudeAsh = const Value.absent(),
+            Value<double?> metabolizableEnergy = const Value.absent(),
+            Value<double?> calcium = const Value.absent(),
+            Value<double?> phosphorus = const Value.absent(),
+            Value<double?> magnesium = const Value.absent(),
+            Value<double?> potassium = const Value.absent(),
+            Value<double?> sodium = const Value.absent(),
+            Value<double?> omega3 = const Value.absent(),
+            Value<double?> omega6 = const Value.absent(),
+            Value<double?> linoleicAcid = const Value.absent(),
+            Value<double?> ala = const Value.absent(),
+            Value<double?> lysine = const Value.absent(),
+            Value<double?> methionine = const Value.absent(),
+            Value<double?> cystine = const Value.absent(),
+            Value<double?> threonine = const Value.absent(),
+            Value<double?> tryptophan = const Value.absent(),
+            Value<double?> arginine = const Value.absent(),
+            Value<double?> valine = const Value.absent(),
+            Value<double?> isoleucine = const Value.absent(),
+            Value<double?> leucine = const Value.absent(),
+            Value<double?> zinc = const Value.absent(),
+            Value<double?> copper = const Value.absent(),
+            Value<double?> iron = const Value.absent(),
+            Value<double?> manganese = const Value.absent(),
+            Value<double?> selenium = const Value.absent(),
+            Value<double?> iodine = const Value.absent(),
+            Value<double?> vitA = const Value.absent(),
+            Value<double?> vitD3 = const Value.absent(),
+            Value<double?> vitE = const Value.absent(),
+            Value<double?> vitK = const Value.absent(),
+            Value<double?> vitB1 = const Value.absent(),
+            Value<double?> vitB2 = const Value.absent(),
+            Value<double?> vitB6 = const Value.absent(),
+            Value<double?> vitB12 = const Value.absent(),
+            Value<double?> niacin = const Value.absent(),
+            Value<double?> pantothenicAcid = const Value.absent(),
+            Value<double?> biotin = const Value.absent(),
+            Value<double?> folicAcid = const Value.absent(),
+            Value<String?> recommendedStages = const Value.absent(),
+            Value<double> maxRatioPercent = const Value.absent(),
+            Value<double?> minRatioPercent = const Value.absent(),
+            Value<bool?> needsSoaking = const Value.absent(),
+            Value<bool?> canSprout = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              FoodsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            name: name,
+            category: category,
+            isHulled: isHulled,
+            basis: basis,
+            dataSource: dataSource,
+            dataConfidence: dataConfidence,
+            imageUrl: imageUrl,
+            moisture: moisture,
+            crudeProtein: crudeProtein,
+            crudeFat: crudeFat,
+            crudeFiber: crudeFiber,
+            crudeAsh: crudeAsh,
+            metabolizableEnergy: metabolizableEnergy,
+            calcium: calcium,
+            phosphorus: phosphorus,
+            magnesium: magnesium,
+            potassium: potassium,
+            sodium: sodium,
+            omega3: omega3,
+            omega6: omega6,
+            linoleicAcid: linoleicAcid,
+            ala: ala,
+            lysine: lysine,
+            methionine: methionine,
+            cystine: cystine,
+            threonine: threonine,
+            tryptophan: tryptophan,
+            arginine: arginine,
+            valine: valine,
+            isoleucine: isoleucine,
+            leucine: leucine,
+            zinc: zinc,
+            copper: copper,
+            iron: iron,
+            manganese: manganese,
+            selenium: selenium,
+            iodine: iodine,
+            vitA: vitA,
+            vitD3: vitD3,
+            vitE: vitE,
+            vitK: vitK,
+            vitB1: vitB1,
+            vitB2: vitB2,
+            vitB6: vitB6,
+            vitB12: vitB12,
+            niacin: niacin,
+            pantothenicAcid: pantothenicAcid,
+            biotin: biotin,
+            folicAcid: folicAcid,
+            recommendedStages: recommendedStages,
+            maxRatioPercent: maxRatioPercent,
+            minRatioPercent: minRatioPercent,
+            needsSoaking: needsSoaking,
+            canSprout: canSprout,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) =>
+                  (e.readTable(table), $$FoodsTableReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: ({blendItemsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (blendItemsRefs) db.blendItems],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (blendItemsRefs)
+                    await $_getPrefetchedData<Food, $FoodsTable, BlendItem>(
+                        currentTable: table,
+                        referencedTable:
+                            $$FoodsTableReferences._blendItemsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$FoodsTableReferences(db, table, p0)
+                                .blendItemsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.foodId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$FoodsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FoodsTable,
+    Food,
+    $$FoodsTableFilterComposer,
+    $$FoodsTableOrderingComposer,
+    $$FoodsTableAnnotationComposer,
+    $$FoodsTableCreateCompanionBuilder,
+    $$FoodsTableUpdateCompanionBuilder,
+    (Food, $$FoodsTableReferences),
+    Food,
+    PrefetchHooks Function({bool blendItemsRefs})>;
+typedef $$BlendsTableCreateCompanionBuilder = BlendsCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required String name,
+  Value<String?> description,
+  Value<bool> isActive,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+typedef $$BlendsTableUpdateCompanionBuilder = BlendsCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<String> name,
+  Value<String?> description,
+  Value<bool> isActive,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+
+final class $$BlendsTableReferences
+    extends BaseReferences<_$AppDatabase, $BlendsTable, Blend> {
+  $$BlendsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BlendItemsTable, List<BlendItem>>
+      _blendItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.blendItems,
+          aliasName: $_aliasNameGenerator(db.blends.id, db.blendItems.blendId));
+
+  $$BlendItemsTableProcessedTableManager get blendItemsRefs {
+    final manager = $$BlendItemsTableTableManager($_db, $_db.blendItems)
+        .filter((f) => f.blendId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_blendItemsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$BlendBindingsTable, List<BlendBinding>>
+      _blendBindingsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.blendBindings,
+              aliasName:
+                  $_aliasNameGenerator(db.blends.id, db.blendBindings.blendId));
+
+  $$BlendBindingsTableProcessedTableManager get blendBindingsRefs {
+    final manager = $$BlendBindingsTableTableManager($_db, $_db.blendBindings)
+        .filter((f) => f.blendId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_blendBindingsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$FeedingPlanMealRecipesTable,
+      List<FeedingPlanMealRecipe>> _feedingPlanMealRecipesRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.feedingPlanMealRecipes,
+          aliasName: $_aliasNameGenerator(
+              db.blends.id, db.feedingPlanMealRecipes.blendId));
+
+  $$FeedingPlanMealRecipesTableProcessedTableManager
+      get feedingPlanMealRecipesRefs {
+    final manager = $$FeedingPlanMealRecipesTableTableManager(
+            $_db, $_db.feedingPlanMealRecipes)
+        .filter((f) => f.blendId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_feedingPlanMealRecipesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$BlendsTableFilterComposer
+    extends Composer<_$AppDatabase, $BlendsTable> {
+  $$BlendsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  Expression<bool> blendItemsRefs(
+      Expression<bool> Function($$BlendItemsTableFilterComposer f) f) {
+    final $$BlendItemsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendItems,
+        getReferencedColumn: (t) => t.blendId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendItemsTableFilterComposer(
+              $db: $db,
+              $table: $db.blendItems,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> blendBindingsRefs(
+      Expression<bool> Function($$BlendBindingsTableFilterComposer f) f) {
+    final $$BlendBindingsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendBindings,
+        getReferencedColumn: (t) => t.blendId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendBindingsTableFilterComposer(
+              $db: $db,
+              $table: $db.blendBindings,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> feedingPlanMealRecipesRefs(
+      Expression<bool> Function($$FeedingPlanMealRecipesTableFilterComposer f)
+          f) {
+    final $$FeedingPlanMealRecipesTableFilterComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.feedingPlanMealRecipes,
+            getReferencedColumn: (t) => t.blendId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$FeedingPlanMealRecipesTableFilterComposer(
+                  $db: $db,
+                  $table: $db.feedingPlanMealRecipes,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+}
+
+class $$BlendsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BlendsTable> {
+  $$BlendsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$BlendsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BlendsTable> {
+  $$BlendsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  Expression<T> blendItemsRefs<T extends Object>(
+      Expression<T> Function($$BlendItemsTableAnnotationComposer a) f) {
+    final $$BlendItemsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendItems,
+        getReferencedColumn: (t) => t.blendId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendItemsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blendItems,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> blendBindingsRefs<T extends Object>(
+      Expression<T> Function($$BlendBindingsTableAnnotationComposer a) f) {
+    final $$BlendBindingsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blendBindings,
+        getReferencedColumn: (t) => t.blendId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendBindingsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blendBindings,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> feedingPlanMealRecipesRefs<T extends Object>(
+      Expression<T> Function($$FeedingPlanMealRecipesTableAnnotationComposer a)
+          f) {
+    final $$FeedingPlanMealRecipesTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.feedingPlanMealRecipes,
+            getReferencedColumn: (t) => t.blendId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$FeedingPlanMealRecipesTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.feedingPlanMealRecipes,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+}
+
+class $$BlendsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BlendsTable,
+    Blend,
+    $$BlendsTableFilterComposer,
+    $$BlendsTableOrderingComposer,
+    $$BlendsTableAnnotationComposer,
+    $$BlendsTableCreateCompanionBuilder,
+    $$BlendsTableUpdateCompanionBuilder,
+    (Blend, $$BlendsTableReferences),
+    Blend,
+    PrefetchHooks Function(
+        {bool blendItemsRefs,
+        bool blendBindingsRefs,
+        bool feedingPlanMealRecipesRefs})> {
+  $$BlendsTableTableManager(_$AppDatabase db, $BlendsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BlendsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BlendsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BlendsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<bool> isActive = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              BlendsCompanion(
+            id: id,
+            uuid: uuid,
+            name: name,
+            description: description,
+            isActive: isActive,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required String name,
+            Value<String?> description = const Value.absent(),
+            Value<bool> isActive = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              BlendsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            name: name,
+            description: description,
+            isActive: isActive,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) =>
+                  (e.readTable(table), $$BlendsTableReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: (
+              {blendItemsRefs = false,
+              blendBindingsRefs = false,
+              feedingPlanMealRecipesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (blendItemsRefs) db.blendItems,
+                if (blendBindingsRefs) db.blendBindings,
+                if (feedingPlanMealRecipesRefs) db.feedingPlanMealRecipes
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (blendItemsRefs)
+                    await $_getPrefetchedData<Blend, $BlendsTable, BlendItem>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BlendsTableReferences._blendItemsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BlendsTableReferences(db, table, p0)
+                                .blendItemsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.blendId == item.id),
+                        typedResults: items),
+                  if (blendBindingsRefs)
+                    await $_getPrefetchedData<Blend, $BlendsTable,
+                            BlendBinding>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BlendsTableReferences._blendBindingsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BlendsTableReferences(db, table, p0)
+                                .blendBindingsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.blendId == item.id),
+                        typedResults: items),
+                  if (feedingPlanMealRecipesRefs)
+                    await $_getPrefetchedData<Blend, $BlendsTable,
+                            FeedingPlanMealRecipe>(
+                        currentTable: table,
+                        referencedTable: $$BlendsTableReferences
+                            ._feedingPlanMealRecipesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BlendsTableReferences(db, table, p0)
+                                .feedingPlanMealRecipesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.blendId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BlendsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BlendsTable,
+    Blend,
+    $$BlendsTableFilterComposer,
+    $$BlendsTableOrderingComposer,
+    $$BlendsTableAnnotationComposer,
+    $$BlendsTableCreateCompanionBuilder,
+    $$BlendsTableUpdateCompanionBuilder,
+    (Blend, $$BlendsTableReferences),
+    Blend,
+    PrefetchHooks Function(
+        {bool blendItemsRefs,
+        bool blendBindingsRefs,
+        bool feedingPlanMealRecipesRefs})>;
+typedef $$BlendItemsTableCreateCompanionBuilder = BlendItemsCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required int blendId,
+  required int foodId,
+  required double percent,
+  Value<DateTime> createdAt,
+});
+typedef $$BlendItemsTableUpdateCompanionBuilder = BlendItemsCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> blendId,
+  Value<int> foodId,
+  Value<double> percent,
+  Value<DateTime> createdAt,
+});
+
+final class $$BlendItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $BlendItemsTable, BlendItem> {
+  $$BlendItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BlendsTable _blendIdTable(_$AppDatabase db) => db.blends
+      .createAlias($_aliasNameGenerator(db.blendItems.blendId, db.blends.id));
+
+  $$BlendsTableProcessedTableManager get blendId {
+    final $_column = $_itemColumn<int>('blend_id')!;
+
+    final manager = $$BlendsTableTableManager($_db, $_db.blends)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_blendIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $FoodsTable _foodIdTable(_$AppDatabase db) => db.foods
+      .createAlias($_aliasNameGenerator(db.blendItems.foodId, db.foods.id));
+
+  $$FoodsTableProcessedTableManager get foodId {
+    final $_column = $_itemColumn<int>('food_id')!;
+
+    final manager = $$FoodsTableTableManager($_db, $_db.foods)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_foodIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$BlendItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $BlendItemsTable> {
+  $$BlendItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get percent => $composableBuilder(
+      column: $table.percent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$BlendsTableFilterComposer get blendId {
+    final $$BlendsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableFilterComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$FoodsTableFilterComposer get foodId {
+    final $$FoodsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.foodId,
+        referencedTable: $db.foods,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FoodsTableFilterComposer(
+              $db: $db,
+              $table: $db.foods,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BlendItemsTable> {
+  $$BlendItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get percent => $composableBuilder(
+      column: $table.percent, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$BlendsTableOrderingComposer get blendId {
+    final $$BlendsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableOrderingComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$FoodsTableOrderingComposer get foodId {
+    final $$FoodsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.foodId,
+        referencedTable: $db.foods,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FoodsTableOrderingComposer(
+              $db: $db,
+              $table: $db.foods,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BlendItemsTable> {
+  $$BlendItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<double> get percent =>
+      $composableBuilder(column: $table.percent, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BlendsTableAnnotationComposer get blendId {
+    final $$BlendsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$FoodsTableAnnotationComposer get foodId {
+    final $$FoodsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.foodId,
+        referencedTable: $db.foods,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FoodsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.foods,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendItemsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BlendItemsTable,
+    BlendItem,
+    $$BlendItemsTableFilterComposer,
+    $$BlendItemsTableOrderingComposer,
+    $$BlendItemsTableAnnotationComposer,
+    $$BlendItemsTableCreateCompanionBuilder,
+    $$BlendItemsTableUpdateCompanionBuilder,
+    (BlendItem, $$BlendItemsTableReferences),
+    BlendItem,
+    PrefetchHooks Function({bool blendId, bool foodId})> {
+  $$BlendItemsTableTableManager(_$AppDatabase db, $BlendItemsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BlendItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BlendItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BlendItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> blendId = const Value.absent(),
+            Value<int> foodId = const Value.absent(),
+            Value<double> percent = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              BlendItemsCompanion(
+            id: id,
+            uuid: uuid,
+            blendId: blendId,
+            foodId: foodId,
+            percent: percent,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int blendId,
+            required int foodId,
+            required double percent,
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              BlendItemsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            blendId: blendId,
+            foodId: foodId,
+            percent: percent,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BlendItemsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({blendId = false, foodId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (blendId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.blendId,
+                    referencedTable:
+                        $$BlendItemsTableReferences._blendIdTable(db),
+                    referencedColumn:
+                        $$BlendItemsTableReferences._blendIdTable(db).id,
+                  ) as T;
+                }
+                if (foodId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.foodId,
+                    referencedTable:
+                        $$BlendItemsTableReferences._foodIdTable(db),
+                    referencedColumn:
+                        $$BlendItemsTableReferences._foodIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BlendItemsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BlendItemsTable,
+    BlendItem,
+    $$BlendItemsTableFilterComposer,
+    $$BlendItemsTableOrderingComposer,
+    $$BlendItemsTableAnnotationComposer,
+    $$BlendItemsTableCreateCompanionBuilder,
+    $$BlendItemsTableUpdateCompanionBuilder,
+    (BlendItem, $$BlendItemsTableReferences),
+    BlendItem,
+    PrefetchHooks Function({bool blendId, bool foodId})>;
+typedef $$BlendBindingsTableCreateCompanionBuilder = BlendBindingsCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  required int blendId,
+  Value<int?> speciesId,
+  required String stage,
+  Value<DateTime> createdAt,
+});
+typedef $$BlendBindingsTableUpdateCompanionBuilder = BlendBindingsCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> blendId,
+  Value<int?> speciesId,
+  Value<String> stage,
+  Value<DateTime> createdAt,
+});
+
+final class $$BlendBindingsTableReferences
+    extends BaseReferences<_$AppDatabase, $BlendBindingsTable, BlendBinding> {
+  $$BlendBindingsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $BlendsTable _blendIdTable(_$AppDatabase db) => db.blends.createAlias(
+      $_aliasNameGenerator(db.blendBindings.blendId, db.blends.id));
+
+  $$BlendsTableProcessedTableManager get blendId {
+    final $_column = $_itemColumn<int>('blend_id')!;
+
+    final manager = $$BlendsTableTableManager($_db, $_db.blends)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_blendIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $SpeciesTable _speciesIdTable(_$AppDatabase db) =>
+      db.species.createAlias(
+          $_aliasNameGenerator(db.blendBindings.speciesId, db.species.id));
+
+  $$SpeciesTableProcessedTableManager? get speciesId {
+    final $_column = $_itemColumn<int>('species_id');
+    if ($_column == null) return null;
+    final manager = $$SpeciesTableTableManager($_db, $_db.species)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_speciesIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$BlendBindingsTableFilterComposer
+    extends Composer<_$AppDatabase, $BlendBindingsTable> {
+  $$BlendBindingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$BlendsTableFilterComposer get blendId {
+    final $$BlendsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableFilterComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableFilterComposer get speciesId {
+    final $$SpeciesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableFilterComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendBindingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BlendBindingsTable> {
+  $$BlendBindingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$BlendsTableOrderingComposer get blendId {
+    final $$BlendsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableOrderingComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableOrderingComposer get speciesId {
+    final $$SpeciesTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableOrderingComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendBindingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BlendBindingsTable> {
+  $$BlendBindingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get stage =>
+      $composableBuilder(column: $table.stage, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BlendsTableAnnotationComposer get blendId {
+    final $$BlendsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableAnnotationComposer get speciesId {
+    final $$SpeciesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlendBindingsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BlendBindingsTable,
+    BlendBinding,
+    $$BlendBindingsTableFilterComposer,
+    $$BlendBindingsTableOrderingComposer,
+    $$BlendBindingsTableAnnotationComposer,
+    $$BlendBindingsTableCreateCompanionBuilder,
+    $$BlendBindingsTableUpdateCompanionBuilder,
+    (BlendBinding, $$BlendBindingsTableReferences),
+    BlendBinding,
+    PrefetchHooks Function({bool blendId, bool speciesId})> {
+  $$BlendBindingsTableTableManager(_$AppDatabase db, $BlendBindingsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BlendBindingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BlendBindingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BlendBindingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> blendId = const Value.absent(),
+            Value<int?> speciesId = const Value.absent(),
+            Value<String> stage = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              BlendBindingsCompanion(
+            id: id,
+            uuid: uuid,
+            blendId: blendId,
+            speciesId: speciesId,
+            stage: stage,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int blendId,
+            Value<int?> speciesId = const Value.absent(),
+            required String stage,
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              BlendBindingsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            blendId: blendId,
+            speciesId: speciesId,
+            stage: stage,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BlendBindingsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({blendId = false, speciesId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (blendId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.blendId,
+                    referencedTable:
+                        $$BlendBindingsTableReferences._blendIdTable(db),
+                    referencedColumn:
+                        $$BlendBindingsTableReferences._blendIdTable(db).id,
+                  ) as T;
+                }
+                if (speciesId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.speciesId,
+                    referencedTable:
+                        $$BlendBindingsTableReferences._speciesIdTable(db),
+                    referencedColumn:
+                        $$BlendBindingsTableReferences._speciesIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BlendBindingsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BlendBindingsTable,
+    BlendBinding,
+    $$BlendBindingsTableFilterComposer,
+    $$BlendBindingsTableOrderingComposer,
+    $$BlendBindingsTableAnnotationComposer,
+    $$BlendBindingsTableCreateCompanionBuilder,
+    $$BlendBindingsTableUpdateCompanionBuilder,
+    (BlendBinding, $$BlendBindingsTableReferences),
+    BlendBinding,
+    PrefetchHooks Function({bool blendId, bool speciesId})>;
+typedef $$FeedingPlansTableCreateCompanionBuilder = FeedingPlansCompanion
+    Function({
+  Value<int> id,
+  required String uuid,
+  Value<int?> birdId,
+  Value<int?> speciesId,
+  required String stage,
+  Value<bool> isActive,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+typedef $$FeedingPlansTableUpdateCompanionBuilder = FeedingPlansCompanion
+    Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int?> birdId,
+  Value<int?> speciesId,
+  Value<String> stage,
+  Value<bool> isActive,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+});
+
+final class $$FeedingPlansTableReferences
+    extends BaseReferences<_$AppDatabase, $FeedingPlansTable, FeedingPlan> {
+  $$FeedingPlansTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds
+      .createAlias($_aliasNameGenerator(db.feedingPlans.birdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager? get birdId {
+    final $_column = $_itemColumn<int>('bird_id');
+    if ($_column == null) return null;
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $SpeciesTable _speciesIdTable(_$AppDatabase db) =>
+      db.species.createAlias(
+          $_aliasNameGenerator(db.feedingPlans.speciesId, db.species.id));
+
+  $$SpeciesTableProcessedTableManager? get speciesId {
+    final $_column = $_itemColumn<int>('species_id');
+    if ($_column == null) return null;
+    final manager = $$SpeciesTableTableManager($_db, $_db.species)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_speciesIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$FeedingPlanMealsTable, List<FeedingPlanMeal>>
+      _feedingPlanMealsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.feedingPlanMeals,
+              aliasName: $_aliasNameGenerator(
+                  db.feedingPlans.id, db.feedingPlanMeals.planId));
+
+  $$FeedingPlanMealsTableProcessedTableManager get feedingPlanMealsRefs {
+    final manager =
+        $$FeedingPlanMealsTableTableManager($_db, $_db.feedingPlanMeals)
+            .filter((f) => f.planId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_feedingPlanMealsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$FeedingPlansTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedingPlansTable> {
+  $$FeedingPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  $$BirdsTableFilterComposer get birdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableFilterComposer get speciesId {
+    final $$SpeciesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableFilterComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> feedingPlanMealsRefs(
+      Expression<bool> Function($$FeedingPlanMealsTableFilterComposer f) f) {
+    final $$FeedingPlanMealsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlanMeals,
+        getReferencedColumn: (t) => t.planId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlanMealsTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingPlanMeals,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$FeedingPlansTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedingPlansTable> {
+  $$FeedingPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  $$BirdsTableOrderingComposer get birdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableOrderingComposer get speciesId {
+    final $$SpeciesTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableOrderingComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingPlansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedingPlansTable> {
+  $$FeedingPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get stage =>
+      $composableBuilder(column: $table.stage, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$BirdsTableAnnotationComposer get birdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$SpeciesTableAnnotationComposer get speciesId {
+    final $$SpeciesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.speciesId,
+        referencedTable: $db.species,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SpeciesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.species,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> feedingPlanMealsRefs<T extends Object>(
+      Expression<T> Function($$FeedingPlanMealsTableAnnotationComposer a) f) {
+    final $$FeedingPlanMealsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.feedingPlanMeals,
+        getReferencedColumn: (t) => t.planId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlanMealsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingPlanMeals,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$FeedingPlansTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FeedingPlansTable,
+    FeedingPlan,
+    $$FeedingPlansTableFilterComposer,
+    $$FeedingPlansTableOrderingComposer,
+    $$FeedingPlansTableAnnotationComposer,
+    $$FeedingPlansTableCreateCompanionBuilder,
+    $$FeedingPlansTableUpdateCompanionBuilder,
+    (FeedingPlan, $$FeedingPlansTableReferences),
+    FeedingPlan,
+    PrefetchHooks Function(
+        {bool birdId, bool speciesId, bool feedingPlanMealsRefs})> {
+  $$FeedingPlansTableTableManager(_$AppDatabase db, $FeedingPlansTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedingPlansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedingPlansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedingPlansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int?> birdId = const Value.absent(),
+            Value<int?> speciesId = const Value.absent(),
+            Value<String> stage = const Value.absent(),
+            Value<bool> isActive = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              FeedingPlansCompanion(
+            id: id,
+            uuid: uuid,
+            birdId: birdId,
+            speciesId: speciesId,
+            stage: stage,
+            isActive: isActive,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            Value<int?> birdId = const Value.absent(),
+            Value<int?> speciesId = const Value.absent(),
+            required String stage,
+            Value<bool> isActive = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+          }) =>
+              FeedingPlansCompanion.insert(
+            id: id,
+            uuid: uuid,
+            birdId: birdId,
+            speciesId: speciesId,
+            stage: stage,
+            isActive: isActive,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$FeedingPlansTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {birdId = false,
+              speciesId = false,
+              feedingPlanMealsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (feedingPlanMealsRefs) db.feedingPlanMeals
+              ],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (birdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.birdId,
+                    referencedTable:
+                        $$FeedingPlansTableReferences._birdIdTable(db),
+                    referencedColumn:
+                        $$FeedingPlansTableReferences._birdIdTable(db).id,
+                  ) as T;
+                }
+                if (speciesId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.speciesId,
+                    referencedTable:
+                        $$FeedingPlansTableReferences._speciesIdTable(db),
+                    referencedColumn:
+                        $$FeedingPlansTableReferences._speciesIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (feedingPlanMealsRefs)
+                    await $_getPrefetchedData<FeedingPlan, $FeedingPlansTable,
+                            FeedingPlanMeal>(
+                        currentTable: table,
+                        referencedTable: $$FeedingPlansTableReferences
+                            ._feedingPlanMealsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$FeedingPlansTableReferences(db, table, p0)
+                                .feedingPlanMealsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.planId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$FeedingPlansTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FeedingPlansTable,
+    FeedingPlan,
+    $$FeedingPlansTableFilterComposer,
+    $$FeedingPlansTableOrderingComposer,
+    $$FeedingPlansTableAnnotationComposer,
+    $$FeedingPlansTableCreateCompanionBuilder,
+    $$FeedingPlansTableUpdateCompanionBuilder,
+    (FeedingPlan, $$FeedingPlansTableReferences),
+    FeedingPlan,
+    PrefetchHooks Function(
+        {bool birdId, bool speciesId, bool feedingPlanMealsRefs})>;
+typedef $$FeedingPlanMealsTableCreateCompanionBuilder
+    = FeedingPlanMealsCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required int planId,
+  required String mealName,
+  Value<String?> timeOfDay,
+  required double grams,
+  Value<int> sortOrder,
+  Value<DateTime> createdAt,
+});
+typedef $$FeedingPlanMealsTableUpdateCompanionBuilder
+    = FeedingPlanMealsCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> planId,
+  Value<String> mealName,
+  Value<String?> timeOfDay,
+  Value<double> grams,
+  Value<int> sortOrder,
+  Value<DateTime> createdAt,
+});
+
+final class $$FeedingPlanMealsTableReferences extends BaseReferences<
+    _$AppDatabase, $FeedingPlanMealsTable, FeedingPlanMeal> {
+  $$FeedingPlanMealsTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $FeedingPlansTable _planIdTable(_$AppDatabase db) =>
+      db.feedingPlans.createAlias(
+          $_aliasNameGenerator(db.feedingPlanMeals.planId, db.feedingPlans.id));
+
+  $$FeedingPlansTableProcessedTableManager get planId {
+    final $_column = $_itemColumn<int>('plan_id')!;
+
+    final manager = $$FeedingPlansTableTableManager($_db, $_db.feedingPlans)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_planIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$FeedingPlanMealRecipesTable,
+      List<FeedingPlanMealRecipe>> _feedingPlanMealRecipesRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.feedingPlanMealRecipes,
+          aliasName: $_aliasNameGenerator(
+              db.feedingPlanMeals.id, db.feedingPlanMealRecipes.planMealId));
+
+  $$FeedingPlanMealRecipesTableProcessedTableManager
+      get feedingPlanMealRecipesRefs {
+    final manager = $$FeedingPlanMealRecipesTableTableManager(
+            $_db, $_db.feedingPlanMealRecipes)
+        .filter((f) => f.planMealId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_feedingPlanMealRecipesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$FeedingPlanMealsTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealsTable> {
+  $$FeedingPlanMealsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mealName => $composableBuilder(
+      column: $table.mealName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get timeOfDay => $composableBuilder(
+      column: $table.timeOfDay, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get grams => $composableBuilder(
+      column: $table.grams, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$FeedingPlansTableFilterComposer get planId {
+    final $$FeedingPlansTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planId,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> feedingPlanMealRecipesRefs(
+      Expression<bool> Function($$FeedingPlanMealRecipesTableFilterComposer f)
+          f) {
+    final $$FeedingPlanMealRecipesTableFilterComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.feedingPlanMealRecipes,
+            getReferencedColumn: (t) => t.planMealId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$FeedingPlanMealRecipesTableFilterComposer(
+                  $db: $db,
+                  $table: $db.feedingPlanMealRecipes,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+}
+
+class $$FeedingPlanMealsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealsTable> {
+  $$FeedingPlanMealsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mealName => $composableBuilder(
+      column: $table.mealName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get timeOfDay => $composableBuilder(
+      column: $table.timeOfDay, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get grams => $composableBuilder(
+      column: $table.grams, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$FeedingPlansTableOrderingComposer get planId {
+    final $$FeedingPlansTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planId,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableOrderingComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingPlanMealsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealsTable> {
+  $$FeedingPlanMealsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get mealName =>
+      $composableBuilder(column: $table.mealName, builder: (column) => column);
+
+  GeneratedColumn<String> get timeOfDay =>
+      $composableBuilder(column: $table.timeOfDay, builder: (column) => column);
+
+  GeneratedColumn<double> get grams =>
+      $composableBuilder(column: $table.grams, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$FeedingPlansTableAnnotationComposer get planId {
+    final $$FeedingPlansTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planId,
+        referencedTable: $db.feedingPlans,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlansTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingPlans,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> feedingPlanMealRecipesRefs<T extends Object>(
+      Expression<T> Function($$FeedingPlanMealRecipesTableAnnotationComposer a)
+          f) {
+    final $$FeedingPlanMealRecipesTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.feedingPlanMealRecipes,
+            getReferencedColumn: (t) => t.planMealId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$FeedingPlanMealRecipesTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.feedingPlanMealRecipes,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+}
+
+class $$FeedingPlanMealsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FeedingPlanMealsTable,
+    FeedingPlanMeal,
+    $$FeedingPlanMealsTableFilterComposer,
+    $$FeedingPlanMealsTableOrderingComposer,
+    $$FeedingPlanMealsTableAnnotationComposer,
+    $$FeedingPlanMealsTableCreateCompanionBuilder,
+    $$FeedingPlanMealsTableUpdateCompanionBuilder,
+    (FeedingPlanMeal, $$FeedingPlanMealsTableReferences),
+    FeedingPlanMeal,
+    PrefetchHooks Function({bool planId, bool feedingPlanMealRecipesRefs})> {
+  $$FeedingPlanMealsTableTableManager(
+      _$AppDatabase db, $FeedingPlanMealsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedingPlanMealsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedingPlanMealsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedingPlanMealsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> planId = const Value.absent(),
+            Value<String> mealName = const Value.absent(),
+            Value<String?> timeOfDay = const Value.absent(),
+            Value<double> grams = const Value.absent(),
+            Value<int> sortOrder = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingPlanMealsCompanion(
+            id: id,
+            uuid: uuid,
+            planId: planId,
+            mealName: mealName,
+            timeOfDay: timeOfDay,
+            grams: grams,
+            sortOrder: sortOrder,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int planId,
+            required String mealName,
+            Value<String?> timeOfDay = const Value.absent(),
+            required double grams,
+            Value<int> sortOrder = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingPlanMealsCompanion.insert(
+            id: id,
+            uuid: uuid,
+            planId: planId,
+            mealName: mealName,
+            timeOfDay: timeOfDay,
+            grams: grams,
+            sortOrder: sortOrder,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$FeedingPlanMealsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {planId = false, feedingPlanMealRecipesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (feedingPlanMealRecipesRefs) db.feedingPlanMealRecipes
+              ],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (planId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.planId,
+                    referencedTable:
+                        $$FeedingPlanMealsTableReferences._planIdTable(db),
+                    referencedColumn:
+                        $$FeedingPlanMealsTableReferences._planIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (feedingPlanMealRecipesRefs)
+                    await $_getPrefetchedData<FeedingPlanMeal,
+                            $FeedingPlanMealsTable, FeedingPlanMealRecipe>(
+                        currentTable: table,
+                        referencedTable: $$FeedingPlanMealsTableReferences
+                            ._feedingPlanMealRecipesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$FeedingPlanMealsTableReferences(db, table, p0)
+                                .feedingPlanMealRecipesRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.planMealId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$FeedingPlanMealsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FeedingPlanMealsTable,
+    FeedingPlanMeal,
+    $$FeedingPlanMealsTableFilterComposer,
+    $$FeedingPlanMealsTableOrderingComposer,
+    $$FeedingPlanMealsTableAnnotationComposer,
+    $$FeedingPlanMealsTableCreateCompanionBuilder,
+    $$FeedingPlanMealsTableUpdateCompanionBuilder,
+    (FeedingPlanMeal, $$FeedingPlanMealsTableReferences),
+    FeedingPlanMeal,
+    PrefetchHooks Function({bool planId, bool feedingPlanMealRecipesRefs})>;
+typedef $$FeedingPlanMealRecipesTableCreateCompanionBuilder
+    = FeedingPlanMealRecipesCompanion Function({
+  Value<int> id,
+  required String uuid,
+  required int planMealId,
+  required int blendId,
+  required double percent,
+  Value<DateTime> createdAt,
+});
+typedef $$FeedingPlanMealRecipesTableUpdateCompanionBuilder
+    = FeedingPlanMealRecipesCompanion Function({
+  Value<int> id,
+  Value<String> uuid,
+  Value<int> planMealId,
+  Value<int> blendId,
+  Value<double> percent,
+  Value<DateTime> createdAt,
+});
+
+final class $$FeedingPlanMealRecipesTableReferences extends BaseReferences<
+    _$AppDatabase, $FeedingPlanMealRecipesTable, FeedingPlanMealRecipe> {
+  $$FeedingPlanMealRecipesTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $FeedingPlanMealsTable _planMealIdTable(_$AppDatabase db) =>
+      db.feedingPlanMeals.createAlias($_aliasNameGenerator(
+          db.feedingPlanMealRecipes.planMealId, db.feedingPlanMeals.id));
+
+  $$FeedingPlanMealsTableProcessedTableManager get planMealId {
+    final $_column = $_itemColumn<int>('plan_meal_id')!;
+
+    final manager =
+        $$FeedingPlanMealsTableTableManager($_db, $_db.feedingPlanMeals)
+            .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_planMealIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $BlendsTable _blendIdTable(_$AppDatabase db) => db.blends.createAlias(
+      $_aliasNameGenerator(db.feedingPlanMealRecipes.blendId, db.blends.id));
+
+  $$BlendsTableProcessedTableManager get blendId {
+    final $_column = $_itemColumn<int>('blend_id')!;
+
+    final manager = $$BlendsTableTableManager($_db, $_db.blends)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_blendIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$FeedingPlanMealRecipesTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealRecipesTable> {
+  $$FeedingPlanMealRecipesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get percent => $composableBuilder(
+      column: $table.percent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  $$FeedingPlanMealsTableFilterComposer get planMealId {
+    final $$FeedingPlanMealsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planMealId,
+        referencedTable: $db.feedingPlanMeals,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlanMealsTableFilterComposer(
+              $db: $db,
+              $table: $db.feedingPlanMeals,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BlendsTableFilterComposer get blendId {
+    final $$BlendsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableFilterComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingPlanMealRecipesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealRecipesTable> {
+  $$FeedingPlanMealRecipesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get percent => $composableBuilder(
+      column: $table.percent, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  $$FeedingPlanMealsTableOrderingComposer get planMealId {
+    final $$FeedingPlanMealsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planMealId,
+        referencedTable: $db.feedingPlanMeals,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlanMealsTableOrderingComposer(
+              $db: $db,
+              $table: $db.feedingPlanMeals,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BlendsTableOrderingComposer get blendId {
+    final $$BlendsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableOrderingComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingPlanMealRecipesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedingPlanMealRecipesTable> {
+  $$FeedingPlanMealRecipesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<double> get percent =>
+      $composableBuilder(column: $table.percent, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$FeedingPlanMealsTableAnnotationComposer get planMealId {
+    final $$FeedingPlanMealsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.planMealId,
+        referencedTable: $db.feedingPlanMeals,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$FeedingPlanMealsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.feedingPlanMeals,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$BlendsTableAnnotationComposer get blendId {
+    final $$BlendsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.blendId,
+        referencedTable: $db.blends,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlendsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blends,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$FeedingPlanMealRecipesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FeedingPlanMealRecipesTable,
+    FeedingPlanMealRecipe,
+    $$FeedingPlanMealRecipesTableFilterComposer,
+    $$FeedingPlanMealRecipesTableOrderingComposer,
+    $$FeedingPlanMealRecipesTableAnnotationComposer,
+    $$FeedingPlanMealRecipesTableCreateCompanionBuilder,
+    $$FeedingPlanMealRecipesTableUpdateCompanionBuilder,
+    (FeedingPlanMealRecipe, $$FeedingPlanMealRecipesTableReferences),
+    FeedingPlanMealRecipe,
+    PrefetchHooks Function({bool planMealId, bool blendId})> {
+  $$FeedingPlanMealRecipesTableTableManager(
+      _$AppDatabase db, $FeedingPlanMealRecipesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedingPlanMealRecipesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedingPlanMealRecipesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedingPlanMealRecipesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> uuid = const Value.absent(),
+            Value<int> planMealId = const Value.absent(),
+            Value<int> blendId = const Value.absent(),
+            Value<double> percent = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingPlanMealRecipesCompanion(
+            id: id,
+            uuid: uuid,
+            planMealId: planMealId,
+            blendId: blendId,
+            percent: percent,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String uuid,
+            required int planMealId,
+            required int blendId,
+            required double percent,
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FeedingPlanMealRecipesCompanion.insert(
+            id: id,
+            uuid: uuid,
+            planMealId: planMealId,
+            blendId: blendId,
+            percent: percent,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$FeedingPlanMealRecipesTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({planMealId = false, blendId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (planMealId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.planMealId,
+                    referencedTable: $$FeedingPlanMealRecipesTableReferences
+                        ._planMealIdTable(db),
+                    referencedColumn: $$FeedingPlanMealRecipesTableReferences
+                        ._planMealIdTable(db)
+                        .id,
+                  ) as T;
+                }
+                if (blendId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.blendId,
+                    referencedTable: $$FeedingPlanMealRecipesTableReferences
+                        ._blendIdTable(db),
+                    referencedColumn: $$FeedingPlanMealRecipesTableReferences
+                        ._blendIdTable(db)
+                        .id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$FeedingPlanMealRecipesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$AppDatabase,
+        $FeedingPlanMealRecipesTable,
+        FeedingPlanMealRecipe,
+        $$FeedingPlanMealRecipesTableFilterComposer,
+        $$FeedingPlanMealRecipesTableOrderingComposer,
+        $$FeedingPlanMealRecipesTableAnnotationComposer,
+        $$FeedingPlanMealRecipesTableCreateCompanionBuilder,
+        $$FeedingPlanMealRecipesTableUpdateCompanionBuilder,
+        (FeedingPlanMealRecipe, $$FeedingPlanMealRecipesTableReferences),
+        FeedingPlanMealRecipe,
+        PrefetchHooks Function({bool planMealId, bool blendId})>;
+typedef $$BirdStagesTableCreateCompanionBuilder = BirdStagesCompanion Function({
+  Value<int> id,
+  required int birdId,
+  required String stage,
+  Value<String> source,
+  Value<DateTime> updatedAt,
+});
+typedef $$BirdStagesTableUpdateCompanionBuilder = BirdStagesCompanion Function({
+  Value<int> id,
+  Value<int> birdId,
+  Value<String> stage,
+  Value<String> source,
+  Value<DateTime> updatedAt,
+});
+
+final class $$BirdStagesTableReferences
+    extends BaseReferences<_$AppDatabase, $BirdStagesTable, BirdStage> {
+  $$BirdStagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BirdsTable _birdIdTable(_$AppDatabase db) => db.birds
+      .createAlias($_aliasNameGenerator(db.birdStages.birdId, db.birds.id));
+
+  $$BirdsTableProcessedTableManager get birdId {
+    final $_column = $_itemColumn<int>('bird_id')!;
+
+    final manager = $$BirdsTableTableManager($_db, $_db.birds)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_birdIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$BirdStagesTableFilterComposer
+    extends Composer<_$AppDatabase, $BirdStagesTable> {
+  $$BirdStagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  $$BirdsTableFilterComposer get birdId {
+    final $$BirdsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableFilterComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BirdStagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $BirdStagesTable> {
+  $$BirdStagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stage => $composableBuilder(
+      column: $table.stage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$BirdsTableOrderingComposer get birdId {
+    final $$BirdsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableOrderingComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BirdStagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BirdStagesTable> {
+  $$BirdStagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get stage =>
+      $composableBuilder(column: $table.stage, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$BirdsTableAnnotationComposer get birdId {
+    final $$BirdsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.birdId,
+        referencedTable: $db.birds,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BirdsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.birds,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BirdStagesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BirdStagesTable,
+    BirdStage,
+    $$BirdStagesTableFilterComposer,
+    $$BirdStagesTableOrderingComposer,
+    $$BirdStagesTableAnnotationComposer,
+    $$BirdStagesTableCreateCompanionBuilder,
+    $$BirdStagesTableUpdateCompanionBuilder,
+    (BirdStage, $$BirdStagesTableReferences),
+    BirdStage,
+    PrefetchHooks Function({bool birdId})> {
+  $$BirdStagesTableTableManager(_$AppDatabase db, $BirdStagesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BirdStagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BirdStagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BirdStagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> birdId = const Value.absent(),
+            Value<String> stage = const Value.absent(),
+            Value<String> source = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BirdStagesCompanion(
+            id: id,
+            birdId: birdId,
+            stage: stage,
+            source: source,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int birdId,
+            required String stage,
+            Value<String> source = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              BirdStagesCompanion.insert(
+            id: id,
+            birdId: birdId,
+            stage: stage,
+            source: source,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BirdStagesTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({birdId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (birdId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.birdId,
+                    referencedTable:
+                        $$BirdStagesTableReferences._birdIdTable(db),
+                    referencedColumn:
+                        $$BirdStagesTableReferences._birdIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BirdStagesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BirdStagesTable,
+    BirdStage,
+    $$BirdStagesTableFilterComposer,
+    $$BirdStagesTableOrderingComposer,
+    $$BirdStagesTableAnnotationComposer,
+    $$BirdStagesTableCreateCompanionBuilder,
+    $$BirdStagesTableUpdateCompanionBuilder,
+    (BirdStage, $$BirdStagesTableReferences),
+    BirdStage,
+    PrefetchHooks Function({bool birdId})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16904,8 +33888,22 @@ class $AppDatabaseManager {
       $$AlertRecordsTableTableManager(_db, _db.alertRecords);
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$DrugLibraryTableTableManager get drugLibrary =>
+      $$DrugLibraryTableTableManager(_db, _db.drugLibrary);
+  $$DrugFormulationsTableTableManager get drugFormulations =>
+      $$DrugFormulationsTableTableManager(_db, _db.drugFormulations);
+  $$DiseaseCatalogTableTableManager get diseaseCatalog =>
+      $$DiseaseCatalogTableTableManager(_db, _db.diseaseCatalog);
+  $$DoseRulesTableTableManager get doseRules =>
+      $$DoseRulesTableTableManager(_db, _db.doseRules);
   $$MedicationsTableTableManager get medications =>
       $$MedicationsTableTableManager(_db, _db.medications);
+  $$FeedingRecordsTableTableManager get feedingRecords =>
+      $$FeedingRecordsTableTableManager(_db, _db.feedingRecords);
+  $$SideEffectRecordsTableTableManager get sideEffectRecords =>
+      $$SideEffectRecordsTableTableManager(_db, _db.sideEffectRecords);
+  $$StopConditionsTableTableManager get stopConditions =>
+      $$StopConditionsTableTableManager(_db, _db.stopConditions);
   $$BreedingPairsTableTableManager get breedingPairs =>
       $$BreedingPairsTableTableManager(_db, _db.breedingPairs);
   $$BreedingRecordsTableTableManager get breedingRecords =>
@@ -16919,4 +33917,21 @@ class $AppDatabaseManager {
       $$BirdPhotosTableTableManager(_db, _db.birdPhotos);
   $$BirdAvatarsTableTableManager get birdAvatars =>
       $$BirdAvatarsTableTableManager(_db, _db.birdAvatars);
+  $$FoodsTableTableManager get foods =>
+      $$FoodsTableTableManager(_db, _db.foods);
+  $$BlendsTableTableManager get blends =>
+      $$BlendsTableTableManager(_db, _db.blends);
+  $$BlendItemsTableTableManager get blendItems =>
+      $$BlendItemsTableTableManager(_db, _db.blendItems);
+  $$BlendBindingsTableTableManager get blendBindings =>
+      $$BlendBindingsTableTableManager(_db, _db.blendBindings);
+  $$FeedingPlansTableTableManager get feedingPlans =>
+      $$FeedingPlansTableTableManager(_db, _db.feedingPlans);
+  $$FeedingPlanMealsTableTableManager get feedingPlanMeals =>
+      $$FeedingPlanMealsTableTableManager(_db, _db.feedingPlanMeals);
+  $$FeedingPlanMealRecipesTableTableManager get feedingPlanMealRecipes =>
+      $$FeedingPlanMealRecipesTableTableManager(
+          _db, _db.feedingPlanMealRecipes);
+  $$BirdStagesTableTableManager get birdStages =>
+      $$BirdStagesTableTableManager(_db, _db.birdStages);
 }

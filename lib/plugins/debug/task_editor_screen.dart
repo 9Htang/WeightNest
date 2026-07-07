@@ -39,13 +39,20 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
   Future<void> _load() async {
     final db = pluginRegistry.db;
     if (db == null) {
-      setState(() { _loading = false; _error = '数据库未初始化'; });
+      setState(() {
+        _loading = false;
+        _error = '数据库未初始化';
+      });
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final fromDay = DateTime(_from.year, _from.month, _from.day);
-      final toDay = DateTime(_to.year, _to.month, _to.day).add(const Duration(days: 1));
+      final toDay =
+          DateTime(_to.year, _to.month, _to.day).add(const Duration(days: 1));
       final query = db.select(db.tasks).join([
         innerJoin(db.birds, db.birds.id.equalsExp(db.tasks.birdId)),
       ]);
@@ -57,18 +64,23 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
 
       final rows = await query.get();
       setState(() {
-        _tasks = rows.map((row) => TaskWithBird(
-          task: row.readTable(db.tasks),
-          bird: row.readTable(db.birds),
-          species: null,
-          room: null,
-          enclosure: null,
-          todayWeight: null,
-        )).toList();
+        _tasks = rows
+            .map((row) => TaskWithBird(
+                  task: row.readTable(db.tasks),
+                  bird: row.readTable(db.birds),
+                  species: null,
+                  room: null,
+                  enclosure: null,
+                  todayWeight: null,
+                ))
+            .toList();
         _loading = false;
       });
     } catch (e) {
-      setState(() { _loading = false; _error = '$e'; });
+      setState(() {
+        _loading = false;
+        _error = '$e';
+      });
     }
   }
 
@@ -77,7 +89,8 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
     await (db.update(db.tasks)..where((t) => t.id.equals(task.id)))
         .write(TasksCompanion(
       status: Value(newStatus),
-      completedAt: newStatus == '已完成' ? Value(AppClock.now) : const Value.absent(),
+      completedAt:
+          newStatus == '已完成' ? Value(AppClock.now) : const Value.absent(),
       updatedAt: Value(AppClock.now),
     ));
     ref.invalidate(todayTasksProvider);
@@ -124,7 +137,10 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
       initialDateRange: DateTimeRange(start: _from, end: _to),
     );
     if (range != null) {
-      setState(() { _from = range.start; _to = range.end; });
+      setState(() {
+        _from = range.start;
+        _to = range.end;
+      });
       _load();
     }
   }
@@ -137,7 +153,10 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
       appBar: AppBar(
         title: const Text('任务编辑器'),
         actions: [
-          IconButton(icon: const Icon(Icons.date_range), tooltip: '日期范围', onPressed: _pickDateRange),
+          IconButton(
+              icon: const Icon(Icons.date_range),
+              tooltip: '日期范围',
+              onPressed: _pickDateRange),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
@@ -150,7 +169,9 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             color: theme.colorScheme.surfaceContainerLow,
             child: Text(
               '${_fmtDay(_from)} — ${_fmtDay(_to)}  ·  ${_tasks.length} 个任务',
-              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withAlpha(160)),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface.withAlpha(160)),
             ),
           ),
 
@@ -159,7 +180,9 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               color: theme.colorScheme.error.withAlpha(20),
-              child: Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
+              child: Text(_error!,
+                  style:
+                      TextStyle(color: theme.colorScheme.error, fontSize: 13)),
             ),
 
           // Task list
@@ -167,19 +190,27 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _tasks.isEmpty
-                    ? Center(child: Text('此日期范围内无任务', style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(120))))
+                    ? Center(
+                        child: Text('此日期范围内无任务',
+                            style: TextStyle(
+                                color: theme.colorScheme.onSurface
+                                    .withAlpha(120))))
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: _tasks.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1, indent: 16),
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, indent: 16),
                         itemBuilder: (_, i) {
                           final twb = _tasks[i];
                           final t = twb.task;
                           final birdName = twb.bird.name;
-                          final isLate = t.deadline != null && t.deadline!.isBefore(AppClock.now) && t.status == '待完成';
+                          final isLate = t.deadline != null &&
+                              t.deadline!.isBefore(AppClock.now) &&
+                              t.status == '待完成';
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -188,11 +219,14 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                                     Expanded(
                                       child: Text(
                                         '$birdName · ${t.taskType}',
-                                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                     if (isLate)
-                                      const Icon(Icons.warning_amber, color: Colors.orange, size: 16),
+                                      const Icon(Icons.warning_amber,
+                                          color: Colors.orange, size: 16),
                                     const SizedBox(width: 6),
                                     _StatusDropdown(
                                       value: t.status,
@@ -200,18 +234,30 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     IconButton(
-                                      icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
+                                      icon: Icon(Icons.delete_outline,
+                                          size: 18,
+                                          color: theme.colorScheme.error),
                                       visualDensity: VisualDensity.compact,
                                       onPressed: () => showDialog(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title: const Text('删除任务'),
-                                          content: Text('删除 $birdName 的 ${t.taskType} 任务？'),
+                                          content: Text(
+                                              '删除 $birdName 的 ${t.taskType} 任务？'),
                                           actions: [
-                                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
                                             TextButton(
-                                              onPressed: () { Navigator.pop(ctx); _deleteTask(t); },
-                                              child: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx),
+                                                child: const Text('取消')),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(ctx);
+                                                _deleteTask(t);
+                                              },
+                                              child: Text('删除',
+                                                  style: TextStyle(
+                                                      color: theme
+                                                          .colorScheme.error)),
                                             ),
                                           ],
                                         ),
@@ -222,7 +268,10 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '截止: ${_fmtDay(t.dueDate)}${t.deadline != null ? "  ·  逾期线: ${_fmtDay(t.deadline!)}" : ""}',
-                                  style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withAlpha(120)),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.onSurface
+                                          .withAlpha(120)),
                                 ),
                               ],
                             ),
@@ -246,7 +295,8 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                       labelText: '批量生成天数',
                       border: OutlineInputBorder(),
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                   ),
                 ),
@@ -265,7 +315,8 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
   }
 
   String _fmtDay(DateTime dt) {
-    final m = dt.month.toString().padLeft(2, '0'), d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0'),
+        d = dt.day.toString().padLeft(2, '0');
     return '${dt.year}-$m-$d';
   }
 }
@@ -291,7 +342,10 @@ class _StatusDropdown extends StatelessWidget {
     return PopupMenuButton<String>(
       initialValue: value,
       onSelected: onChange,
-      itemBuilder: (_) => _all.map((s) => PopupMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
+      itemBuilder: (_) => _all
+          .map((s) => PopupMenuItem(
+              value: s, child: Text(s, style: const TextStyle(fontSize: 13))))
+          .toList(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -301,7 +355,9 @@ class _StatusDropdown extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(value, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w500)),
             const SizedBox(width: 2),
             Icon(Icons.arrow_drop_down, size: 16, color: color),
           ],

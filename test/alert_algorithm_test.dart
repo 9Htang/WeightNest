@@ -42,6 +42,7 @@ double calcStdDev(List<double> values) {
 /// 单元测试
 /// ============================================
 
+@Tags(['smoke'])
 void main() {
   group('logGrowthRate', () {
     test('10→12 = ln(1.2) ≈ 0.182', () {
@@ -88,7 +89,7 @@ void main() {
       expect(ema[0], 10.0); // 第一点不计算
       // EMA[1] = 12*0.3 + 10*0.7 = 3.6 + 7 = 10.6
       expect(ema[1].toStringAsFixed(2), '10.60');
-      
+
       // EMA[2] = 11*0.3 + 10.6*0.7 = 3.3 + 7.42 = 10.72
       expect(ema[2].toStringAsFixed(2), '10.72');
     });
@@ -97,7 +98,8 @@ void main() {
   group('calcStdDev', () {
     test('stable', () {
       final std = calcStdDev([10, 10, 10, 10.5, 9.5]);
-      expect(std.toStringAsFixed(2), '0.32');  // avg=10, variance=0.1, sqrt=0.316
+      expect(
+          std.toStringAsFixed(2), '0.32'); // avg=10, variance=0.1, sqrt=0.316
     });
 
     test('volatile', () {
@@ -133,7 +135,7 @@ void main() {
       final weights = [100.0, 101.0, 99.5, 100.5, 101.0, 99.8, 100.2];
       final ema = calcEMA(weights);
       final std = calcStdDev(weights);
-      
+
       // 7日标准差 < 5% of avg
       final stdPct = std / (weights.reduce((a, b) => a + b) / weights.length);
       expect(stdPct < 0.05, isTrue, reason: '波动率应 <5%');

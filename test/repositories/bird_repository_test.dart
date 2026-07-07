@@ -3,17 +3,19 @@ import '../../lib/database/database.dart';
 import '../../lib/repositories/species_repository.dart';
 import '../../lib/repositories/room_repository.dart';
 import '../../lib/repositories/bird_repository.dart';
+import '../test_helpers/test_factories.dart';
 
+@Tags(['smoke'])
 void main() {
   late AppDatabase db;
 
   setUp(() async {
-    db = AppDatabase.test();
+    db = await setUpTestDb();
     await db.createSpecies('虎皮鹦鹉');
     await db.createSpecies('玄凤鹦鹉');
   });
 
-  tearDown(() async => db.close());
+  tearDown(() => tearDownTestDb(db));
 
   group('createBird', () {
     test('creates a bird with required fields', () async {
@@ -32,9 +34,12 @@ void main() {
     });
 
     test('auto-increments sortOrder', () async {
-      await db.createBird(name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1));
-      await db.createBird(name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
-      final c = await db.createBird(name: 'C', speciesId: 1, birthDate: DateTime(2024, 3, 1));
+      await db.createBird(
+          name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
+      final c = await db.createBird(
+          name: 'C', speciesId: 1, birthDate: DateTime(2024, 3, 1));
 
       expect(c.sortOrder, 3);
     });
@@ -57,7 +62,8 @@ void main() {
 
   group('getBirdById', () {
     test('returns bird by ID', () async {
-      await db.createBird(name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
       final bird = await db.getBirdById(1);
 
       expect(bird, isNotNull);
@@ -72,8 +78,10 @@ void main() {
 
   group('getAllWithDetails', () {
     test('returns birds with species name', () async {
-      await db.createBird(name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
-      await db.createBird(name: '小白', speciesId: 2, birthDate: DateTime(2024, 2, 1));
+      await db.createBird(
+          name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: '小白', speciesId: 2, birthDate: DateTime(2024, 2, 1));
 
       final list = await db.getAllWithDetails();
       expect(list.length, 2);
@@ -93,9 +101,12 @@ void main() {
     test('returns birds filtered by room', () async {
       await db.createRoom('育雏室');
       await db.createRoom('成鸟室');
-      await db.createBird(name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1), roomId: 1);
-      await db.createBird(name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1), roomId: 1);
-      await db.createBird(name: 'C', speciesId: 1, birthDate: DateTime(2024, 3, 1), roomId: 2);
+      await db.createBird(
+          name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1), roomId: 1);
+      await db.createBird(
+          name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1), roomId: 1);
+      await db.createBird(
+          name: 'C', speciesId: 1, birthDate: DateTime(2024, 3, 1), roomId: 2);
 
       final room1 = await db.getByRoom(1);
       expect(room1.length, 2);
@@ -110,7 +121,8 @@ void main() {
 
   group('updateBird', () {
     test('updates bird fields', () async {
-      await db.createBird(name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
       final updated = await db.updateBird(1, name: '小绿(已改名)', notes: '更新测试');
 
       expect(updated.name, '小绿(已改名)');
@@ -121,9 +133,12 @@ void main() {
 
   group('getBirdCount', () {
     test('counts birds by species', () async {
-      await db.createBird(name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1));
-      await db.createBird(name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
-      await db.createBird(name: 'C', speciesId: 2, birthDate: DateTime(2024, 3, 1));
+      await db.createBird(
+          name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
+      await db.createBird(
+          name: 'C', speciesId: 2, birthDate: DateTime(2024, 3, 1));
 
       expect(await db.getBirdCountBySpecies(1), 2);
       expect(await db.getBirdCountBySpecies(2), 1);
@@ -131,8 +146,10 @@ void main() {
 
     test('counts birds by room', () async {
       await db.createRoom('育雏室');
-      await db.createBird(name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1), roomId: 1);
-      await db.createBird(name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
+      await db.createBird(
+          name: 'A', speciesId: 1, birthDate: DateTime(2024, 1, 1), roomId: 1);
+      await db.createBird(
+          name: 'B', speciesId: 1, birthDate: DateTime(2024, 2, 1));
 
       expect(await db.getBirdCountByRoom(1), 1);
       expect(await db.getBirdCountByRoom(999), 0);
@@ -141,7 +158,8 @@ void main() {
 
   group('removeBird', () {
     test('deletes a bird', () async {
-      await db.createBird(name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
+      await db.createBird(
+          name: '小绿', speciesId: 1, birthDate: DateTime(2024, 1, 1));
       await db.removeBird(1);
 
       final bird = await db.getBirdById(1);

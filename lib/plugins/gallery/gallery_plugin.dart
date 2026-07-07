@@ -52,11 +52,14 @@ class GalleryPlugin extends FeaturePlugin {
   // ── Slot I: 头像 ──
 
   @override
-  Widget? buildAvatar(int birdId, {double size = 56, VoidCallback? onTap}) {
+  Widget? buildAvatar(int birdId, {double size = 56, VoidCallback? onTap, String? growthStage, bool fillHeight = false, Color? backgroundColor}) {
     return BirdAvatarWidget(
       birdId: birdId,
       size: size,
       onTap: onTap,
+      growthStage: growthStage,
+      forceSharp: fillHeight,
+      backgroundColor: backgroundColor,
     );
   }
 

@@ -10,8 +10,10 @@ class EventBus {
   final _handlers = <Type, List<Function>>{};
 
   /// Register a handler for events of type [T].
-  void on<T>(void Function(T event) handler) {
+  /// Returns a function that removes this specific handler when called.
+  void Function() on<T>(void Function(T event) handler) {
     _handlers.putIfAbsent(T, () => []).add(handler);
+    return () => _handlers[T]?.remove(handler);
   }
 
   /// Emit an event — all registered handlers for [T] are invoked synchronously.

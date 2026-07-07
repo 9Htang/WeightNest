@@ -245,7 +245,8 @@ final activityLogsProvider =
   final db = ref.watch(databaseProvider);
   return (db.select(db.activityLogs)
         ..where((t) => t.birdId.equals(birdId))
-        ..orderBy([(t) => OrderingTerm.desc(t.operatedAt)]))
+        ..orderBy([(t) => OrderingTerm.desc(t.operatedAt)])
+        ..limit(100))
       .get();
 });
 

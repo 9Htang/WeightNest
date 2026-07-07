@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/work_hours_config.dart';
 import '../../providers.dart';
+import '../../widgets/feather_icon.dart';
 import '../../database/database.dart';
 import '../../screens/species/species_screen.dart';
+import 'drug_library_screen.dart';
+import 'disease_catalog_screen.dart';
 
 /// 喂药插件自己的时间窗口 key（覆盖全局工作时间）
 const _kMedStartHour = 'medication_work_start_hour';
@@ -49,7 +52,9 @@ class MedicationConfig {
   List<TimeOfDay> distributeDoses(int doses) {
     if (doses <= 0) return [];
     if (doses == 1) {
-      final mid = (windowStart.hour * 60 + windowStart.minute + windowMinutes ~/ 2) % (24 * 60);
+      final mid =
+          (windowStart.hour * 60 + windowStart.minute + windowMinutes ~/ 2) %
+              (24 * 60);
       return [TimeOfDay(hour: mid ~/ 60, minute: mid % 60)];
     }
     final interval = windowMinutes / (doses - 1);
@@ -77,7 +82,8 @@ class MedicationConfig {
 
     if (sh != null) {
       // 喂药插件有自己的时间窗口
-      windowStart = TimeOfDay(hour: sh, minute: prefs.getInt(_kMedStartMin) ?? 0);
+      windowStart =
+          TimeOfDay(hour: sh, minute: prefs.getInt(_kMedStartMin) ?? 0);
       windowEnd = TimeOfDay(
         hour: prefs.getInt(_kMedEndHour) ?? 22,
         minute: prefs.getInt(_kMedEndMin) ?? 0,
@@ -144,7 +150,11 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
 
   Future<void> _load() async {
     final c = await MedicationConfig.load();
-    if (mounted) setState(() { _config = c; _loading = false; });
+    if (mounted)
+      setState(() {
+        _config = c;
+        _loading = false;
+      });
   }
 
   @override
@@ -162,300 +172,375 @@ class _MedicationConfigScreenState extends State<MedicationConfigScreen> {
         ? '🌙 ${_config.formatTime(_config.windowStart)} ~ ${_config.formatTime(_config.windowEnd)} (次日)'
         : '${_config.formatTime(_config.windowStart)} ~ ${_config.formatTime(_config.windowEnd)}';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('喂药设置'),
-        actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.restore, size: 16),
-            label: const Text('重置'),
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove(_kMedStartHour);
-              await prefs.remove(_kMedStartMin);
-              await prefs.remove(_kMedEndHour);
-              await prefs.remove(_kMedEndMin);
-              await prefs.setInt(_kDefaultDoses, 2);
-              final c = await MedicationConfig.load();
-              if (mounted) setState(() => _config = c);
-            },
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('喂药设置'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.local_pharmacy, size: 18), text: '药品库'),
+              Tab(icon: Icon(Icons.coronavirus, size: 18), text: '疾病库'),
+              Tab(icon: Icon(Icons.settings, size: 18), text: '时间配置'),
+            ],
           ),
-          const SizedBox(width: 8),
-        ],
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.restore, size: 16),
+              label: const Text('重置'),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove(_kMedStartHour);
+                await prefs.remove(_kMedStartMin);
+                await prefs.remove(_kMedEndHour);
+                await prefs.remove(_kMedEndMin);
+                await prefs.setInt(_kDefaultDoses, 2);
+                final c = await MedicationConfig.load();
+                if (mounted) setState(() => _config = c);
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            // Tab 1: 药品库
+            const DrugLibraryScreen(),
+            // Tab 2: 疾病库
+            const DiseaseCatalogScreen(),
+            // Tab 3: 时间配置
+            _buildConfigTab(theme, points, windowLabel),
+          ],
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── 喂药时间窗口 ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.access_time, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('喂药时间窗口', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    ),
-                    // 重置为全局工作时间
-                    if (_config.hasCustomWindow)
-                      TextButton.icon(
-                        icon: const Icon(Icons.restore, size: 14),
-                        label: const Text('用全局', style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('重置时间窗口'),
-                              content: const Text('清除喂药插件的时间窗口，改回使用全局工作时间？'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true && mounted) {
-                            await _resetToGlobalWindow();
-                          }
-                        },
-                      ),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text(_config.hasCustomWindow
-                      ? '已设置独立时间窗口，不受全局工作时间影响'
-                      : '未单独设置，沿用全局工作时间',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  const SizedBox(height: 16),
-                  // 可编辑时间选择
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _TimeCard(
-                          label: '起始时间',
-                          time: _config.formatTime(_config.windowStart),
-                          onTap: () => _pickMedTime(true),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('~', style: TextStyle(fontSize: 20, color: Colors.grey)),
-                      ),
-                      Expanded(
-                        child: _TimeCard(
-                          label: '结束时间',
-                          time: _config.formatTime(_config.windowEnd),
-                          onTap: () => _pickMedTime(false),
-                        ),
-                      ),
-                    ],
+    );
+  }
+
+  Widget _buildConfigTab(
+      ThemeData theme, List<TimeOfDay> points, String windowLabel) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // ── 喂药时间窗口 ──
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.access_time, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('喂药时间窗口',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                   ),
-                  if (_config.crossesMidnight) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                  // 重置为全局工作时间
+                  if (_config.hasCustomWindow)
+                    TextButton.icon(
+                      icon: const Icon(Icons.restore, size: 14),
+                      label: const Text('用全局', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact),
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('重置时间窗口'),
+                            content: const Text('清除喂药插件的时间窗口，改回使用全局工作时间？'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('取消')),
+                              FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('确定')),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && mounted) {
+                          await _resetToGlobalWindow();
+                        }
+                      },
+                    ),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                    _config.hasCustomWindow
+                        ? '已设置独立时间窗口，不受全局工作时间影响'
+                        : '未单独设置，沿用全局工作时间',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 16),
+                // 可编辑时间选择
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TimeCard(
+                        label: '起始时间',
+                        time: _config.formatTime(_config.windowStart),
+                        onTap: () => _pickMedTime(true),
                       ),
-                      child: const Row(children: [
-                        Icon(Icons.nightlight_round, size: 16, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Expanded(child: Text('跨午夜模式，凌晨时间归入次日', style: TextStyle(fontSize: 12, color: Colors.blue))),
-                      ]),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('~',
+                          style: TextStyle(fontSize: 20, color: Colors.grey)),
+                    ),
+                    Expanded(
+                      child: _TimeCard(
+                        label: '结束时间',
+                        time: _config.formatTime(_config.windowEnd),
+                        onTap: () => _pickMedTime(false),
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                ),
+                if (_config.crossesMidnight) ...[
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Row(children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                      Icon(Icons.nightlight_round,
+                          size: 16, color: Colors.blue),
                       SizedBox(width: 8),
                       Expanded(
-                        child: Text('此处仅覆盖喂药插件的时间。其他插件仍使用全局工作时间。',
-                            style: TextStyle(fontSize: 12, color: Colors.blue)),
-                      ),
+                          child: Text('跨午夜模式，凌晨时间归入次日',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.blue))),
                     ]),
                   ),
                 ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── 每日次数 ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('默认每日次数', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text('新添加药品时的默认值，可单独调整', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  const SizedBox(height: 16),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 1, label: Text('1 次/日'), icon: Icon(Icons.looks_one, size: 16)),
-                      ButtonSegment(value: 2, label: Text('2 次/日'), icon: Icon(Icons.looks_two, size: 16)),
-                      ButtonSegment(value: 3, label: Text('3 次/日'), icon: Icon(Icons.looks_3, size: 16)),
-                      ButtonSegment(value: 4, label: Text('4 次/日'), icon: Icon(Icons.looks_4, size: 16)),
-                    ],
-                    selected: {_config.defaultDoses},
-                    onSelectionChanged: (v) async {
-                      final updated = _config.copyWith(defaultDoses: v.first);
-                      setState(() => _config = updated);
-                      await updated.save();
-                    },
-                    showSelectedIcon: false,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── 预览 ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.preview, size: 20),
-                    const SizedBox(width: 8),
-                    Text('时间分布预览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text('每日 ${_config.defaultDoses} 次 · $windowLabel',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 64,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: CustomPaint(
-                            size: const Size(double.infinity, 2),
-                            painter: _TimelinePainter(
-                              points: points,
-                              crossesMidnight: _config.crossesMidnight,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
+                  child: const Row(children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('此处仅覆盖喂药插件的时间。其他插件仍使用全局工作时间。',
+                          style: TextStyle(fontSize: 12, color: Colors.blue)),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: points.map((t) => Chip(
-                      avatar: Icon(Icons.medication, size: 14, color: theme.colorScheme.primary),
-                      label: Text(_config.formatTime(t), style: const TextStyle(fontSize: 13)),
-                      visualDensity: VisualDensity.compact,
-                    )).toList(),
-                  ),
-                ],
-              ),
+                  ]),
+                ),
+              ],
             ),
           ),
+        ),
 
-          const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-          // ── 品种生长阶段参考 ──
-          Consumer(
-            builder: (context, ref, _) {
-              final spAsync = ref.watch(allSpeciesProvider);
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        // ── 每日次数 ──
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('默认每日次数',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('新添加药品时的默认值，可单独调整',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 16),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(
+                        value: 1,
+                        label: Text('1 次/日'),
+                        icon: Icon(Icons.looks_one, size: 16)),
+                    ButtonSegment(
+                        value: 2,
+                        label: Text('2 次/日'),
+                        icon: Icon(Icons.looks_two, size: 16)),
+                    ButtonSegment(
+                        value: 3,
+                        label: Text('3 次/日'),
+                        icon: Icon(Icons.looks_3, size: 16)),
+                    ButtonSegment(
+                        value: 4,
+                        label: Text('4 次/日'),
+                        icon: Icon(Icons.looks_4, size: 16)),
+                  ],
+                  selected: {_config.defaultDoses},
+                  onSelectionChanged: (v) async {
+                    final updated = _config.copyWith(defaultDoses: v.first);
+                    setState(() => _config = updated);
+                    await updated.save();
+                  },
+                  showSelectedIcon: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // ── 预览 ──
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.preview, size: 20),
+                  const SizedBox(width: 8),
+                  Text('时间分布预览',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ]),
+                const SizedBox(height: 4),
+                Text('每日 ${_config.defaultDoses} 次 · $windowLabel',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 64,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(children: [
-                        const Icon(Icons.pets, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('品种生长阶段参考', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.edit, size: 14),
-                          label: const Text('管理品种', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SpeciesScreen()),
+                      Expanded(
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 2),
+                          painter: _TimelinePainter(
+                            points: points,
+                            crossesMidnight: _config.crossesMidnight,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
-                      ]),
-                      const SizedBox(height: 4),
-                      Text('各品种的生长阶段划分，用于参考喂药时机的判断',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      const SizedBox(height: 12),
-                      spAsync.when(
-                        loading: () => const Center(child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(),
-                        )),
-                        error: (e, _) => Center(child: Text('加载失败: $e', style: const TextStyle(fontSize: 13))),
-                        data: (spList) {
-                          if (spList.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Center(child: Text('暂无品种数据', style: TextStyle(color: Colors.grey))),
-                            );
-                          }
-                          return Column(
-                            children: spList.map((s) => _SpeciesStageRow(species: s)).toList(),
-                          );
-                        },
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // 说明
-          Card(
-            color: Colors.grey.shade50,
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Icon(Icons.info_outline, size: 18),
-                    SizedBox(width: 8),
-                    Text('说明', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ]),
-                  SizedBox(height: 8),
-                  Text('• 此处设置仅影响喂药插件，不影响全局或其他插件\n'
-                      '• 未设置时间窗口时，自动沿用全局工作时间\n'
-                      '• 添加药品时仍可单独调整每日次数和时间点\n'
-                      '• 喂药任务将于预定时间前 30 分钟出现在任务列表中',
-                      style: TextStyle(fontSize: 13, color: Colors.grey)),
-                ],
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: points
+                      .map((t) => Chip(
+                            avatar: Icon(Icons.medication,
+                                size: 14, color: theme.colorScheme.primary),
+                            label: Text(_config.formatTime(t),
+                                style: const TextStyle(fontSize: 13)),
+                            visualDensity: VisualDensity.compact,
+                          ))
+                      .toList(),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ── 品种生长阶段参考 ──
+        Consumer(
+          builder: (context, ref, _) {
+            final spAsync = ref.watch(allSpeciesProvider);
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const FeatherIcon(size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('品种生长阶段参考',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold)),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.edit, size: 14),
+                        label:
+                            const Text('管理品种', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SpeciesScreen()),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('各品种的生长阶段划分，用于参考喂药时机的判断',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                    const SizedBox(height: 12),
+                    spAsync.when(
+                      loading: () => const Center(
+                          child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      )),
+                      error: (e, _) => Center(
+                          child: Text('加载失败: $e',
+                              style: const TextStyle(fontSize: 13))),
+                      data: (spList) {
+                        if (spList.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Center(
+                                child: Text('暂无品种数据',
+                                    style: TextStyle(color: Colors.grey))),
+                          );
+                        }
+                        return Column(
+                          children: spList
+                              .map((s) => _SpeciesStageRow(species: s))
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // 说明
+        Card(
+          color: Colors.grey.shade50,
+          child: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.info_outline, size: 18),
+                  SizedBox(width: 8),
+                  Text('说明', style: TextStyle(fontWeight: FontWeight.bold)),
+                ]),
+                SizedBox(height: 8),
+                Text(
+                    '• 此处设置仅影响喂药插件，不影响全局或其他插件\n'
+                    '• 未设置时间窗口时，自动沿用全局工作时间\n'
+                    '• 添加药品时仍可单独调整每日次数和时间点\n'
+                    '• 喂药任务将于预定时间前 30 分钟出现在任务列表中',
+                    style: TextStyle(fontSize: 13, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -493,7 +578,8 @@ class _TimeCard extends StatelessWidget {
   final String label;
   final String time;
   final VoidCallback? onTap;
-  const _TimeCard({required this.label, required this.time, required this.onTap});
+  const _TimeCard(
+      {required this.label, required this.time, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -507,16 +593,20 @@ class _TimeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.colorScheme.outlineVariant),
-          color: isReadOnly ? Colors.grey.shade100 : theme.colorScheme.surfaceContainerLow,
+          color: isReadOnly
+              ? Colors.grey.shade100
+              : theme.colorScheme.surfaceContainerLow,
         ),
         child: Column(
           children: [
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            Text(label,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
-            Text(time, style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            )),
+            Text(time,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                )),
           ],
         ),
       ),
@@ -536,20 +626,50 @@ class _SpeciesStageRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       child: Row(
         children: [
-          Icon(Icons.pets, size: 18, color: theme.colorScheme.primary.withAlpha(180)),
+          FeatherIcon(
+              size: 18, color: theme.colorScheme.primary.withAlpha(180)),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(species.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+            child: Text(species.name,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
           ),
-          _StageBadge(label: '雏鸟', days: '≤${species.nestlingEndDays}天', color: theme.colorScheme.tertiary),
+          _StageBadge(
+              label: '雏鸟',
+              days: '≤${species.nestlingEndDays}天',
+              color: theme.colorScheme.tertiary),
           const SizedBox(width: 2),
           Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
           const SizedBox(width: 2),
-          _StageBadge(label: '幼鸟', days: '≤${species.juvenileEndDays}天', color: theme.colorScheme.primary),
+          _StageBadge(
+              label: '幼鸟',
+              days: '≤${species.juvenileEndDays}天',
+              color: theme.colorScheme.primary),
           const SizedBox(width: 2),
           Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
           const SizedBox(width: 2),
-          _StageBadge(label: '成鸟', days: '>${species.juvenileEndDays}天', color: theme.colorScheme.secondary),
+          _StageBadge(
+              label: '成鸟',
+              days: '>${species.juvenileEndDays}天',
+              color: theme.colorScheme.secondary),
+          // Weight range
+          if (species.minWeightG != null && species.maxWeightG != null) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.orange.withAlpha(25),
+              ),
+              child: Text(
+                '${species.minWeightG!.toStringAsFixed(0)}-${species.maxWeightG!.toStringAsFixed(0)}g',
+                style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -560,7 +680,8 @@ class _StageBadge extends StatelessWidget {
   final String label;
   final String days;
   final Color color;
-  const _StageBadge({required this.label, required this.days, required this.color});
+  const _StageBadge(
+      {required this.label, required this.days, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -570,7 +691,9 @@ class _StageBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         color: color.withAlpha(25),
       ),
-      child: Text('$label$days', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+      child: Text('$label$days',
+          style: TextStyle(
+              fontSize: 10, color: color, fontWeight: FontWeight.w500)),
     );
   }
 }
@@ -581,7 +704,10 @@ class _TimelinePainter extends CustomPainter {
   final bool crossesMidnight;
   final Color color;
 
-  _TimelinePainter({required this.points, required this.crossesMidnight, required this.color});
+  _TimelinePainter(
+      {required this.points,
+      required this.crossesMidnight,
+      required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -614,5 +740,7 @@ class _TimelinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TimelinePainter old) =>
-      old.points != points || old.color != color || old.crossesMidnight != crossesMidnight;
+      old.points != points ||
+      old.color != color ||
+      old.crossesMidnight != crossesMidnight;
 }

@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import '../../database/database.dart';
+import '../database/database.dart';
 
 class _TrendSegment {
   final List<FlSpot> spots;
@@ -39,7 +39,11 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     if (sorted.length < 2) {
       return [
         _TrendSegment(
-          spots: sorted.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weightG)).toList(),
+          spots: sorted
+              .asMap()
+              .entries
+              .map((e) => FlSpot(e.key.toDouble(), e.value.weightG))
+              .toList(),
           isDown: false,
         )
       ];
@@ -51,7 +55,10 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
       final stepIsDown = sorted[i].weightG < sorted[i - 1].weightG;
       if (stepIsDown != currentIsDown) {
         segments.add(_TrendSegment(
-          spots: List.generate(i - segStart, (j) => FlSpot((segStart + j).toDouble(), sorted[segStart + j].weightG)),
+          spots: List.generate(
+              i - segStart,
+              (j) => FlSpot(
+                  (segStart + j).toDouble(), sorted[segStart + j].weightG)),
           isDown: currentIsDown,
         ));
         segStart = i - 1;
@@ -59,7 +66,10 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
       }
     }
     segments.add(_TrendSegment(
-      spots: List.generate(sorted.length - segStart, (j) => FlSpot((segStart + j).toDouble(), sorted[segStart + j].weightG)),
+      spots: List.generate(
+          sorted.length - segStart,
+          (j) =>
+              FlSpot((segStart + j).toDouble(), sorted[segStart + j].weightG)),
       isDown: currentIsDown,
     ));
     return segments;
@@ -72,8 +82,10 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
       return _emptyState();
     }
     final sorted = widget.weights.reversed.toList();
-    final minWeight = sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 2;
-    final maxWeight = sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 2;
+    final minWeight =
+        sorted.map((w) => w.weightG).reduce((a, b) => a < b ? a : b) - 2;
+    final maxWeight =
+        sorted.map((w) => w.weightG).reduce((a, b) => a > b ? a : b) + 2;
     final segments = _splitTrendSegments(sorted);
 
     if (widget.compact) {
@@ -91,7 +103,8 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
               children: [
                 const Icon(Icons.show_chart, size: 18),
                 const SizedBox(width: 6),
-                Text('体重趋势 (${sorted.length} 条)', style: theme.textTheme.titleSmall),
+                Text('体重趋势 (${sorted.length} 条)',
+                    style: theme.textTheme.titleSmall),
                 const SizedBox(width: 12),
                 _buildLegend(theme),
               ],
@@ -113,29 +126,43 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
     return Card(
       child: SizedBox(
         height: 200,
-        child: Center(child: Text('暂无体重记录', style: TextStyle(color: Colors.grey.shade400))),
+        child: Center(
+            child:
+                Text('暂无体重记录', style: TextStyle(color: Colors.grey.shade400))),
       ),
     );
   }
 
   Widget _buildLegend(ThemeData theme) {
-    return Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 4, children: [
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 3, color: theme.colorScheme.primary),
-        const SizedBox(width: 4),
-        Text('上升/持平', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-      ]),
-      const SizedBox(width: 8),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 3, color: Colors.red.shade400),
-        const SizedBox(width: 4),
-        Text('下降', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-      ]),
-      const SizedBox(width: 8),
-      Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.orange.shade600, width: 1.5))),
-      const SizedBox(width: 4),
-      Text('非空腹', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-    ]);
+    return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 12, height: 3, color: theme.colorScheme.primary),
+            const SizedBox(width: 4),
+            Text('上升/持平',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          ]),
+          const SizedBox(width: 8),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 12, height: 3, color: Colors.red.shade400),
+            const SizedBox(width: 4),
+            Text('下降',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          ]),
+          const SizedBox(width: 8),
+          Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: Colors.orange.shade600, width: 1.5))),
+          const SizedBox(width: 4),
+          Text('非空腹',
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        ]);
   }
 
   Widget _buildZoomChips() {
@@ -203,9 +230,11 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
       final chartContentWidth = constraints.maxWidth - yAxisWidth;
       final zoomedWidth = _zoomLevel <= 0
           ? chartContentWidth
-          : (sorted.length * 12.0 * _zoomLevel).clamp(chartContentWidth, 8000.0);
+          : (sorted.length * 12.0 * _zoomLevel)
+              .clamp(chartContentWidth, 8000.0);
       final showDots = _zoomLevel >= 4 || sorted.length <= 30;
-      final interval = ((maxWeight - minWeight) / 5).clamp(1, 50).ceilToDouble();
+      final interval =
+          ((maxWeight - minWeight) / 5).clamp(1, 50).ceilToDouble();
 
       return SizedBox(
         height: widget.chartHeight,
@@ -213,7 +242,8 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
           onPointerSignal: (e) {
             if (e is PointerScrollEvent) {
               _scrollController.jumpTo(
-                (_scrollController.offset + e.scrollDelta.dx).clamp(0, _scrollController.position.maxScrollExtent),
+                (_scrollController.offset + e.scrollDelta.dx)
+                    .clamp(0, _scrollController.position.maxScrollExtent),
               );
             }
           },
@@ -249,57 +279,95 @@ class _WeightChartWidgetState extends State<WeightChartWidget> {
                               interval: 1,
                               getTitlesWidget: (v, _) {
                                 final i = v.toInt();
-                                if (i < 0 || i >= sorted.length) return const SizedBox.shrink();
-                                final step = (sorted.length / 10).ceil().clamp(1, 50);
-                                if (i % step != 0 && i != sorted.length - 1) return const SizedBox.shrink();
+                                if (i < 0 || i >= sorted.length)
+                                  return const SizedBox.shrink();
+                                final step =
+                                    (sorted.length / 10).ceil().clamp(1, 50);
+                                if (i % step != 0 && i != sorted.length - 1)
+                                  return const SizedBox.shrink();
                                 return Transform.rotate(
                                   angle: -0.5,
-                                  child: Text(sorted[i].recordedAt.toString().substring(5, 10), style: const TextStyle(fontSize: 9)),
+                                  child: Text(
+                                      sorted[i]
+                                          .recordedAt
+                                          .toString()
+                                          .substring(5, 10),
+                                      style: const TextStyle(fontSize: 9)),
                                 );
                               },
                             ),
                           ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
                         ),
                         borderData: FlBorderData(show: false),
                         minY: minWeight,
                         maxY: maxWeight,
-                        lineBarsData: segments.map((seg) => LineChartBarData(
-                          spots: seg.spots,
-                          isCurved: true,
-                          curveSmoothness: 0.3,
-                          color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary,
-                          barWidth: _zoomLevel >= 4 ? 2.5 : 1.8,
-                          dotData: FlDotData(
-                            show: showDots,
-                            getDotPainter: (spot, _, __, ___) {
-                              final i = spot.x.toInt();
-                              if (i < 0 || i >= sorted.length) {
-                                return FlDotCirclePainter(radius: 2, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                              }
-                              final w = sorted[i];
-                              if (!w.isFasting) {
-                                return FlDotCirclePainter(radius: 3.5, color: Colors.white, strokeWidth: 1.5, strokeColor: Colors.orange.shade600);
-                              }
-                              return FlDotCirclePainter(radius: 2.5, color: seg.isDown ? Colors.red.shade400 : theme.colorScheme.primary, strokeWidth: 0);
-                            },
-                          ),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: (seg.isDown ? Colors.red : theme.colorScheme.primary).withAlpha(20),
-                          ),
-                        )).toList(),
+                        lineBarsData: segments
+                            .map((seg) => LineChartBarData(
+                                  spots: seg.spots,
+                                  isCurved: true,
+                                  curveSmoothness: 0.3,
+                                  color: seg.isDown
+                                      ? Colors.red.shade400
+                                      : theme.colorScheme.primary,
+                                  barWidth: _zoomLevel >= 4 ? 2.5 : 1.8,
+                                  dotData: FlDotData(
+                                    show: showDots,
+                                    getDotPainter: (spot, _, __, ___) {
+                                      final i = spot.x.toInt();
+                                      if (i < 0 || i >= sorted.length) {
+                                        return FlDotCirclePainter(
+                                            radius: 2,
+                                            color: seg.isDown
+                                                ? Colors.red.shade400
+                                                : theme.colorScheme.primary,
+                                            strokeWidth: 0);
+                                      }
+                                      final w = sorted[i];
+                                      if (!w.isFasting) {
+                                        return FlDotCirclePainter(
+                                            radius: 3.5,
+                                            color: Colors.white,
+                                            strokeWidth: 1.5,
+                                            strokeColor:
+                                                Colors.orange.shade600);
+                                      }
+                                      return FlDotCirclePainter(
+                                          radius: 2.5,
+                                          color: seg.isDown
+                                              ? Colors.red.shade400
+                                              : theme.colorScheme.primary,
+                                          strokeWidth: 0);
+                                    },
+                                  ),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: (seg.isDown
+                                            ? Colors.red
+                                            : theme.colorScheme.primary)
+                                        .withAlpha(20),
+                                  ),
+                                ))
+                            .toList(),
                         lineTouchData: LineTouchData(
                           touchTooltipData: LineTouchTooltipData(
                             getTooltipItems: (spots) => spots.map((s) {
                               final i = s.x.toInt();
                               final w = sorted[i];
-                              final prevW = i > 0 ? sorted[i - 1].weightG : w.weightG;
+                              final prevW =
+                                  i > 0 ? sorted[i - 1].weightG : w.weightG;
                               final isDown = w.weightG < prevW;
                               return LineTooltipItem(
                                 '${w.weightG.toStringAsFixed(1)}g${isDown ? " ↓" : ""}${w.isFasting ? "" : " (非空腹)"}  ${w.recordedAt.toString().substring(0, 16).replaceAll('T', ' ')}',
-                                TextStyle(color: Colors.white, fontSize: 11, fontWeight: isDown ? FontWeight.bold : FontWeight.normal),
+                                TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: isDown
+                                        ? FontWeight.bold
+                                        : FontWeight.normal),
                               );
                             }).toList(),
                           ),

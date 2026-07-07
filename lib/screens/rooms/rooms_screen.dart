@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/room_repository.dart';
+import '../../widgets/list/app_list_card.dart';
+import '../../widgets/list/empty_state.dart';
 import '../birds/birds_screen.dart';
 
 // 提取独立的输入对话框，彻底解决 TextEditingController 生命周期问题
@@ -59,13 +61,15 @@ class _TextInputDialogState extends State<_TextInputDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _saving ? null : () async {
-            final name = _controller.text.trim();
-            if (name.isEmpty) return;
-            setState(() => _saving = true); // 防抖
-            await widget.onSave(name);
-            if (mounted) Navigator.pop(context, true);
-          },
+          onPressed: _saving
+              ? null
+              : () async {
+                  final name = _controller.text.trim();
+                  if (name.isEmpty) return;
+                  setState(() => _saving = true); // 防抖
+                  await widget.onSave(name);
+                  if (mounted) Navigator.pop(context, true);
+                },
           child: const Text('保存'),
         ),
       ],
@@ -100,7 +104,11 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         data: (rooms) {
           final displayRooms = _reorderedRooms ?? rooms;
           return displayRooms.isEmpty
-              ? const Center(child: Text('暂无房间'))
+              ? EmptyState(
+                  icon: const Icon(Icons.meeting_room_outlined, size: 56),
+                  message: '暂无房间',
+                  hint: '点击右下角 + 添加房间',
+                )
               : ReorderableListView.builder(
                   itemCount: displayRooms.length,
                   onReorder: (oldIndex, newIndex) async {
@@ -130,27 +138,30 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                   },
                   itemBuilder: (context, i) {
                     final r = displayRooms[i];
-                    return Card(
+                    return AppListCard.tile(
                       key: ValueKey(r.id),
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                      child: ListTile(
-                        leading: const Icon(Icons.meeting_room),
-                        title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text('点击查看鹦鹉'),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => BirdsScreen(roomId: r.id)),
-                        ),
-                        trailing: PopupMenuButton(
-                          itemBuilder: (_) => [
-                            const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                            const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
-                          ],
-                          onSelected: (v) {
-                            if (v == 'edit') _showEditDialog(context, r);
-                            if (v == 'delete') _confirmDelete(context, r);
-                          },
-                        ),
+                      leading: const Icon(Icons.meeting_room),
+                      title: Text(r.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('点击查看鹦鹉'),
+                      trailing: PopupMenuButton(
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                              value: 'edit', child: Text('编辑')),
+                          const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('删除',
+                                  style: TextStyle(color: Colors.red))),
+                        ],
+                        onSelected: (v) {
+                          if (v == 'edit') _showEditDialog(context, r);
+                          if (v == 'delete') _confirmDelete(context, r);
+                        },
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => BirdsScreen(roomId: r.id)),
                       ),
                     );
                   },
@@ -191,7 +202,9 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         title: const Text('确认删除'),
         content: Text('删除房间「${r.name}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {

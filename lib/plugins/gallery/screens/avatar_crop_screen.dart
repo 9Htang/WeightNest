@@ -107,7 +107,8 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
 
       // Use pixelRatio 2.0 — enough for sharp avatar, half the bytes
       final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
       // Encode as JPEG (not PNG) for much smaller file size

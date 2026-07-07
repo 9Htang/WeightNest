@@ -23,14 +23,22 @@ class PluginPageManager extends ChangeNotifier {
     if (descriptor.uniqueness == PageUniqueness.singleton) {
       final i = _pages.indexWhere(
           (p) => p.pluginId == pluginId && p.pageKey == descriptor.key);
-      if (i >= 0) { _activeIndex = i; notifyListeners(); return _pages[i]; }
+      if (i >= 0) {
+        _activeIndex = i;
+        notifyListeners();
+        return _pages[i];
+      }
     }
     if (descriptor.uniqueness == PageUniqueness.perBird && birdId != null) {
       final i = _pages.indexWhere((p) =>
           p.pluginId == pluginId &&
           p.pageKey == descriptor.key &&
           p.birdId == birdId);
-      if (i >= 0) { _activeIndex = i; notifyListeners(); return _pages[i]; }
+      if (i >= 0) {
+        _activeIndex = i;
+        notifyListeners();
+        return _pages[i];
+      }
     }
 
     // Create new page

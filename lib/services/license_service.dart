@@ -1,4 +1,5 @@
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_clock.dart';
@@ -30,6 +31,12 @@ class LicenseService {
   /// 同步获取 Pro 状态（需先调用 [init]）
   bool get isPro => _cachedPro ?? false;
 
+  /// 测试专用：重置内存缓存。仅 debug 模式可用。
+  @visibleForTesting
+  static void resetCacheForTest() {
+    _instance._cachedPro = null;
+  }
+
   /// 应用启动时调用，从 SharedPreferences 恢复状态。
   Future<void> init() async {
     try {
@@ -44,7 +51,7 @@ class LicenseService {
   /// 返回 true 表示激活成功。
   Future<bool> activate(String code) async {
     try {
-      final genTimestamp = _verifyCode(code);
+      final genTimestamp = verifyCode(code);
       if (genTimestamp == null) return false;
 
       // 检查 10 分钟时间窗口
@@ -88,7 +95,8 @@ class LicenseService {
 
   /// 验证激活码格式和 HMAC 签名。
   /// 返回生成时间戳（Unix 秒），验证失败返回 null。
-  int? _verifyCode(String code) {
+  @visibleForTesting
+  int? verifyCode(String code) {
     // 1. 格式校验：WNPRO-<8hex>-<16hex>-<8hex>
     final parts = code.toUpperCase().split('-');
     if (parts.length != 4) return null;
@@ -156,16 +164,72 @@ class LicenseService {
 
   List<int> _getKey() {
     const stored = <int>[
-      0x8a, 0x1d, 0x36, 0x23, 0xff, 0x28, 0x21, 0x66,
-      0x57, 0xe0, 0xf5, 0x9b, 0xca, 0xc2, 0x21, 0xac,
-      0xd4, 0x76, 0xad, 0xa1, 0x78, 0xca, 0x3b, 0x15,
-      0x0f, 0x3a, 0xa1, 0x2f, 0x44, 0x6e, 0x58, 0x76,
+      0x8a,
+      0x1d,
+      0x36,
+      0x23,
+      0xff,
+      0x28,
+      0x21,
+      0x66,
+      0x57,
+      0xe0,
+      0xf5,
+      0x9b,
+      0xca,
+      0xc2,
+      0x21,
+      0xac,
+      0xd4,
+      0x76,
+      0xad,
+      0xa1,
+      0x78,
+      0xca,
+      0x3b,
+      0x15,
+      0x0f,
+      0x3a,
+      0xa1,
+      0x2f,
+      0x44,
+      0x6e,
+      0x58,
+      0x76,
     ];
     const mask = <int>[
-      0x5e, 0x61, 0x19, 0xb2, 0x7c, 0x42, 0x3f, 0xd3,
-      0x15, 0x6f, 0xc8, 0xed, 0x0b, 0x58, 0x2e, 0xf4,
-      0x37, 0x51, 0xe6, 0xcc, 0x6d, 0x4a, 0x09, 0xbb,
-      0x70, 0x23, 0xfd, 0xa7, 0x49, 0xdc, 0x1e, 0x85,
+      0x5e,
+      0x61,
+      0x19,
+      0xb2,
+      0x7c,
+      0x42,
+      0x3f,
+      0xd3,
+      0x15,
+      0x6f,
+      0xc8,
+      0xed,
+      0x0b,
+      0x58,
+      0x2e,
+      0xf4,
+      0x37,
+      0x51,
+      0xe6,
+      0xcc,
+      0x6d,
+      0x4a,
+      0x09,
+      0xbb,
+      0x70,
+      0x23,
+      0xfd,
+      0xa7,
+      0x49,
+      0xdc,
+      0x1e,
+      0x85,
     ];
     final key = <int>[];
     for (var i = 0; i < stored.length; i++) {

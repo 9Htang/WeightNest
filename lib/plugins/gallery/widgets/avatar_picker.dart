@@ -20,10 +20,9 @@ Future<bool> showAvatarPickerSheet(
   await storage.ensureInitialized();
 
   // Check if there is an existing avatar
-  final existing =
-      await (db.select(db.birdAvatars)
-            ..where((t) => t.birdId.equals(birdId)))
-          .getSingleOrNull();
+  final existing = await (db.select(db.birdAvatars)
+        ..where((t) => t.birdId.equals(birdId)))
+      .getSingleOrNull();
   final hasAvatar = existing != null;
 
   final result = await showModalBottomSheet<String>(
@@ -51,8 +50,7 @@ Future<bool> showAvatarPickerSheet(
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title:
-                  const Text('移除头像', style: TextStyle(color: Colors.red)),
+              title: const Text('移除头像', style: TextStyle(color: Colors.red)),
               onTap: () => Navigator.pop(ctx, 'remove'),
             ),
           ],
@@ -107,12 +105,11 @@ Future<bool> _pickAndCrop(
   final relPath = await storage.saveAvatar(birdId, croppedPath);
 
   // Compress avatar to max 512px
-  await storage.compressToSize(storage.resolve(relPath), maxSize: 512, quality: 85);
+  await storage.compressToSize(storage.resolve(relPath),
+      maxSize: 512, quality: 85);
 
   // 4. Upsert database record — delete existing, then insert
-  await (db.delete(db.birdAvatars)
-        ..where((t) => t.birdId.equals(birdId)))
-      .go();
+  await (db.delete(db.birdAvatars)..where((t) => t.birdId.equals(birdId))).go();
   await db.into(db.birdAvatars).insert(
         BirdAvatarsCompanion(
           birdId: Value(birdId),
@@ -146,9 +143,7 @@ Future<bool> _pickAndCrop(
 Future<bool> _removeAvatar(int birdId, AppDatabase db) async {
   final storage = GalleryStorageService();
   await storage.deleteAvatar(birdId);
-  await (db.delete(db.birdAvatars)
-        ..where((t) => t.birdId.equals(birdId)))
-      .go();
+  await (db.delete(db.birdAvatars)..where((t) => t.birdId.equals(birdId))).go();
 
   // 记录操作日志
   await pluginRegistry.operationService.record(

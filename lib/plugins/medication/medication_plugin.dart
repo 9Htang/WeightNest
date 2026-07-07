@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import '../../core/app_clock.dart';
 import '../../core/plugin.dart';
@@ -8,9 +9,11 @@ import '../../repositories/bird_repository.dart';
 import '../../screens/birds/bird_detail_screen.dart';
 import 'medication_screen.dart';
 import 'medication_calendar.dart';
-import 'medication_repository.dart';
 import 'medication_config_screen.dart';
 import 'medication_section.dart';
+import 'medication_repository.dart';
+import 'drug_library_screen.dart';
+import 'drug_library_repository.dart';
 
 class MedicationPlugin extends FeaturePlugin {
   @override
@@ -34,20 +37,13 @@ class MedicationPlugin extends FeaturePlugin {
   @override
   Map<String, WidgetBuilder> routes(AppDatabase db) => {
         '/medication': (_) => MedicationScreen(db: db),
+        '/medication/drug-library': (_) => const DrugLibraryScreen(),
       };
 
-  // ── Pages (Singleton + Calendar) ──
+  // ── Pages (Calendar + Settings) ──
 
   @override
   List<PluginPageDescriptor> get pages => [
-        PluginPageDescriptor(
-          key: 'drug-config',
-          title: '药品配置',
-          icon: Icons.medical_services,
-          uniqueness: PageUniqueness.singleton,
-          showInSidebar: true,
-          builder: (ctx) => const MedicationConfigScreen(),
-        ),
         PluginPageDescriptor(
           key: 'calendar',
           title: '喂药日历',
@@ -56,6 +52,14 @@ class MedicationPlugin extends FeaturePlugin {
           showInSidebar: true,
           builder: (ctx) => MedicationCalendarView(birdId: ctx.birdId),
         ),
+        PluginPageDescriptor(
+          key: 'drug-config',
+          title: '喂药设置',
+          icon: Icons.medical_services,
+          uniqueness: PageUniqueness.singleton,
+          showInSidebar: true,
+          builder: (ctx) => const MedicationConfigScreen(),
+        ),
       ];
 
   @override
@@ -63,8 +67,25 @@ class MedicationPlugin extends FeaturePlugin {
         // 其他插件可调用: registry.call('medication', 'getPlans', birdId)
         'getPlans': (int birdId) async {
           final db = pluginRegistry.db;
-          if (db == null) return <Medication>[];
+          if (db == null) return <MedicationWithDetails>[];
           return db.getMedicationsByBird(birdId);
+        },
+        // 其他插件可调用: registry.call('medication', 'getAllDrugs')
+        'getAllDrugs': () async {
+          final db = pluginRegistry.db;
+          if (db == null) return <DrugLibraryData>[];
+          return db.getAllDrugs();
+        },
+        // 其他插件可调用: registry.call('medication', 'calculateDosage', birdId, formulationId, doseRuleId)
+        'calculateDosage':
+            (int birdId, int formulationId, int doseRuleId) async {
+          final db = pluginRegistry.db;
+          if (db == null) return null;
+          return db.calculateDosage(
+            birdId: birdId,
+            formulationId: formulationId,
+            doseRuleId: doseRuleId,
+          );
         },
       };
 
@@ -107,41 +128,50 @@ class MedicationPlugin extends FeaturePlugin {
   // ── Slot G: 任务派发 ──
 
   @override
-  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async {
+  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db,
+      {int? birdId}) async {
     final descriptors = <PluginTaskDescriptor>[];
     try {
       final today = AppClock.now;
 
-      var query = db.select(db.medications)
-            ..where((t) => t.active.equals(true));
+      // Join medications with drugLibrary to get drug name
+      var query = db.select(db.medications).join([
+        innerJoin(db.drugLibrary,
+            db.drugLibrary.id.equalsExp(db.medications.drugLibraryId)),
+      ])
+        ..where(db.medications.active.equals(true));
       if (birdId != null) {
-        query = query..where((t) => t.birdId.equals(birdId));
+        query = query..where(db.medications.birdId.equals(birdId));
       }
-      final meds = await query.get();
+      final rows = await query.get();
 
-      for (final med in meds) {
+      for (final row in rows) {
+        final med = row.readTable(db.medications);
+        final drug = row.readTable(db.drugLibrary);
+
         if (today.isBefore(med.startDate)) continue;
         if (med.endDate != null && today.isAfter(med.endDate!)) continue;
 
         final slots = await distributedTimeSlots(med.timesPerDay);
-        // 构建每剂的 dueDate
         final dueDates = slots
-            .map((s) => DateTime(today.year, today.month, today.day, s.hour, s.minute))
+            .map((s) =>
+                DateTime(today.year, today.month, today.day, s.hour, s.minute))
             .toList();
+        final dosage = med.manualDosage ?? med.calculatedDosage;
         for (int i = 0; i < slots.length; i++) {
           final dueDate = dueDates[i];
-          // deadline = 当前剂次时间 + 30分钟缓冲
           final deadline = dueDate.add(const Duration(minutes: 30));
           descriptors.add(PluginTaskDescriptor(
             birdId: med.birdId,
             taskType: 'medication',
             dueDate: dueDate,
             deadline: deadline,
-            label: '${med.drugName} ${med.dosage}',
+            label: '${drug.drugName} $dosage',
             metadata: {
               'medicationId': med.id.toString(),
-              'drugName': med.drugName,
-              'dosage': med.dosage,
+              'drugName': drug.drugName,
+              'dosage': dosage,
+              'drugLibraryId': med.drugLibraryId.toString(),
             },
           ));
         }
@@ -165,10 +195,12 @@ class MedicationPlugin extends FeaturePlugin {
       final allMedTasks = await (db.select(db.tasks)
             ..where((t) => t.taskType.equals('medication')))
           .get();
-      final missedTasks = allMedTasks.where((t) =>
-          t.status == '待完成' &&
-          !t.dueDate.isBefore(dayStart) &&
-          t.dueDate.isBefore(now)).toList();
+      final missedTasks = allMedTasks
+          .where((t) =>
+              t.status == '待完成' &&
+              !t.dueDate.isBefore(dayStart) &&
+              t.dueDate.isBefore(now))
+          .toList();
 
       for (final task in missedTasks) {
         if (birdId != null && task.birdId != birdId) continue;
@@ -181,7 +213,8 @@ class MedicationPlugin extends FeaturePlugin {
         alerts.add(PluginAlert(
           birdId: task.birdId,
           type: 'missed_medication',
-          description: '$birdName ${medInfo.drugName} ${medInfo.timeLabel} 未按时喂药 (${medInfo.dosage})',
+          description:
+              '$birdName ${medInfo.drugName} ${medInfo.timeLabel} 未按时喂药 (${medInfo.dosage})',
           severity: AlertSeverity.warning,
         ));
       }

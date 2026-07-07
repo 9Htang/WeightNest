@@ -7,6 +7,7 @@ import '../../repositories/task_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../core/plugin_registry.dart';
 import '../../utils/app_version.dart';
+import '../../widgets/feather_icon.dart';
 import '../worker/worker_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../birds/birds_screen.dart';
@@ -27,23 +28,28 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
   int _currentIndex = 0;
   Timer? _dateCheckTimer;
 
-  // 懒加载 Tab：仅构建当前激活的标签页，首次访问后缓存
-  final List<Widget?> _tabCache = List.filled(4, null);
+  // 懒加载 + IndexedStack：首次访问后才构建标签页，之后所有已访问标签页
+  // 同时挂载在树中（IndexedStack 只显示当前项但保留其他项的 State），
+  // 这样切换标签不会丢失滚动位置 / 已加载的 FutureBuilder 结果。
+  final List<Widget?> _tabCache = List.filled(_tabs.length, null);
 
   static const _tabs = [
     _TabData(Icons.home_outlined, Icons.home_rounded, '首页'),
     _TabData(Icons.assignment_outlined, Icons.assignment, '任务'),
-    _TabData(Icons.pets_outlined, Icons.pets, '鹦鹉'),
+    _TabData(null, null, '鹦鹉', useFeather: true),
     _TabData(Icons.settings_outlined, Icons.settings, '设置'),
   ];
 
   Widget _makeTab(int i) => switch (i) {
-    0 => const HomeShell(),
-    1 => const TasksScreen(),
-    2 => const BirdsScreen(),
-    3 => const SettingsScreen(),
-    _ => const HomeShell(),
-  };
+        0 => const HomeShell(),
+        1 => const TasksScreen(),
+        2 => const BirdsScreen(),
+        3 => const SettingsScreen(),
+        _ => const HomeShell(),
+      };
+
+  /// Lazily build a tab on first access and keep it alive thereafter.
+  Widget _tab(int i) => _tabCache[i] ??= _makeTab(i);
 
   @override
   void initState() {
@@ -63,8 +69,7 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
         final users = await ref.read(databaseProvider).getAllUsers();
         if (users.isNotEmpty) {
           final u = users.first;
-          await ref.read(workerProvider.notifier).selectUser(
-              u.id, u.displayName, u.role, username: u.username);
+          await ref.read(workerProvider.notifier).selectUser(u.id, u.displayName, u.role, username: u.username);
         }
       }
       // 3. 预生成今日任务
@@ -111,7 +116,18 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      body: _tabCache[_currentIndex] ??= _makeTab(_currentIndex),
+      // IndexedStack keeps every visited tab mounted so their State (scroll
+      // position, loaded data, form inputs) survives tab switches. Tabs are
+      // built lazily on first visit via _tab(i).
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _tab(0),
+          _tab(1),
+          _tab(2),
+          _tab(3),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
@@ -123,8 +139,8 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
         destinations: List.generate(_tabs.length, (i) {
           final t = _tabs[i];
           return NavigationDestination(
-            icon: Icon(t.outlinedIcon, size: 24),
-            selectedIcon: Icon(t.filledIcon, size: 24),
+            icon: t.useFeather ? const FeatherIcon(size: 24) : Icon(t.outlinedIcon, size: 24),
+            selectedIcon: t.useFeather ? const FeatherIcon(size: 24) : Icon(t.filledIcon, size: 24),
             label: t.label,
           );
         }),
@@ -134,11 +150,12 @@ class _MobileShellState extends ConsumerState<MobileShell> with WidgetsBindingOb
 }
 
 class _TabData {
-  final IconData outlinedIcon;
-  final IconData filledIcon;
+  final IconData? outlinedIcon;
+  final IconData? filledIcon;
   final String label;
+  final bool useFeather;
 
-  const _TabData(this.outlinedIcon, this.filledIcon, this.label);
+  const _TabData(this.outlinedIcon, this.filledIcon, this.label, {this.useFeather = false});
 }
 
 /// Wrapper for HomeScreen to use within the shell (no Scaffold wrapper needed)
@@ -204,57 +221,44 @@ class HomeScreenContent extends ConsumerWidget {
             loading: () => const _StatsSkeleton(),
             error: (e, _) => Center(child: Text('$e')),
             data: (tasks) {
-              final pending =
-                  tasks.where((t) => t.task.status == '待完成').length;
-              final done =
-                  tasks.where((t) => t.task.status == '已完成').length;
-              return _StatsCardWarm(
-                  pending: pending, done: done, ref: ref);
+              final pending = tasks.where((t) => t.task.status == '待完成').length;
+              final done = tasks.where((t) => t.task.status == '已完成').length;
+              return _StatsCardWarm(pending: pending, done: done, ref: ref);
             },
           ),
           const SizedBox(height: 16),
 
           // ── 异常提醒入口 ──
-          if (hasRecentAlerts.valueOrNull == true)
-            _AlertBannerWarm(),
+          if (hasRecentAlerts.valueOrNull == true) _AlertBannerWarm(),
 
           const SizedBox(height: 16),
 
           // ── 快捷操作（在房间列表上方）──
-          Text('快捷操作',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Text('快捷操作', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _QuickChip(
-                icon: Icons.warning_amber,
+                icon: const Icon(Icons.warning_amber, size: 20),
                 label: '异常提醒',
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AlertsScreen(mode: AlertsMode.all))),
+                    context, MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.all))),
               ),
               _QuickChip(
-                icon: Icons.pets,
+                icon: const FeatherIcon(size: 20),
                 label: '品种管理',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SpeciesScreen())),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeciesScreen())),
               ),
               // 插件贡献的快捷操作
               ...pluginRegistry.enabledPlugins.expand((p) => p.quickActions).map(
-                (a) => _QuickChip(
-                  icon: a.icon,
-                  label: a.label,
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => a.builder())),
-                ),
-              ),
+                    (a) => _QuickChip(
+                      icon: Icon(a.icon, size: 20),
+                      label: a.label,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => a.builder())),
+                    ),
+                  ),
             ],
           ),
 
@@ -264,9 +268,7 @@ class HomeScreenContent extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: Text('房间',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                child: Text('房间', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ),
               IconButton(
                 icon: const Icon(Icons.edit_note, size: 22),
@@ -280,8 +282,7 @@ class HomeScreenContent extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           roomsAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('$e')),
             data: (rooms) => rooms.isEmpty
                 ? Card(
@@ -289,10 +290,7 @@ class HomeScreenContent extends ConsumerWidget {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          Text('暂无房间，请先创建房间',
-                              style: TextStyle(
-                                  color: theme.colorScheme.onSurface
-                                      .withAlpha(140))),
+                          Text('暂无房间，请先创建房间', style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(140))),
                           const SizedBox(height: 12),
                           FilledButton.icon(
                             onPressed: () => Navigator.push(
@@ -327,8 +325,7 @@ class _StatsCardWarm extends ConsumerWidget {
   final int pending, done;
   final WidgetRef ref;
 
-  const _StatsCardWarm(
-      {required this.pending, required this.done, required this.ref});
+  const _StatsCardWarm({required this.pending, required this.done, required this.ref});
 
   @override
   Widget build(BuildContext context, WidgetRef _) {
@@ -359,21 +356,9 @@ class _StatsCardWarm extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _StatItemWarm(
-                    icon: Icons.scale,
-                    label: '待完成',
-                    value: '$pending',
-                    color: scheme.secondary),
-                _StatItemWarm(
-                    icon: Icons.check_circle,
-                    label: '已完成',
-                    value: '$done',
-                    color: scheme.primary),
-                _StatItemWarm(
-                    icon: Icons.pie_chart,
-                    label: '完成率',
-                    value: '$pct%',
-                    color: scheme.tertiary),
+                _StatItemWarm(icon: Icons.scale, label: '待完成', value: '$pending', color: scheme.secondary),
+                _StatItemWarm(icon: Icons.check_circle, label: '已完成', value: '$done', color: scheme.primary),
+                _StatItemWarm(icon: Icons.pie_chart, label: '完成率', value: '$pct%', color: scheme.tertiary),
               ],
             ),
             const SizedBox(height: 20),
@@ -391,12 +376,8 @@ class _StatsCardWarm extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const TasksScreen())),
-                  icon:
-                      const Icon(Icons.assignment_turned_in, size: 20),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen())),
+                  icon: const Icon(Icons.assignment_turned_in, size: 20),
                   label: Text('查看任务 ($pending 只)'),
                 ),
               ),
@@ -412,11 +393,7 @@ class _StatItemWarm extends StatelessWidget {
   final String label, value;
   final Color color;
 
-  const _StatItemWarm(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      required this.color});
+  const _StatItemWarm({required this.icon, required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -438,8 +415,7 @@ class _StatItemWarm extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: color,
                 fontFeatures: const [FontFeature.tabularFigures()])),
-        Text(label,
-            style: TextStyle(fontSize: 12, color: color.withAlpha(180))),
+        Text(label, style: TextStyle(fontSize: 12, color: color.withAlpha(180))),
       ],
     );
   }
@@ -477,8 +453,8 @@ class _AlertBannerWarm extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.unconfirmed))),
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const AlertsScreen(mode: AlertsMode.unconfirmed))),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -490,18 +466,14 @@ class _AlertBannerWarm extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: scheme.error.withAlpha(30),
                 ),
-                child: Icon(Icons.warning_amber_rounded,
-                    color: scheme.error, size: 20),
+                child: Icon(Icons.warning_amber_rounded, color: scheme.error, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(text,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: scheme.error)),
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: scheme.error)),
               ),
-              Icon(Icons.chevron_right,
-                  color: scheme.error.withAlpha(160)),
+              Icon(Icons.chevron_right, color: scheme.error.withAlpha(160)),
             ],
           ),
         ),
@@ -532,8 +504,7 @@ class _RoomCardWarm extends ConsumerWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => BirdsScreen(roomId: room.id))),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BirdsScreen(roomId: room.id))),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -548,15 +519,13 @@ class _RoomCardWarm extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(10),
                         color: scheme.secondary.withAlpha(40),
                       ),
-                      child: Icon(Icons.meeting_room_rounded,
-                          size: 18, color: scheme.secondary),
+                      child: Icon(Icons.meeting_room_rounded, size: 18, color: scheme.secondary),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         room.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600),
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -597,9 +566,7 @@ class _RoomCardWarm extends ConsumerWidget {
                 birdsAsync.when(
                   loading: () => const SizedBox(
                     height: 16,
-                    child: Center(
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2)),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                   error: (_, __) => const Text('-'),
                   data: (birds) => Text(
@@ -633,12 +600,11 @@ void _onRoomTap(BuildContext context, WidgetRef ref, Room room) {
 }
 
 class _QuickChip extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
 
-  const _QuickChip(
-      {required this.icon, required this.label, required this.onTap});
+  const _QuickChip({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -653,19 +619,18 @@ class _QuickChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
             child: Row(
               children: [
                 Container(
                   width: 36,
                   height: 36,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     color: scheme.primaryContainer.withAlpha(100),
                   ),
-                  child:
-                      Icon(icon, size: 20, color: scheme.primary),
+                  child: icon,
                 ),
                 const SizedBox(width: 12),
                 Text(

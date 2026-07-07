@@ -10,10 +10,12 @@ class BirdImportPreviewDialog extends ConsumerStatefulWidget {
   const BirdImportPreviewDialog({super.key, required this.file});
 
   @override
-  ConsumerState<BirdImportPreviewDialog> createState() => _BirdImportPreviewDialogState();
+  ConsumerState<BirdImportPreviewDialog> createState() =>
+      _BirdImportPreviewDialogState();
 }
 
-class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialog> {
+class _BirdImportPreviewDialogState
+    extends ConsumerState<BirdImportPreviewDialog> {
   BirdImportPreview? _preview;
   bool _isLoading = true;
   bool _isImporting = false;
@@ -55,13 +57,16 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
           children: [
             _infoRow('成功导入', '${_result!.importedCount} 只', Colors.green),
             const SizedBox(height: 4),
-            _infoRow('已跳过', '${_result!.skippedCount} 只（UUID 已存在）', Colors.grey),
+            _infoRow(
+                '已跳过', '${_result!.skippedCount} 只（UUID 已存在）', Colors.grey),
             if (_result!.hasErrors) ...[
               const SizedBox(height: 12),
               const Text('错误:', style: TextStyle(fontWeight: FontWeight.w600)),
               ...(_result!.errors.map((e) => Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('· $e', style: const TextStyle(fontSize: 12, color: Colors.red)),
+                    child: Text('· $e',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.red)),
                   ))),
             ],
           ],
@@ -84,7 +89,8 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
         title: const Text('导入失败'),
         content: Text(_error!),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('返回')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('返回')),
         ],
       );
     }
@@ -105,13 +111,14 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer.withAlpha(60),
+                          color:
+                              theme.colorScheme.primaryContainer.withAlpha(60),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, size: 18,
-                                color: theme.colorScheme.primary),
+                            Icon(Icons.info_outline,
+                                size: 18, color: theme.colorScheme.primary),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -132,24 +139,29 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
                           decoration: BoxDecoration(
                             color: Colors.orange.withAlpha(25),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.withAlpha(80)),
+                            border:
+                                Border.all(color: Colors.orange.withAlpha(80)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange.shade700),
+                                  Icon(Icons.warning_amber_rounded,
+                                      size: 18, color: Colors.orange.shade700),
                                   const SizedBox(width: 8),
                                   const Expanded(
                                     child: Text('以下物种在本地不存在：',
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600)),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 6),
                               ...(_preview!.missingSpecies.map((ms) => Padding(
-                                    padding: const EdgeInsets.only(left: 26, top: 2),
+                                    padding:
+                                        const EdgeInsets.only(left: 26, top: 2),
                                     child: Text('· ${ms.name}',
                                         style: const TextStyle(fontSize: 12)),
                                   ))),
@@ -159,13 +171,17 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
                                   Expanded(
                                     child: Text(
                                       '自动创建缺失物种',
-                                      style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade700),
                                     ),
                                   ),
                                   Switch(
                                     value: _autoCreateSpecies,
-                                    onChanged: (v) => setState(() => _autoCreateSpecies = v),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    onChanged: (v) =>
+                                        setState(() => _autoCreateSpecies = v),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ],
                               ),
@@ -189,17 +205,22 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(children: [
                                             Flexible(
                                               child: Text(info.name,
-                                                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600)),
                                             ),
                                             const SizedBox(width: 8),
                                             _badge(
                                               info.isNew ? '新建' : '已存在',
-                                              info.isNew ? Colors.green : Colors.grey,
+                                              info.isNew
+                                                  ? Colors.green
+                                                  : Colors.grey,
                                             ),
                                           ]),
                                           const SizedBox(height: 2),
@@ -207,11 +228,14 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
                                             [
                                               info.speciesName,
                                               '体重×${info.weightCount}',
-                                              if (info.medicationCount > 0) '喂药×${info.medicationCount}',
-                                              if (info.photoCount > 0) '照片×${info.photoCount}',
+                                              if (info.medicationCount > 0)
+                                                '喂药×${info.medicationCount}',
+                                              if (info.photoCount > 0)
+                                                '照片×${info.photoCount}',
                                             ].join(' · '),
                                             style: TextStyle(
-                                                fontSize: 11, color: Colors.grey.shade600),
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600),
                                           ),
                                         ],
                                       ),
@@ -232,11 +256,14 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _isImporting || _preview == null ? null : () => _doImport(),
+          onPressed:
+              _isImporting || _preview == null ? null : () => _doImport(),
           child: _isImporting
               ? const SizedBox(
-                  width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Text('确认导入'),
         ),
@@ -252,7 +279,9 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
         color: color.withAlpha(25),
         border: Border.all(color: color.withAlpha(80)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -270,7 +299,9 @@ class _BirdImportPreviewDialogState extends ConsumerState<BirdImportPreviewDialo
     final result = await BirdImportService().importBirds(
       widget.file,
       db,
-      missingSpecies: _autoCreateSpecies && _preview != null ? _preview!.missingSpecies : [],
+      missingSpecies: _autoCreateSpecies && _preview != null
+          ? _preview!.missingSpecies
+          : [],
     );
 
     if (!mounted) return;

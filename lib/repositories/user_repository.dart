@@ -1,4 +1,4 @@
-﻿import 'package:drift/drift.dart';
+import 'package:drift/drift.dart';
 import '../core/app_clock.dart';
 import '../database/database.dart';
 import '../utils/uuid.dart';
@@ -10,9 +10,11 @@ extension UserRepository on AppDatabase {
       (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
 
   Future<User?> getByUsername(String username) =>
-      (select(users)..where((t) => t.username.equals(username))).getSingleOrNull();
+      (select(users)..where((t) => t.username.equals(username)))
+          .getSingleOrNull();
 
-  Future<User> createUser(String username, String displayName, String passwordHash,
+  Future<User> createUser(
+      String username, String displayName, String passwordHash,
       {String role = 'keeper'}) async {
     await into(users).insert(UsersCompanion.insert(
       uuid: genUuid(),
@@ -27,12 +29,16 @@ extension UserRepository on AppDatabase {
     return (await getUserById(rows.first.read<int>('id')))!;
   }
 
-  Future<User> updateUser(int id, {String? displayName, String? role, bool? isActive}) async {
+  Future<User> updateUser(int id,
+      {String? displayName, String? role, bool? isActive}) async {
     final list = await (update(users)..where((t) => t.id.equals(id)))
         .writeReturning(UsersCompanion(
-      displayName: displayName != null ? Value(displayName) : const Value.absent(),
+      displayName:
+          displayName != null ? Value(displayName) : const Value.absent(),
       role: role != null ? Value(role) : const Value.absent(),
-      deletedAt: isActive != null ? Value(isActive ? null : AppClock.now) : const Value.absent(),
+      deletedAt: isActive != null
+          ? Value(isActive ? null : AppClock.now)
+          : const Value.absent(),
       updatedAt: Value(AppClock.now),
     ));
     return list.first;

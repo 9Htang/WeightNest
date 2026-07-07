@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/app_clock.dart';
 import '../../database/database.dart';
+import 'drug_library_repository.dart';
 import 'medication_repository.dart';
+import 'drug_library_screen.dart';
+import 'dose_calculation_screen.dart';
+import 'feeding_record_sheet.dart';
 
 class MedicationScreen extends StatefulWidget {
   final AppDatabase db;
-  final int? birdId; // null = all birds
+  final int? birdId;
 
   const MedicationScreen({super.key, required this.db, this.birdId});
 
@@ -14,7 +18,7 @@ class MedicationScreen extends StatefulWidget {
 }
 
 class _MedicationScreenState extends State<MedicationScreen> {
-  List<Medication> _plans = [];
+  List<MedicationWithDetails> _plans = [];
   List<MedTaskInfo> _todayLogs = [];
   bool _loading = true;
 
@@ -28,11 +32,24 @@ class _MedicationScreenState extends State<MedicationScreen> {
     final db = widget.db;
     final plans = widget.birdId != null
         ? await db.getMedicationsByBird(widget.birdId!)
-        : <Medication>[];
+        : <MedicationWithDetails>[];
     final logs = widget.birdId != null
-        ? await db.getTodayLogs(widget.birdId!)
+        ? await db.getTodayMedTasks(widget.birdId!)
         : <MedTaskInfo>[];
-    if (mounted) setState(() { _plans = plans; _todayLogs = logs; _loading = false; });
+    if (mounted)
+      setState(() {
+        _plans = plans;
+        _todayLogs = logs;
+        _loading = false;
+      });
+  }
+
+  void _showFeedingSheet(MedTaskInfo log) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      builder: (ctx) => FeedingRecordSheet(data: log, onRecorded: _load),
+    );
   }
 
   @override
@@ -43,6 +60,35 @@ class _MedicationScreenState extends State<MedicationScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── 快捷操作 ──
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                          DoseCalculationScreen(initialBirdId: widget.birdId)),
+                );
+                if (result == true) _load();
+              },
+              icon: const Icon(Icons.calculate, size: 16),
+              label: const Text('剂量计算器', style: TextStyle(fontSize: 13)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DrugLibraryScreen())),
+              icon: const Icon(Icons.local_pharmacy, size: 16),
+              label: const Text('药品库', style: TextStyle(fontSize: 13)),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 20),
+
         // ── 今日喂药任务 ──
         _sectionHeader('今日喂药', Icons.today),
         if (_todayLogs.isEmpty)
@@ -55,16 +101,9 @@ class _MedicationScreenState extends State<MedicationScreen> {
         // ── 喂药方案 ──
         _sectionHeader('喂药方案', Icons.medical_services),
         if (_plans.isEmpty)
-          _emptyCard('暂无喂药方案')
+          _emptyCard('暂无喂药方案，使用剂量计算器创建')
         else
           ..._plans.map((p) => _planCard(p, theme)),
-
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: () => _showAddDialog(context),
-          icon: const Icon(Icons.add),
-          label: const Text('新增喂药方案'),
-        ),
       ],
     );
   }
@@ -75,7 +114,8 @@ class _MedicationScreenState extends State<MedicationScreen> {
       child: Row(children: [
         Icon(icon, size: 20, color: Colors.teal),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ]),
     );
   }
@@ -84,135 +124,83 @@ class _MedicationScreenState extends State<MedicationScreen> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text(text, style: TextStyle(color: Colors.grey.shade500))),
+        child: Center(
+            child: Text(text, style: TextStyle(color: Colors.grey.shade500))),
       ),
     );
   }
 
   Widget _logCard(MedTaskInfo d, ThemeData theme) {
     final threshold = d.task.deadline ?? d.task.dueDate;
-    final isLate = !d.isDone && !d.isSkipped && threshold.isBefore(AppClock.now);
+    final isLate =
+        !d.isDone && !d.isSkipped && threshold.isBefore(AppClock.now);
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      color: d.isDone ? Colors.green.shade50
-          : d.isSkipped ? Colors.grey.shade100
-          : isLate ? Colors.red.shade50
-          : null,
-      child: ListTile(
-        leading: Icon(
-          d.isDone ? Icons.check_circle : d.isSkipped ? Icons.cancel : Icons.access_time,
-          color: d.isDone ? Colors.green : d.isSkipped ? Colors.grey : isLate ? Colors.red : Colors.orange,
-        ),
-        title: Text('${d.drugName} — ${d.dosage}'),
-        subtitle: Text('${d.timeLabel}  ·  ${d.statusLabel}${isLate ? "  ⚠️逾期" : ""}'),
-        trailing: d.isDone || d.isSkipped ? null : Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.check, color: Colors.green),
-              tooltip: '已喂',
-              onPressed: () async {
-                await widget.db.giveMedication(d.task.id);
-                _load();
-              },
+      color: d.isDone
+          ? Colors.green.shade50
+          : d.isSkipped
+              ? Colors.grey.shade100
+              : isLate
+                  ? Colors.red.shade50
+                  : null,
+      child: InkWell(
+        onTap: (d.isDone || d.isSkipped) ? null : () => _showFeedingSheet(d),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            Icon(
+              d.isDone
+                  ? Icons.check_circle
+                  : d.isSkipped
+                      ? Icons.cancel
+                      : Icons.access_time,
+              color: d.isDone
+                  ? Colors.green
+                  : d.isSkipped
+                      ? Colors.grey
+                      : isLate
+                          ? Colors.red
+                          : Colors.orange,
             ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.grey),
-              tooltip: '跳过',
-              onPressed: () async {
-                await widget.db.skipMedication(d.task.id);
-                _load();
-              },
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${d.drugName} — ${d.dosage}',
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Text(
+                        '${d.timeLabel}  ·  ${d.statusLabel}${isLate ? "  ⚠️逾期" : ""}',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  ]),
             ),
-          ],
+            if (!d.isDone && !d.isSkipped)
+              const Icon(Icons.chevron_right, color: Colors.grey),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _planCard(Medication p, ThemeData theme) {
+  Widget _planCard(MedicationWithDetails p, ThemeData theme) {
+    final med = p.medication;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: const Icon(Icons.medication, color: Colors.teal),
-        title: Text('${p.drugName}  ${p.dosage}'),
-        subtitle: Text('${p.drugType}  ·  每天 ${p.timesPerDay} 次  ·  ${p.startDate.toString().substring(0, 10)} 起'),
+        title: Text('${p.drugName}  ${p.dosageDisplay}'),
+        subtitle: Text(
+            '${p.drugCategory} · ${p.formulation} · ${p.diseaseName} · 每天 ${med.timesPerDay} 次'),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: Colors.red),
           tooltip: '停用',
           onPressed: () async {
-            await widget.db.deactivateMedication(p.id);
+            await widget.db.deactivateMedication(med.id);
             _load();
           },
         ),
       ),
     );
-  }
-
-  Future<void> _showAddDialog(BuildContext context) async {
-    final birdCtrl = TextEditingController(text: widget.birdId?.toString() ?? '');
-    final nameCtrl = TextEditingController();
-    final dosageCtrl = TextEditingController();
-    String drugType = '抗生素';
-    int timesPerDay = 1;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('新增喂药方案'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: birdCtrl, decoration: const InputDecoration(labelText: '鹦鹉 ID'), keyboardType: TextInputType.number),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '药品名称', hintText: '如: 伊维菌素')),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: drugType,
-                  decoration: const InputDecoration(labelText: '药品类型'),
-                  items: ['抗生素', '驱虫', '维生素', '益生菌', '其他'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                  onChanged: (v) => setDlg(() => drugType = v!),
-                ),
-                TextField(controller: dosageCtrl, decoration: const InputDecoration(labelText: '剂量', hintText: '如: 0.2ml, 1片')),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  value: timesPerDay,
-                  decoration: const InputDecoration(labelText: '每天次数'),
-                  items: [1, 2, 3].map((n) => DropdownMenuItem(value: n, child: Text('$n 次/天  (${_timesToSchedule(n)})'))).toList(),
-                  onChanged: (v) => setDlg(() => timesPerDay = v!),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('添加')),
-          ],
-        ),
-      ),
-    );
-
-    if (result == true && nameCtrl.text.isNotEmpty && dosageCtrl.text.isNotEmpty) {
-      final birdId = int.tryParse(birdCtrl.text) ?? widget.birdId ?? 0;
-      if (birdId == 0) return;
-      await widget.db.addMedication(
-        birdId: birdId,
-        drugName: nameCtrl.text,
-        dosage: dosageCtrl.text,
-        drugType: drugType,
-        timesPerDay: timesPerDay,
-      );
-      _load();
-    }
-  }
-
-  static String _timesToSchedule(int n) {
-    switch (n) {
-      case 1: return '8:00';
-      case 2: return '8:00, 20:00';
-      case 3: return '8:00, 14:00, 20:00';
-      default: return '8:00';
-    }
   }
 }

@@ -5,38 +5,58 @@ import 'package:weight_nest/database/database.dart';
 import 'package:weight_nest/plugins/breeding/breeding_repository.dart';
 import 'package:weight_nest/repositories/bird_repository.dart';
 import 'package:weight_nest/screens/birds/bird_detail_screen.dart';
+import 'package:weight_nest/widgets/feather_icon.dart';
 import 'breeding_record_screen.dart';
 
 /// 嵌入鹦鹉详情页的繁育插件摘要卡片
-class BreedingDetailSection extends StatelessWidget {
+class BreedingDetailSection extends StatefulWidget {
   final int birdId;
 
   const BreedingDetailSection({super.key, required this.birdId});
+
+  @override
+  State<BreedingDetailSection> createState() => _BreedingDetailSectionState();
+}
+
+class _BreedingDetailSectionState extends State<BreedingDetailSection> {
+  late final Future<_BreedingDetailData?> _dataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final db = pluginRegistry.db;
+    // Cache the future once so parent rebuilds don't re-issue the whole query
+    // chain. When the DB isn't available, resolve to null (renders nothing).
+    _dataFuture =
+        db == null ? Future.value(null) : _loadBreedingDetail(db);
+  }
+
+  /// Kick off all lineage/breeding queries concurrently. Each future starts
+  /// immediately; awaiting them in sequence yields as soon as the slowest one
+  /// resolves, so the section waits for one round-trip instead of five.
+  Future<_BreedingDetailData?> _loadBreedingDetail(AppDatabase db) async {
+    final pairFuture = db.getActivePairForBird(widget.birdId);
+    final recordFuture = db.getActiveRecordForBird(widget.birdId);
+    final parentsFuture = db.getBirdParents(widget.birdId);
+    final offspringFuture = db.getBirdOffspring(widget.birdId);
+    final siblingsFuture = db.getBirdSiblings(widget.birdId);
+
+    return _BreedingDetailData(
+      pair: await pairFuture,
+      record: await recordFuture,
+      parents: await parentsFuture,
+      offspring: await offspringFuture,
+      siblings: await siblingsFuture,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final db = pluginRegistry.db;
     if (db == null) return const SizedBox.shrink();
 
-    return FutureBuilder<_BreedingDetailData>(
-      future: () async {
-        final pair = await db.getActivePairForBird(birdId);
-        (BreedingRecord, BreedingPair, Bird male, Bird female)? record;
-        if (pair != null) {
-          record = await db.getActiveRecordForBird(birdId);
-        }
-        // Query lineage data
-        final parents = await db.getBirdParents(birdId);
-        final offspring = await db.getBirdOffspring(birdId);
-        final siblings = await db.getBirdSiblings(birdId);
-        return _BreedingDetailData(
-          pair: pair,
-          record: record,
-          parents: parents,
-          offspring: offspring,
-          siblings: siblings,
-        );
-      }(),
+    return FutureBuilder<_BreedingDetailData?>(
+      future: _dataFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const SizedBox(
@@ -63,7 +83,8 @@ class BreedingDetailSection extends StatelessWidget {
               _buildBreedingInfo(context, data.pair!, data.record),
             if (hasBreedingInfo && hasLineage) const SizedBox(height: 8),
             if (hasLineage)
-              _buildLineageCard(context, data.parents, data.offspring, data.siblings),
+              _buildLineageCard(
+                  context, data.parents, data.offspring, data.siblings),
           ],
         );
       },
@@ -78,10 +99,9 @@ class BreedingDetailSection extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.pets_outlined, size: 36, color: Colors.grey.shade300),
+              FeatherIcon(size: 36, color: Colors.grey.shade300),
               const SizedBox(height: 8),
-              Text('该鸟暂无繁育记录',
-                  style: TextStyle(color: Colors.grey.shade500)),
+              Text('该鸟暂无繁育记录', style: TextStyle(color: Colors.grey.shade500)),
             ],
           ),
         ),
@@ -106,7 +126,8 @@ class BreedingDetailSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.account_tree, size: 18, color: theme.colorScheme.primary),
+                Icon(Icons.account_tree,
+                    size: 18, color: theme.colorScheme.primary),
                 const SizedBox(width: 6),
                 Text('族谱',
                     style: theme.textTheme.titleSmall
@@ -155,8 +176,7 @@ class BreedingDetailSection extends StatelessWidget {
                             bird: o.chick,
                             relation: '后代',
                             color: Colors.green,
-                            onTap: () =>
-                                _navigateToBird(context, o.chick.id),
+                            onTap: () => _navigateToBird(context, o.chick.id),
                           ),
                         ))
                     .toList(),
@@ -178,8 +198,7 @@ class BreedingDetailSection extends StatelessWidget {
                             bird: s,
                             relation: '同胞',
                             color: Colors.orange,
-                            onTap: () =>
-                                _navigateToBird(context, s.id),
+                            onTap: () => _navigateToBird(context, s.id),
                           ),
                         ))
                     .toList(),
@@ -231,11 +250,10 @@ class BreedingDetailSection extends StatelessWidget {
     final db = pluginRegistry.db!;
 
     // Determine partner bird
-    final isMale = pair.maleBirdId == birdId;
+    final isMale = pair.maleBirdId == widget.birdId;
     final partnerBirdId = isMale ? pair.femaleBirdId : pair.maleBirdId;
-    final partnerBirdName = record != null
-        ? (isMale ? record.$4.name : record.$3.name)
-        : null;
+    final partnerBirdName =
+        record != null ? (isMale ? record.$4.name : record.$3.name) : null;
 
     return Card(
       child: Padding(
@@ -248,7 +266,9 @@ class BreedingDetailSection extends StatelessWidget {
               children: [
                 Icon(Icons.favorite, size: 16, color: Colors.pink.shade300),
                 const SizedBox(width: 6),
-                Text('配对伙伴: ', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                Text('配对伙伴: ',
+                    style:
+                        TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                 if (partnerBirdName != null)
                   GestureDetector(
                     onTap: () => _navigateToBird(context, partnerBirdId),
@@ -288,9 +308,11 @@ class BreedingDetailSection extends StatelessWidget {
                   final eggs = eggsSnapshot.data ?? [];
                   if (eggs.isEmpty) return const SizedBox.shrink();
 
-                  final incubating = eggs.where((e) => e.status == '孵化中').length;
+                  final incubating =
+                      eggs.where((e) => e.status == '孵化中').length;
                   final hatched = eggs.where((e) => e.status == '已出壳').length;
-                  final unfertilized = eggs.where((e) => e.status == '未受精').length;
+                  final unfertilized =
+                      eggs.where((e) => e.status == '未受精').length;
                   final damaged = eggs.where((e) => e.status == '损坏').length;
 
                   final parts = <String>[];
@@ -304,7 +326,8 @@ class BreedingDetailSection extends StatelessWidget {
                       const Text('蛋: ', style: TextStyle(fontSize: 13)),
                       Text(
                         '${eggs.length} 颗 · ${parts.join(" ")}',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                        style: TextStyle(
+                            color: Colors.grey.shade700, fontSize: 13),
                       ),
                     ],
                   );
@@ -320,9 +343,12 @@ class BreedingDetailSection extends StatelessWidget {
                 icon: const Icon(Icons.arrow_forward, size: 16),
                 label: const Text('查看详情'),
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => BreedingRecordDetailScreen(pairId: pair.id),
-                  ));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            BreedingRecordDetailScreen(pairId: pair.id),
+                      ));
                 },
               ),
             ),
@@ -390,12 +416,14 @@ class BreedingDetailSection extends StatelessWidget {
     if (db == null) return;
     final birdWithDetails = await db.getWithDetails(birdId);
     if (!context.mounted || birdWithDetails == null) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => BirdDetailScreen(
-        bird: birdWithDetails,
-        initialPluginId: 'breeding',
-      ),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BirdDetailScreen(
+            bird: birdWithDetails,
+            initialPluginId: 'breeding',
+          ),
+        ));
   }
 }
 
@@ -445,11 +473,12 @@ class _LineageBirdChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.pets, size: 12, color: color),
+            FeatherIcon(size: 12, color: color),
             const SizedBox(width: 4),
             Text(
               bird.name,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: color),
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 13, color: color),
             ),
             const SizedBox(width: 4),
             Container(
@@ -460,7 +489,8 @@ class _LineageBirdChip extends StatelessWidget {
               ),
               child: Text(
                 relation,
-                style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    fontSize: 9, color: color, fontWeight: FontWeight.w500),
               ),
             ),
           ],

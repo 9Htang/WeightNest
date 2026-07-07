@@ -216,7 +216,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
             leading: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                BirdListTile.buildAvatar(b.bird.id, size: 40, growthStage: b.growthStage),
+                BirdListTile.buildAvatar(b.bird.id, size: 56, circleSize: 56, growthStage: b.growthStage, circle: true, cardColor: Theme.of(context).colorScheme.surfaceContainerLow),
                 const SizedBox(width: 4),
                 Checkbox(
                   value: _selectedIds.contains(b.bird.id),
@@ -273,7 +273,7 @@ class _BirdsScreenState extends ConsumerState<BirdsScreen> {
               context,
               MaterialPageRoute(builder: (_) => BirdDetailScreen(bird: b)),
             ),
-            leading: BirdListTile.buildAvatar(b.bird.id, size: 40, growthStage: b.growthStage),
+            leading: BirdListTile.buildAvatar(b.bird.id, size: 56, circleSize: 56, growthStage: b.growthStage, circle: true, cardColor: Theme.of(context).colorScheme.surfaceContainerLow),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

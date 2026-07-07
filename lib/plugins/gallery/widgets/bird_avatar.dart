@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/plugin_registry.dart';
+import '../../../theme/app_tokens.dart';
 import '../gallery_storage_service.dart';
 
 /// Displays a bird's custom avatar if one exists, otherwise falls back to the
@@ -15,6 +16,15 @@ class BirdAvatarWidget extends StatefulWidget {
   final VoidCallback? onTap;
   final BoxShape shape;
 
+  /// When true, use sharp corners (borderRadius: 0) instead of [AppRadius.lg].
+  /// Used by list cards that have a sharp, edge-to-edge left column.
+  final bool forceSharp;
+
+  /// Overrides the emoji fallback background color. When null (default), the
+  /// growth-stage semantic color is used. Pass [cardColor] in list-circle mode
+  /// so the fallback blends with the surrounding card.
+  final Color? backgroundColor;
+
   const BirdAvatarWidget({
     super.key,
     required this.birdId,
@@ -22,6 +32,8 @@ class BirdAvatarWidget extends StatefulWidget {
     this.growthStage,
     this.onTap,
     this.shape = BoxShape.rectangle,
+    this.forceSharp = false,
+    this.backgroundColor,
   });
 
   @override
@@ -87,6 +99,16 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
     }
   }
 
+  /// borderRadius for ClipRRect / BoxDecoration.
+  BorderRadius get _effectiveRadius {
+    if (widget.forceSharp) return BorderRadius.zero;
+    if (widget.shape == BoxShape.circle) {
+      return BorderRadius.circular(widget.size / 2);
+    }
+    final r = context.r;
+    return r.bLg;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -95,10 +117,11 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
     if (_avatarPath != null && _avatarPath!.isNotEmpty && _avatarFileExists) {
       final storage = GalleryStorageService();
       final file = File(storage.resolve(_avatarPath!));
+      // Photo avatar — always constrained to widget.size × widget.size.
+      // In fill mode the outer SizedBox(64×64) controls the box; here we keep
+      // the intrinsic size so non-fill callers (detail header) stay bounded.
       child = ClipRRect(
-        borderRadius: BorderRadius.circular(widget.shape == BoxShape.circle
-            ? widget.size / 2
-            : widget.size / 7),
+        borderRadius: _effectiveRadius,
         child: Image.file(
           file,
           key: ValueKey('avatar_${widget.birdId}_$_version'),
@@ -149,10 +172,8 @@ class _BirdAvatarWidgetState extends State<BirdAvatarWidget> {
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        color: _stageColor(theme),
-        borderRadius: BorderRadius.circular(
-          widget.shape == BoxShape.circle ? widget.size / 2 : widget.size / 7,
-        ),
+        color: widget.backgroundColor ?? _stageColor(theme),
+        borderRadius: _effectiveRadius,
       ),
       child: Center(
         child: Text(

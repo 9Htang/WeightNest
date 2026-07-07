@@ -4,6 +4,11 @@ import 'package:weight_nest/core/plugin_registry.dart';
 import 'package:weight_nest/database/database.dart';
 import 'package:weight_nest/plugins/breeding/breeding_repository.dart';
 import 'package:weight_nest/repositories/bird_repository.dart';
+import 'package:weight_nest/theme/app_tokens.dart';
+import 'package:weight_nest/theme/category_colors.dart';
+import 'package:weight_nest/widgets/bird_picker_sheet.dart';
+import 'package:weight_nest/widgets/list/app_list_card.dart';
+import 'package:weight_nest/widgets/list/empty_state.dart';
 import 'breeding_record_screen.dart';
 
 /// 配对管理主页 — 展示所有活跃配对
@@ -16,7 +21,24 @@ class BreedingPairListScreen extends StatefulWidget {
 
 class _BreedingPairListScreenState extends State<BreedingPairListScreen> {
   AppDatabase? get _db => pluginRegistry.db;
-  int _refreshKey = 0;
+
+  // Cache the load Future in State. Refreshing swaps only the Future (and
+  // triggers FutureBuilder to re-subscribe) without changing the widget's key,
+  // so the FutureBuilder and its subtree are reconciled in place instead of
+  // being torn down and rebuilt from scratch.
+  Future<List<({BreedingPair pair, Bird male, Bird female})>>? _pairsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _pairsFuture = _db?.getActivePairs();
+  }
+
+  void _reload() {
+    setState(() {
+      _pairsFuture = _db?.getActivePairs();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +53,7 @@ class _BreedingPairListScreenState extends State<BreedingPairListScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('配对管理')),
       body: FutureBuilder<List<({BreedingPair pair, Bird male, Bird female})>>(
-        key: ValueKey('pairs_$_refreshKey'),
-        future: db.getActivePairs(),
+        future: _pairsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -42,10 +63,14 @@ class _BreedingPairListScreenState extends State<BreedingPairListScreen> {
           }
           final pairs = snapshot.data ?? [];
           if (pairs.isEmpty) {
-            return const Center(child: Text('暂无活跃配对'));
+            return EmptyState(
+              icon: const Icon(Icons.favorite_border, size: 56),
+              message: '暂无活跃配对',
+              hint: '点击右下角 + 创建配对',
+            );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: context.sp.paddingLg,
             itemCount: pairs.length,
             itemBuilder: (context, index) => _PairCard(
               data: pairs[index],
@@ -63,26 +88,31 @@ class _BreedingPairListScreenState extends State<BreedingPairListScreen> {
   }
 
   void _openRecord(BuildContext context, int pairId) {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => BreedingRecordDetailScreen(pairId: pairId),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BreedingRecordDetailScreen(pairId: pairId),
+        ));
   }
 
-  void _confirmSeparate(BuildContext context, ({BreedingPair pair, Bird male, Bird female}) data) {
-    final displayName = data.pair.pairName ?? '♂${data.male.name} × ♀${data.female.name}';
+  void _confirmSeparate(BuildContext context,
+      ({BreedingPair pair, Bird male, Bird female}) data) {
+    final displayName =
+        data.pair.pairName ?? '♂${data.male.name} × ♀${data.female.name}';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('解除配对'),
         content: Text('确定要解除「$displayName」的配对吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await _db?.separatePair(data.pair.id);
               if (ctx.mounted) Navigator.pop(ctx);
-              setState(() => _refreshKey++);
+              _reload();
             },
             child: const Text('解除'),
           ),
@@ -102,7 +132,7 @@ class _BreedingPairListScreenState extends State<BreedingPairListScreen> {
         db: db,
         onCreated: () {
           Navigator.pop(ctx);
-          setState(() => _refreshKey++);
+          _reload();
         },
       ),
     );
@@ -115,43 +145,33 @@ class _PairCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  const _PairCard({required this.data, required this.onTap, required this.onLongPress});
+  const _PairCard(
+      {required this.data, required this.onTap, required this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = data.pair.pairName ?? '♂${data.male.name} × ♀${data.female.name}';
+    final sp = context.sp;
+    final displayName =
+        data.pair.pairName ?? '♂${data.male.name} × ♀${data.female.name}';
     final dateStr = DateFormat('yyyy-MM-dd').format(data.pair.pairedDate);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(displayName,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text('配对日期: $dateStr',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                    _ActiveStageBadge(pairId: data.pair.id),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
-            ],
-          ),
-        ),
+    return AppListCard(
+      title: Text(displayName,
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('配对日期: $dateStr', style: theme.textTheme.bodySmall),
+          SizedBox(height: sp.xs),
+          _ActiveStageBadge(pairId: data.pair.id),
+        ],
       ),
+      trailing: Icon(Icons.chevron_right,
+          color: theme.colorScheme.onSurfaceVariant.withAlpha(context.a.medium)),
+      onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 }
@@ -173,41 +193,26 @@ class _ActiveStageBadge extends StatelessWidget {
         if (record == null) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: _stageChip(record.stage),
+          child: _stageChip(context, record.stage),
         );
       },
     );
   }
 
-  Widget _stageChip(String stage) {
-    final color = _stageColor(stage);
+  Widget _stageChip(BuildContext context, String stage) {
+    final theme = Theme.of(context);
+    final r = context.r;
+    final (fg, bg) = CategoryColors.forCategory(theme.colorScheme, stage);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: color.withAlpha(30),
+        borderRadius: r.bXs,
+        color: bg,
       ),
       child: Text(stage,
           style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+              fontSize: 11, color: fg, fontWeight: FontWeight.w500)),
     );
-  }
-
-  static Color _stageColor(String stage) {
-    switch (stage) {
-      case '配对':
-        return Colors.blue;
-      case '产蛋':
-        return Colors.orange;
-      case '孵化':
-        return Colors.purple;
-      case '育雏':
-        return Colors.teal;
-      case '已完结':
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
   }
 }
 
@@ -291,40 +296,64 @@ class _CreatePairSheetState extends State<_CreatePairSheet> {
                 const Center(child: CircularProgressIndicator())
               else ...[
                 // 公鸟选择
-                DropdownButtonFormField<BirdWithDetails?>(
-                  value: _maleBird,
-                  isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: '公鸟', border: OutlineInputBorder()),
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('请选择公鸟')),
-                    ..._birds
-                        .where(
-                            (b) => b.bird.gender == '公' && b != _femaleBird)
-                        .map((b) => DropdownMenuItem(
-                            value: b, child: Text(b.bird.name))),
-                  ],
-                  onChanged: (v) => setState(() => _maleBird = v),
+                InkWell(
+                  onTap: () async {
+                    final bird = await BirdPickerSheet.show(
+                      context,
+                      title: '选择公鸟',
+                      birds: _birds,
+                      genderFilter: {'公'},
+                      excludeBirdId: _femaleBird?.bird.id,
+                      showSpeciesFilter: true,
+                      showStageFilter: true,
+                    );
+                    if (bird != null && mounted) {
+                      setState(() => _maleBird = bird);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '公鸟',
+                      hintText: '请选择公鸟',
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                      border: OutlineInputBorder(),
+                    ),
+                    isEmpty: _maleBird == null,
+                    child: _maleBird != null
+                        ? Text(_maleBird!.bird.name)
+                        : const SizedBox.shrink(),
+                  ),
                 ),
                 const SizedBox(height: 12),
 
                 // 母鸟选择
-                DropdownButtonFormField<BirdWithDetails?>(
-                  value: _femaleBird,
-                  isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: '母鸟', border: OutlineInputBorder()),
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('请选择母鸟')),
-                    ..._birds
-                        .where(
-                            (b) => b.bird.gender == '母' && b != _maleBird)
-                        .map((b) => DropdownMenuItem(
-                            value: b, child: Text(b.bird.name))),
-                  ],
-                  onChanged: (v) => setState(() => _femaleBird = v),
+                InkWell(
+                  onTap: () async {
+                    final bird = await BirdPickerSheet.show(
+                      context,
+                      title: '选择母鸟',
+                      birds: _birds,
+                      genderFilter: {'母'},
+                      excludeBirdId: _maleBird?.bird.id,
+                      showSpeciesFilter: true,
+                      showStageFilter: true,
+                    );
+                    if (bird != null && mounted) {
+                      setState(() => _femaleBird = bird);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '母鸟',
+                      hintText: '请选择母鸟',
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                      border: OutlineInputBorder(),
+                    ),
+                    isEmpty: _femaleBird == null,
+                    child: _femaleBird != null
+                        ? Text(_femaleBird!.bird.name)
+                        : const SizedBox.shrink(),
+                  ),
                 ),
                 const SizedBox(height: 12),
 
@@ -342,9 +371,10 @@ class _CreatePairSheetState extends State<_CreatePairSheet> {
                 FilledButton.icon(
                   icon: const Icon(Icons.favorite, size: 18),
                   label: Text(_saving ? '创建中...' : '创建配对'),
-                  onPressed: (_maleBird != null && _femaleBird != null && !_saving)
-                      ? () => _createPair()
-                      : null,
+                  onPressed:
+                      (_maleBird != null && _femaleBird != null && !_saving)
+                          ? () => _createPair()
+                          : null,
                 ),
               ],
             ],
@@ -358,7 +388,8 @@ class _CreatePairSheetState extends State<_CreatePairSheet> {
     if (_maleBird == null || _femaleBird == null) return;
     setState(() => _saving = true);
     // 在 await 之前读取控制器值 —— await 期间底部弹窗可能被关闭导致控制器被 dispose
-    final pairName = _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim();
+    final pairName =
+        _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim();
     final maleId = _maleBird!.bird.id;
     final femaleId = _femaleBird!.bird.id;
     try {
@@ -371,8 +402,8 @@ class _CreatePairSheetState extends State<_CreatePairSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建失败: $e'),
-              behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('创建失败: $e'), behavior: SnackBarBehavior.floating),
         );
         setState(() => _saving = false);
       }

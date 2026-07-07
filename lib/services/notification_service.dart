@@ -13,7 +13,8 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._();
   static NotificationService get instance => _instance;
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   static const _overdueChannelId = 'task_overdue';
@@ -111,8 +112,10 @@ class NotificationService {
   Future<void> showAlerts(List<AnomalyAlert> alerts) async {
     if (!_initialized || kIsWeb || alerts.isEmpty) return;
 
-    final dangerAlerts = alerts.where((a) => a.severity == AlertSeverity.danger).toList();
-    final warningAlerts = alerts.where((a) => a.severity == AlertSeverity.warning).toList();
+    final dangerAlerts =
+        alerts.where((a) => a.severity == AlertSeverity.danger).toList();
+    final warningAlerts =
+        alerts.where((a) => a.severity == AlertSeverity.warning).toList();
 
     // Danger 逐条通知
     for (final a in dangerAlerts) {
@@ -140,7 +143,9 @@ class NotificationService {
     if (warningAlerts.isNotEmpty) {
       final types = warningAlerts.map((a) => a.type).toSet().join('、');
       final summary = warningAlerts.length <= 3
-          ? warningAlerts.map((a) => '${a.bird.bird.name}: ${a.description}').join('\n')
+          ? warningAlerts
+              .map((a) => '${a.bird.bird.name}: ${a.description}')
+              .join('\n')
           : '${warningAlerts.length} 个提醒';
       await _plugin.show(
         _warningAggregateId,

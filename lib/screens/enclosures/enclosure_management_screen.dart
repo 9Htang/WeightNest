@@ -4,6 +4,8 @@ import '../../providers.dart';
 import '../../database/database.dart';
 import '../../repositories/enclosure_repository.dart';
 import '../../core/plugin_registry.dart';
+import '../../widgets/list/app_list_card.dart';
+import '../../widgets/list/empty_state.dart';
 
 // 提取独立的输入对话框
 class _EnclosureTextInputDialog extends StatefulWidget {
@@ -22,7 +24,8 @@ class _EnclosureTextInputDialog extends StatefulWidget {
   });
 
   @override
-  State<_EnclosureTextInputDialog> createState() => _EnclosureTextInputDialogState();
+  State<_EnclosureTextInputDialog> createState() =>
+      _EnclosureTextInputDialogState();
 }
 
 class _EnclosureTextInputDialogState extends State<_EnclosureTextInputDialog> {
@@ -59,13 +62,15 @@ class _EnclosureTextInputDialogState extends State<_EnclosureTextInputDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _saving ? null : () async {
-            final name = _controller.text.trim();
-            if (name.isEmpty) return;
-            setState(() => _saving = true); // 防抖
-            await widget.onSave(name);
-            if (mounted) Navigator.pop(context, true);
-          },
+          onPressed: _saving
+              ? null
+              : () async {
+                  final name = _controller.text.trim();
+                  if (name.isEmpty) return;
+                  setState(() => _saving = true); // 防抖
+                  await widget.onSave(name);
+                  if (mounted) Navigator.pop(context, true);
+                },
           child: const Text('保存'),
         ),
       ],
@@ -135,7 +140,10 @@ class _EnclosureManagementScreenState
         data: (enclosures) {
           final displayEnclosures = _reorderedEnclosures ?? enclosures;
           return displayEnclosures.isEmpty
-              ? const Center(child: Text('暂无容器，点击右下角 + 添加'))
+              ? EmptyState(
+                  icon: const Icon(Icons.inventory_2_outlined, size: 56),
+                  message: '暂无容器，点击右下角 + 添加',
+                )
               : ReorderableListView.builder(
                   itemCount: displayEnclosures.length,
                   onReorder: (oldIndex, newIndex) async {
@@ -169,53 +177,50 @@ class _EnclosureManagementScreenState
                     final encAction = pluginRegistry.enabledPlugins
                         .map((p) => p.enclosureWeighAction)
                         .firstWhere((a) => a != null, orElse: () => null);
-                    return Card(
+                    return AppListCard.tile(
                       key: ValueKey(e.enclosure.id),
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 3),
-                      child: ListTile(
-                        leading: const Icon(Icons.inventory_2_outlined),
-                        title: Text(e.enclosure.name,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600)),
-                        subtitle: Text('${e.birdCount} 只鹦鹉'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (encAction != null)
-                              IconButton(
-                                icon: Icon(encAction.icon, size: 20),
-                                tooltip: encAction.tooltip,
-                                color: Theme.of(context).colorScheme.primary,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => encAction.builder(e.enclosure.id),
-                                    ),
-                                  );
-                                },
-                              ),
-                            PopupMenuButton(
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                    value: 'edit', child: Text('编辑')),
-                                const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('删除',
-                                        style: TextStyle(color: Colors.red))),
-                              ],
-                              onSelected: (v) {
-                                if (v == 'edit')
-                                  _showEditDialog(context, e.enclosure);
-                                if (v == 'delete')
-                                  _confirmDelete(context, e);
+                      leading: const Icon(Icons.inventory_2_outlined),
+                      title: Text(e.enclosure.name,
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text('${e.birdCount} 只鹦鹉'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (encAction != null)
+                            IconButton(
+                              icon: Icon(encAction.icon, size: 20),
+                              tooltip: encAction.tooltip,
+                              color: Theme.of(context).colorScheme.primary,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        encAction.builder(e.enclosure.id),
+                                  ),
+                                );
                               },
                             ),
-                          ],
-                        ),
+                          PopupMenuButton(
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                  value: 'edit', child: Text('编辑')),
+                              const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('删除',
+                                      style: TextStyle(color: Colors.red))),
+                            ],
+                            onSelected: (v) {
+                              if (v == 'edit')
+                                _showEditDialog(context, e.enclosure);
+                              if (v == 'delete') _confirmDelete(context, e);
+                            },
+                          ),
+                        ],
                       ),
+                      onTap: null,
                     );
                   },
                 );

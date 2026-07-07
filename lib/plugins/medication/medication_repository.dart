@@ -1,58 +1,12 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_clock.dart';
 import '../../database/database.dart';
-import '../../utils/uuid.dart';
 
+/// Task-related queries and time-slot utilities.
+/// Medication CRUD operations are now in drug_library_repository.dart.
 extension MedicationRepository on AppDatabase {
-  // ── 喂药方案 CRUD ──
-
-  Future<Medication> addMedication({
-    required int birdId,
-    required String drugName,
-    required String dosage,
-    int timesPerDay = 1,
-    String drugType = '其他',
-    DateTime? startDate,
-    DateTime? endDate,
-    String? notes,
-    List<TimeOfDay>? customTimes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) async {
-    final start = startDate ?? AppClock.now;
-    final med = await into(medications).insertReturning(
-      MedicationsCompanion.insert(
-        uuid: genUuid(),
-        birdId: birdId,
-        drugName: drugName,
-        drugType: Value(drugType),
-        dosage: dosage,
-        timesPerDay: Value(timesPerDay),
-        startDate: start,
-        endDate: Value(endDate),
-        notes: Value(notes),
-        createdAt: Value(createdAt ?? AppClock.now),
-        updatedAt: Value(updatedAt ?? AppClock.now),
-      ),
-    );
-    // 方案创建后触发任务生成（由 generateTodayTasks 统一调度）
-    return med;
-  }
-
-  Future<List<Medication>> getMedicationsByBird(int birdId) =>
-      (select(medications)
-            ..where((t) => t.birdId.equals(birdId) & t.active.equals(true))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .get();
-
-  Future<void> deactivateMedication(int id) async {
-    await (update(medications)..where((t) => t.id.equals(id)))
-        .write(MedicationsCompanion(active: const Value(false), updatedAt: Value(AppClock.now)));
-  }
-
   // ── 今日喂药任务（从 tasks 表统一查询） ──
 
   /// 获取今天某只鸟的喂药任务（按时间排序）
@@ -61,18 +15,17 @@ extension MedicationRepository on AppDatabase {
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
+    // 直接用 SQL WHERE 过滤 birdId + taskType + dueDate，避免查出全表再在 Dart 过滤。
     final rows = await (select(tasks)
-          ..where((t) => t.taskType.equals('medication')))
+          ..where((t) =>
+              t.birdId.equals(birdId) &
+              t.taskType.equals('medication') &
+              t.dueDate.isBiggerOrEqualValue(dayStart) &
+              t.dueDate.isSmallerThanValue(dayEnd))
+          ..orderBy([(t) => OrderingTerm.asc(t.dueDate)]))
         .get();
 
-    return rows
-        .where((t) =>
-            t.birdId == birdId &&
-            !t.dueDate.isBefore(dayStart) &&
-            t.dueDate.isBefore(dayEnd))
-        .map((t) => MedTaskInfo.fromTask(t))
-        .toList()
-      ..sort((a, b) => a.task.dueDate.compareTo(b.task.dueDate));
+    return rows.map((t) => MedTaskInfo.fromTask(t)).toList();
   }
 
   /// 获取今天所有的喂药任务（跨所有鸟）
@@ -81,22 +34,21 @@ extension MedicationRepository on AppDatabase {
     final dayStart = DateTime(today.year, today.month, today.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
+    // 直接用 SQL WHERE 过滤 taskType + dueDate，避免查出全表再在 Dart 过滤。
     final rows = await (select(tasks)
-          ..where((t) => t.taskType.equals('medication')))
+          ..where((t) =>
+              t.taskType.equals('medication') &
+              t.dueDate.isBiggerOrEqualValue(dayStart) &
+              t.dueDate.isSmallerThanValue(dayEnd))
+          ..orderBy([(t) => OrderingTerm.asc(t.dueDate)]))
         .get();
 
-    final result = rows
-        .where((t) =>
-            !t.dueDate.isBefore(dayStart) &&
-            t.dueDate.isBefore(dayEnd))
-        .map((t) => MedTaskInfo.fromTask(t))
-        .toList();
-    result.sort((a, b) => a.task.dueDate.compareTo(b.task.dueDate));
-    return result;
+    return rows.map((t) => MedTaskInfo.fromTask(t)).toList();
   }
 
   /// 获取今日某鸟的喂药任务（别名，兼容旧调用）
-  Future<List<MedTaskInfo>> getTodayLogs(int birdId) => getTodayMedTasks(birdId);
+  Future<List<MedTaskInfo>> getTodayLogs(int birdId) =>
+      getTodayMedTasks(birdId);
 
   /// 获取今日全部喂药任务（别名，兼容旧调用）
   Future<List<MedTaskInfo>> getAllTodayLogs() => getAllTodayMedTasks();
@@ -156,7 +108,8 @@ Future<List<_TimeSlot>> distributedTimeSlots(int timesPerDay) async {
 
   final startMin = startH * 60 + startM;
   final endMin = endH * 60 + endM;
-  final window = endMin <= startMin ? (24 * 60 - startMin) + endMin : endMin - startMin;
+  final window =
+      endMin <= startMin ? (24 * 60 - startMin) + endMin : endMin - startMin;
   if (window <= 0) return [_TimeSlot(startH, startM)];
 
   if (timesPerDay == 1) {

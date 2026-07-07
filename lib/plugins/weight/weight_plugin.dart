@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/app_clock.dart';
 import '../../core/plugin.dart';
@@ -11,197 +10,21 @@ import '../../screens/weigh/weigh_grid_screen.dart';
 import '../../screens/birds/bird_detail_screen.dart';
 import 'weight_table.dart';
 import 'weight_config_screen.dart';
+import 'weight_math.dart';
+import 'weight_stage_mapper.dart';
+export 'weight_math.dart'; // ponytail: re-export so existing importers don't break
 import '../../services/work_hours_config.dart';
 import '../../core/event_bus.dart';
 import '../../core/events.dart';
 
-// ==================== 体重告警阈值常量 ====================
-
-const double _warningDeviationPct = 10.0;
-const double _dangerDeviationPct = 15.0;
-const double _overdueWarningMultiplier = 1.5;
-const double _overdueDangerMultiplier = 3.0;
-const double _chronicTrendPct = 7.0;
-const double _chickGrowthHealthyRate = 0.08;
-const double _chickGrowthSlowRate = 0.03;
-const double _weaningWarningDropPct = 10.0;
-const double _weaningDangerDropPct = 15.0;
-const int _analysisWindowDays = 90;
-
-// ==================== 异常方向枚举 ====================
-
-/// 最近一次称重的异常方向，供称重表格多色标记使用。
-enum AbnormalDirection {
-  none,  // 正常
-  high,  // 体重偏高
-  low,   // 体重偏低
-}
-
-// ==================== 工具函数 ====================
-
-double _logGrowth(double prev, double curr) =>
-    prev > 0 && curr > 0 ? log(curr / prev) : 0;
-
-double _normalize24h(double rate, double h) => h > 0 ? rate * (24 / h) : rate;
-
-double _hoursBetween(DateTime a, DateTime b) =>
-    b.difference(a).inMilliseconds / 3600000.0;
-
-double _avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
-
-/// EWMA 序列，alpha=0.2（基线平滑）
-List<double> _ewma(List<double> values, {double alpha = 0.2}) {
-  if (values.isEmpty) return [];
-  final r = <double>[values.first];
-  for (int i = 1; i < values.length; i++) {
-    r.add(values[i] * alpha + r.last * (1 - alpha));
-  }
-  return r;
-}
-
-int _effectiveInterval(BirdWithDetails bird) => bird.effectiveWeighIntervalDays;
-
-// ==================== 断奶期检测 ====================
-
-/// 判断是否处于断奶期（手动覆盖优先，否则自动检测）
-/// [weights] 需按 recordedAt ASC（最早在前）
-bool isWeaningPhase(BirdWithDetails bird, List<Weight> weights) {
-  // 手动覆盖
-  if (bird.bird.weaningOverride == true) return true;
-  if (bird.bird.weaningOverride == false) return false;
-
-  // 不在日龄窗口内
-  if (bird.ageDays < bird.species.nestlingEndDays - 5 ||
-      bird.ageDays > bird.species.juvenileEndDays) {
-    return false;
-  }
-
-  if (weights.length < 3) return false;
-
-  // 自动进入条件：从峰值下降 >5%，且最近 3 次中 >=2 次下降
-  final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
-  final latest = weights.last.weightG;
-  if (latest >= peak * 0.95) return false; // 尚未明显下降
-
-  int recentDrops = 0;
-  for (int i = weights.length - 1; i > 0 && i > weights.length - 4; i--) {
-    if (weights[i].weightG < weights[i - 1].weightG) recentDrops++;
-  }
-  if (recentDrops < 2) return false;
-
-  // 自动退出条件
-  // 条件 1：超龄强制退出
-  if (bird.ageDays > bird.species.juvenileEndDays + 10) return false;
-
-  // 条件 2：最近 3 次体重企稳（波动 <3%，且末次不低于第 3 次）
-  if (weights.length >= 3) {
-    final last3 = weights.sublist(weights.length - 3);
-    final vals = last3.map((w) => w.weightG).toList();
-    final avg3 = _avg(vals);
-    final range = vals.reduce((a, b) => a > b ? a : b) -
-        vals.reduce((a, b) => a < b ? a : b);
-    if (range / avg3 * 100 < 3 && vals.last >= vals.first) return false;
-  }
-
-  // 条件 3：体重回升 > 断奶期最低 x 1.05
-  final subset = weights.skip(weights.length * 2 ~/ 3).toList();
-  final weaningMin =
-      subset.map((w) => w.weightG).reduce((a, b) => a < b ? a : b);
-  if (latest > weaningMin * 1.05) return false;
-
-  return true;
-}
-
-/// 判断最近一次称重的异常方向，供称重表格多色标记使用。
-/// [weights] 按 recordedAt DESC（最新在前）
-///
-/// 返回：
-///   AbnormalDirection.none — 正常
-///   AbnormalDirection.high — 偏高（体重高于基线 >warningPct）
-///   AbnormalDirection.low  — 偏低（体重低于基线 >warningPct，或雏鸟生长不足/断奶期下降）
-AbnormalDirection isLatestAbnormalDirection(
-  BirdWithDetails bird,
-  List<Weight> weights,
-) {
-  if (weights.length < 2) return AbnormalDirection.none;
-  final latest = weights.first.weightG;
-
-  // 断奶期 → low（从峰值下降）
-  final inWeaning =
-      bird.growthStage == '雏鸟' &&
-      isWeaningPhase(bird, weights.reversed.toList());
-  if (inWeaning) {
-    final peak =
-        weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
-    final drop = (peak - latest) / peak * 100;
-    return drop > _weaningWarningDropPct
-        ? AbnormalDirection.low
-        : AbnormalDirection.none;
-  }
-
-  switch (bird.growthStage) {
-    case '雏鸟':
-      final now = AppClock.now;
-      final cutoff48h = now.subtract(const Duration(hours: 48));
-      final recent =
-          weights.where((w) => w.recordedAt.isAfter(cutoff48h)).toList();
-      if (recent.length < 2) return AbnormalDirection.none;
-      final asc = recent.reversed.toList(); // DESC -> ASC
-      final rates = <double>[];
-      for (int i = 1; i < asc.length; i++) {
-        final h = asc[i]
-                .recordedAt
-                .difference(asc[i - 1].recordedAt)
-                .inMilliseconds /
-            3600000.0;
-        if (h <= 0) continue;
-        if (asc[i - 1].weightG > 0 && asc[i].weightG > 0) {
-          final logR = log(asc[i].weightG / asc[i - 1].weightG);
-          rates.add(logR * (24 / h));
-        }
-      }
-      if (rates.isEmpty) return AbnormalDirection.none;
-      final avgRate = rates.reduce((a, b) => a + b) / rates.length;
-      // 增长率不足 → low；雏鸟正常不会"偏高"
-      if (avgRate < _chickGrowthSlowRate) return AbnormalDirection.low;
-      return AbnormalDirection.none;
-
-    case '幼鸟':
-    case '成鸟':
-      final manualB = bird.bird.manualBaselineG;
-      final double baseline;
-      if (manualB != null) {
-        baseline = manualB.toDouble();
-      } else {
-        if (weights.length < 3) return AbnormalDirection.none;
-        final values = weights.reversed.map((w) => w.weightG).toList();
-        double ema = values.first;
-        for (int i = 1; i < values.length; i++) {
-          ema = 0.2 * values[i] + 0.8 * ema;
-        }
-        baseline = ema;
-      }
-      final deviation = (latest - baseline) / baseline * 100;
-      if (deviation.abs() <= _warningDeviationPct) return AbnormalDirection.none;
-      return deviation > 0 ? AbnormalDirection.high : AbnormalDirection.low;
-  }
-  return AbnormalDirection.none;
-}
-
-/// 向后兼容包装：判断该鸟最近一次称重是否异常。
-/// [weights] 按 recordedAt DESC（最新在前）
-bool isLatestAbnormal(BirdWithDetails bird, List<Weight> weights) =>
-    isLatestAbnormalDirection(bird, weights) != AbnormalDirection.none;
-
 // ==================== 告警检测实现 ====================
 
 List<PluginAlert> _weaningAlerts(BirdWithDetails bird, List<Weight> weights) {
-  final peak =
-      weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
+  final peak = weights.map((w) => w.weightG).reduce((a, b) => a > b ? a : b);
   final latest = weights.last.weightG;
   final dropPct = (peak - latest) / peak * 100;
 
-  if (dropPct > _weaningDangerDropPct) {
+  if (dropPct > weaningDangerDropPct) {
     return [
       PluginAlert(
         birdId: bird.bird.id,
@@ -212,7 +35,7 @@ List<PluginAlert> _weaningAlerts(BirdWithDetails bird, List<Weight> weights) {
       ),
     ];
   }
-  if (dropPct > _weaningWarningDropPct) {
+  if (dropPct > weaningWarningDropPct) {
     return [
       PluginAlert(
         birdId: bird.bird.id,
@@ -232,21 +55,21 @@ List<PluginAlert> _chickGrowth(BirdWithDetails bird, List<Weight> weights) {
   final now = AppClock.now;
   final cutoff = now.subtract(const Duration(hours: 48));
   final recent = weights
-      .where(
-          (w) => w.recordedAt.isAfter(cutoff.subtract(const Duration(seconds: 1))))
+      .where((w) =>
+          w.recordedAt.isAfter(cutoff.subtract(const Duration(seconds: 1))))
       .toList();
   if (recent.length < 2) return [];
 
   final rates = <double>[];
   for (int i = 1; i < recent.length; i++) {
-    final h = _hoursBetween(recent[i - 1].recordedAt, recent[i].recordedAt);
+    final h = hoursBetween(recent[i - 1].recordedAt, recent[i].recordedAt);
     if (h <= 0) continue;
-    final logR = _logGrowth(recent[i - 1].weightG, recent[i].weightG);
-    rates.add(_normalize24h(logR, h));
+    final logR = logGrowth(recent[i - 1].weightG, recent[i].weightG);
+    rates.add(normalize24h(logR, h));
   }
   if (rates.isEmpty) return [];
 
-  final avgRate = _avg(rates);
+  final avgRate = avg(rates);
   final alerts = <PluginAlert>[];
 
   int consecDrop = 0;
@@ -263,9 +86,9 @@ List<PluginAlert> _chickGrowth(BirdWithDetails bird, List<Weight> weights) {
   final displayPct = (lastW - firstW) / firstW * 100;
 
   bool hasDropAlert = false;
-  if (avgRate > _chickGrowthHealthyRate) {
+  if (avgRate > chickGrowthHealthyRate) {
     // 正常
-  } else if (avgRate > _chickGrowthSlowRate) {
+  } else if (avgRate > chickGrowthSlowRate) {
     alerts.add(PluginAlert(
       birdId: bird.bird.id,
       type: '增长减缓',
@@ -299,9 +122,9 @@ List<PluginAlert> _chickGrowth(BirdWithDetails bird, List<Weight> weights) {
       alerts.add(PluginAlert(
         birdId: bird.bird.id,
         type: '体重下降',
-        description:
-            '较上次下降 ${dropPct.toStringAsFixed(1)}%（48h平均正常，近期下降值得关注）',
-        severity: lastRate < -0.15 ? AlertSeverity.danger : AlertSeverity.warning,
+        description: '较上次下降 ${dropPct.toStringAsFixed(1)}%（48h平均正常，近期下降值得关注）',
+        severity:
+            lastRate < -0.15 ? AlertSeverity.danger : AlertSeverity.warning,
       ));
     }
   }
@@ -323,12 +146,12 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
   final alerts = <PluginAlert>[];
 
   final baseline = bird.bird.manualBaselineG ??
-      _ewma(weights.map((w) => w.weightG).toList()).last;
+      ewma(weights.map((w) => w.weightG).toList()).last;
   final latest = weights.last.weightG;
   final deviation = (latest - baseline) / baseline * 100;
 
   // 维度 A：单点偏离基线（急性）
-  if (deviation.abs() > _dangerDeviationPct) {
+  if (deviation.abs() > dangerDeviationPct) {
     final dir = deviation > 0 ? '偏高' : '偏低';
     alerts.add(PluginAlert(
       birdId: bird.bird.id,
@@ -338,7 +161,7 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
           '$dir ${deviation.abs().toStringAsFixed(0)}%（${deviation > 0 ? "可能为产蛋、过肥或疾病" : "值得关注"}）',
       severity: AlertSeverity.danger,
     ));
-  } else if (deviation.abs() > _warningDeviationPct) {
+  } else if (deviation.abs() > warningDeviationPct) {
     final dir = deviation > 0 ? '偏高' : '偏低';
     alerts.add(PluginAlert(
       birdId: bird.bird.id,
@@ -353,7 +176,7 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
   // 维度 B：基线持续趋势（慢性）
   if (weights.length >= 4) {
     final values = weights.map((w) => w.weightG).toList();
-    final emaSnapshots = _ewma(values);
+    final emaSnapshots = ewma(values);
 
     final recentN =
         (emaSnapshots.length / 3).ceil().clamp(2, emaSnapshots.length - 1);
@@ -361,21 +184,19 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
     final currentBaseline = emaSnapshots.last;
     final trend = (currentBaseline - earlyBaseline) / earlyBaseline * 100;
 
-    if (trend < -_chronicTrendPct) {
+    if (trend < -chronicTrendPct) {
       alerts.add(PluginAlert(
         birdId: bird.bird.id,
         type: '体重持续下降',
-        description:
-            '基线从 ${earlyBaseline.toStringAsFixed(1)}g 降至 '
+        description: '基线从 ${earlyBaseline.toStringAsFixed(1)}g 降至 '
             '${currentBaseline.toStringAsFixed(1)}g（${trend.abs().toStringAsFixed(0)}%），持续下行值得关注',
         severity: AlertSeverity.warning,
       ));
-    } else if (trend > _chronicTrendPct) {
+    } else if (trend > chronicTrendPct) {
       alerts.add(PluginAlert(
         birdId: bird.bird.id,
         type: '体重持续上升',
-        description:
-            '基线从 ${earlyBaseline.toStringAsFixed(1)}g 升至 '
+        description: '基线从 ${earlyBaseline.toStringAsFixed(1)}g 升至 '
             '${currentBaseline.toStringAsFixed(1)}g（${trend.toStringAsFixed(0)}%），可能为过肥或非繁育增重',
         severity: AlertSeverity.warning,
       ));
@@ -388,11 +209,11 @@ List<PluginAlert> _baselineAlerts(BirdWithDetails bird, List<Weight> weights) {
 List<PluginAlert> _overdue(BirdWithDetails bird, List<Weight> weights) {
   final latest = weights.last;
   final daysSince = AppClock.now.difference(latest.recordedAt).inDays;
-  final interval = _effectiveInterval(bird);
+  final interval = effectiveInterval(bird);
 
   if (interval <= 0) return [];
 
-  if (daysSince > interval * _overdueDangerMultiplier) {
+  if (daysSince > interval * overdueDangerMultiplier) {
     return [
       PluginAlert(
         birdId: bird.bird.id,
@@ -402,7 +223,7 @@ List<PluginAlert> _overdue(BirdWithDetails bird, List<Weight> weights) {
       ),
     ];
   }
-  if (daysSince > interval * _overdueWarningMultiplier) {
+  if (daysSince > interval * overdueWarningMultiplier) {
     return [
       PluginAlert(
         birdId: bird.bird.id,
@@ -511,7 +332,8 @@ class WeightPlugin extends FeaturePlugin {
   // ── Slot G: 任务派发 ──
 
   @override
-  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async {
+  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db,
+      {int? birdId}) async {
     final descriptors = <PluginTaskDescriptor>[];
     try {
       final today = AppClock.now;
@@ -521,7 +343,8 @@ class WeightPlugin extends FeaturePlugin {
       if (birdId == null) {
         wh = await WorkHoursConfig.load();
         final ready = wh.taskReadyTime;
-        final todayReady = DateTime(today.year, today.month, today.day, ready.hour, ready.minute);
+        final todayReady = DateTime(
+            today.year, today.month, today.day, ready.hour, ready.minute);
         if (AppClock.now.isBefore(todayReady)) return [];
       }
 
@@ -539,11 +362,10 @@ class WeightPlugin extends FeaturePlugin {
         allBirds.map((b) => b.bird.id).toList(),
       );
       for (final bird in allBirds) {
-        final ageDays = today.difference(bird.bird.birthDate).inDays;
         final intervalDays = computeEffectiveWeighInterval(
           birdOverrideDays: bird.bird.weighIntervalDays,
           species: bird.species,
-          ageDays: ageDays,
+          stage: bird.physioStage,
         );
         if (intervalDays <= 0) continue;
 
@@ -553,21 +375,25 @@ class WeightPlugin extends FeaturePlugin {
         // Compare calendar days (not exact time) — a weigh at 23:50 yesterday
         // and a login at 00:10 today are 1 calendar day apart, not 0 hours.
         final todayDay = DateTime(today.year, today.month, today.day);
-        final lastWeighDay = lastWeigh == null ? null
-            : DateTime(lastWeigh.recordedAt.year, lastWeigh.recordedAt.month, lastWeigh.recordedAt.day);
-        final daysSinceLast = lastWeighDay == null ? null
+        final lastWeighDay = lastWeigh == null
+            ? null
+            : DateTime(lastWeigh.recordedAt.year, lastWeigh.recordedAt.month,
+                lastWeigh.recordedAt.day);
+        final daysSinceLast = lastWeighDay == null
+            ? null
             : todayDay.difference(lastWeighDay).inDays;
-        final needsTask = lastWeigh == null ||
-            daysSinceLast! >= intervalDays;
+        final needsTask = lastWeigh == null || daysSinceLast! >= intervalDays;
 
         if (needsTask) {
           // 确保已加载工作时段配置（birdId != null 路径未经过闸门）
           wh ??= await WorkHoursConfig.load();
           final ready = wh.taskReadyTime; // TimeOfDay
-          final todayReady = DateTime(today.year, today.month, today.day, ready.hour, ready.minute);
+          final todayReady = DateTime(
+              today.year, today.month, today.day, ready.hour, ready.minute);
           // deadline = 次日 taskReadyTime
           final tomorrow = today.add(const Duration(days: 1));
-          final tomorrowReady = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, ready.hour, ready.minute);
+          final tomorrowReady = DateTime(tomorrow.year, tomorrow.month,
+              tomorrow.day, ready.hour, ready.minute);
 
           descriptors.add(PluginTaskDescriptor(
             birdId: bird.bird.id,
@@ -601,10 +427,11 @@ class WeightPlugin extends FeaturePlugin {
 
     // 对每只鸟执行体重检测（批量查询，避免 N+1）
     final now = AppClock.now;
-    final cutoff = now.subtract(Duration(days: _analysisWindowDays));
+    final cutoff = now.subtract(Duration(days: analysisWindowDays));
     // 查询繁育中的鸟：繁育期间不催称重
-    final activeBreedingIds = (pluginRegistry
-        .call('breeding', 'getActiveBreedingBirdIds') as Set<int>?) ?? {};
+    final activeBreedingIds = (pluginRegistry.call(
+            'breeding', 'getActiveBreedingBirdIds') as Set<int>?) ??
+        {};
     final weightsByBird = await db.getByBirdsInRange(
       allBirds.map((b) => b.bird.id).toList(),
       from: cutoff,
@@ -625,19 +452,20 @@ class WeightPlugin extends FeaturePlugin {
       }
 
       // 断奶期分支
-      final inWeaning =
-          bird.growthStage == '雏鸟' && isWeaningPhase(bird, weights);
+      final stage = bird.physioStage;
+      final strategy = alertStrategyOf(stage);
+      final inWeaning = strategy == WeightAlertStrategy.weaning &&
+          isWeaningPhase(bird, weights);
       if (inWeaning) {
         alerts.addAll(_weaningAlerts(bird, weights));
       } else {
-        switch (bird.growthStage) {
-          case '雏鸟':
+        switch (strategy) {
+          case WeightAlertStrategy.growth:
             alerts.addAll(_chickGrowth(bird, weights));
             break;
-          case '幼鸟':
-            alerts.addAll(_baselineAlerts(bird, weights));
-            break;
-          case '成鸟':
+          case WeightAlertStrategy.baseline:
+          case WeightAlertStrategy.weaning:
+            // weaning 已在上面处理；baseline 覆盖亚成体/成鸟/繁殖/换羽
             alerts.addAll(_baselineAlerts(bird, weights));
             break;
         }
@@ -656,6 +484,12 @@ class WeightPlugin extends FeaturePlugin {
     bus.on<OperationRecordedEvent>((e) {
       if (e.pluginId == 'medication' && e.actionType == 'medication_given') {
         debugPrint('[WeightPlugin] 观察到喂药事件: ${e.summary} (birdId=${e.birdId})');
+      }
+      // 体重记录后通知 stage 插件重算断奶期（仅重算 auto 来源的记录）
+      if (e.pluginId == 'weights' &&
+          e.actionType == 'weight_recorded' &&
+          e.birdId != null) {
+        pluginRegistry.call('stage', 'recomputeIfAuto', e.birdId);
       }
     });
   }
@@ -686,7 +520,8 @@ class _WeightDetailView extends StatelessWidget {
         return Column(children: [
           WeightChartWidget(weights: weights, chartHeight: 260),
           const SizedBox(height: 12),
-          WeightTable(db: db, birdId: birdId),
+          // 复用同一份 weights，避免 WeightTable 内部再次 getByBird(birdId)
+          WeightTable(weights: weights),
         ]);
       },
     );

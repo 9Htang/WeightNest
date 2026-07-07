@@ -601,11 +601,16 @@ class _GallerySectionState extends State<GallerySection> {
 
     final deletedCount = _selectedIds.length;
 
-    for (final id in _selectedIds) {
-      final photo = _photos.firstWhere((p) => p.id == id);
+    // 快照待删照片（含文件路径），再单 batch 删 DB，最后循环删文件
+    final toDelete =
+        _photos.where((p) => _selectedIds.contains(p.id)).toList();
+    await db.batch((b) {
+      b.deleteWhere(db.birdPhotos,
+          (t) => t.id.isIn(_selectedIds.toList()));
+    });
+    for (final photo in toDelete) {
       await _storage.deletePhoto(photo.filePath,
           videoPath: photo.videoFilePath, thumbnailPath: photo.thumbnailPath);
-      await (db.delete(db.birdPhotos)..where((t) => t.id.equals(id))).go();
     }
 
     // 记录操作日志
@@ -637,11 +642,12 @@ class _GallerySectionState extends State<GallerySection> {
     final db = pluginRegistry.db;
     if (db == null) return;
 
-    // Persist sort orders
-    for (int i = 0; i < reordered.length; i++) {
-      await (db.update(db.birdPhotos)
-            ..where((t) => t.id.equals(reordered[i].id)))
-          .write(BirdPhotosCompanion(sortOrder: Value(i)));
-    }
+    // Persist sort orders (batch 替代逐条 update)
+    await db.batch((b) {
+      for (int i = 0; i < reordered.length; i++) {
+        b.update(db.birdPhotos, BirdPhotosCompanion(sortOrder: Value(i)),
+            where: (t) => t.id.equals(reordered[i].id));
+      }
+    });
   }
 }

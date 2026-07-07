@@ -10,13 +10,16 @@ class AppLogger {
       [Object? error, StackTrace? stack]) {
     final prefix = level.name.toUpperCase();
     final errorPart = error != null ? ' | $error' : '';
-    final stackPart = stack != null ? '\n${stack.toString().split('\n').take(8).join('\n')}' : '';
+    final stackPart = stack != null
+        ? '\n${stack.toString().split('\n').take(8).join('\n')}'
+        : '';
     final line = '[$prefix] $source: $message$errorPart$stackPart';
 
     if (kDebugMode) {
       switch (level) {
         case LogLevel.error:
-          developer.log(line, name: source, level: 1000, error: error, stackTrace: stack);
+          developer.log(line,
+              name: source, level: 1000, error: error, stackTrace: stack);
           break;
         case LogLevel.warn:
           developer.log(line, name: source, level: 900);

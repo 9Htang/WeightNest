@@ -26,16 +26,22 @@ class AlertsScreen extends ConsumerWidget {
                 TextButton(
                   onPressed: () async {
                     final db = ref.read(databaseProvider);
-                    final alerts = ref.read(alertListProvider).valueOrNull ?? [];
+                    final alerts =
+                        ref.read(alertListProvider).valueOrNull ?? [];
                     if (alerts.isEmpty) return;
                     await db.confirmAllAlerts(alerts);
-                    ref.read(alertConfirmedVersionProvider.notifier).update((s) => s + 1);
+                    ref
+                        .read(alertConfirmedVersionProvider.notifier)
+                        .update((s) => s + 1);
                   },
-                  child: const Text('全部确认', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  child: const Text('全部确认',
+                      style: TextStyle(color: Colors.white, fontSize: 14)),
                 ),
               ],
       ),
-      body: isAllMode ? _AllAlertsList(theme: theme) : _UnconfirmedAlertsList(theme: theme),
+      body: isAllMode
+          ? _AllAlertsList(theme: theme)
+          : _UnconfirmedAlertsList(theme: theme),
     );
   }
 }
@@ -67,13 +73,15 @@ class _AllAlertsList extends ConsumerWidget {
       error: (e, _) => Center(child: Text('加载失败: $e')),
       data: (alerts) {
         final anomalyAlerts = alerts.map((a) => a.alert).toList();
-        return _buildList(context, ref, anomalyAlerts, showConfirm: false, statuses: alerts);
+        return _buildList(context, ref, anomalyAlerts,
+            showConfirm: false, statuses: alerts);
       },
     );
   }
 }
 
-Widget _buildList(BuildContext context, WidgetRef ref, List<AnomalyAlert> alerts,
+Widget _buildList(
+    BuildContext context, WidgetRef ref, List<AnomalyAlert> alerts,
     {required bool showConfirm, List<AlertWithStatus>? statuses}) {
   if (alerts.isEmpty) {
     return Center(
@@ -97,7 +105,8 @@ Widget _buildList(BuildContext context, WidgetRef ref, List<AnomalyAlert> alerts
   final statusMap = <String, AlertWithStatus>{};
   if (statuses != null) {
     for (final s in statuses) {
-      statusMap['${s.alert.bird.bird.id}:${s.alert.type}:${s.alert.description}'] = s;
+      statusMap[
+          '${s.alert.bird.bird.id}:${s.alert.type}:${s.alert.description}'] = s;
     }
   }
 
@@ -173,14 +182,16 @@ class _AlertCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42, height: 42,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: iconColor.withAlpha(30),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   isDanger ? Icons.warning_amber_rounded : Icons.info_outline,
-                  color: iconColor, size: 22,
+                  color: iconColor,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 12),
@@ -193,17 +204,21 @@ class _AlertCard extends ConsumerWidget {
                         Expanded(
                           child: Text(alert.bird.bird.name,
                               style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600, color: Colors.black87)),
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87)),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: iconColor.withAlpha(40),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(alert.type,
                               style: TextStyle(
-                                  fontSize: 13, color: iconColor, fontWeight: FontWeight.w500)),
+                                  fontSize: 13,
+                                  color: iconColor,
+                                  fontWeight: FontWeight.w500)),
                         ),
                       ],
                     ),
@@ -219,25 +234,33 @@ class _AlertCard extends ConsumerWidget {
                       children: [
                         if (status != null) ...[
                           Icon(
-                            status!.isConfirmed ? Icons.check_circle : Icons.radio_button_unchecked,
+                            status!.isConfirmed
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
                             size: 14,
-                            color: status!.isConfirmed ? Colors.green : Colors.grey,
+                            color: status!.isConfirmed
+                                ? Colors.green
+                                : Colors.grey,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             status!.isConfirmed ? '已确认' : '未确认',
                             style: TextStyle(
                               fontSize: 12,
-                              color: status!.isConfirmed ? Colors.green : Colors.grey,
+                              color: status!.isConfirmed
+                                  ? Colors.green
+                                  : Colors.grey,
                             ),
                           ),
                           const SizedBox(width: 12),
                         ],
-                        Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
+                        Icon(Icons.access_time,
+                            size: 12, color: Colors.grey.shade500),
                         const SizedBox(width: 3),
-                          Text(
-                            _fmtTime(alert.createdAt),
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                        Text(
+                          _fmtTime(alert.createdAt),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade500),
                         ),
                       ],
                     ),
@@ -251,8 +274,11 @@ class _AlertCard extends ConsumerWidget {
                   color: Colors.grey,
                   onPressed: () async {
                     final db = ref.read(databaseProvider);
-                    await db.confirmAlert(alert.bird.bird.id, alert.type, alert.description);
-                    ref.read(alertConfirmedVersionProvider.notifier).update((s) => s + 1);
+                    await db.confirmAlert(
+                        alert.bird.bird.id, alert.type, alert.description);
+                    ref
+                        .read(alertConfirmedVersionProvider.notifier)
+                        .update((s) => s + 1);
                   },
                 ),
             ],

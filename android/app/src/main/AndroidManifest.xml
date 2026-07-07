@@ -52,6 +52,18 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:scheme="content" android:mimeType="application/octet-stream"/>
             </intent-filter>
+            <!-- 关联 .wnnutrition 营养导出文件：file:// URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.wnnutrition"/>
+            </intent-filter>
+            <!-- 关联 .wnnutrition 营养导出文件：content:// URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content" android:mimeType="application/octet-stream"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

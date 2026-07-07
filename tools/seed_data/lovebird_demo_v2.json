@@ -1,0 +1,157 @@
+{
+  "version": 2,
+  "exportedAt": "2026-07-02T00:00:00.000",
+  "source": "WeightNest Lovebird (牡丹鹦鹉) 示例数据 · 含食材库 + 混合粮配方 · USDA FoodData Central / Feedipedia",
+  "_unitNote": "version 2 格式：foods(食材库) + blends(%配比混合粮) + feedingPlans(喂养方案)。常量矿物质/氨基酸/脂肪酸以%存储；微量元素以mg/100g；VA/VD3以IU/100g；代谢能kcal/100g；basis统一As Fed。",
+  "foods": [
+    {
+      "name": "黄小米", "category": "主食", "isHulled": true, "basis": "As Fed",
+      "dataSource": "USDA FDC 170185 (Millet, raw)", "dataConfidence": "B",
+      "moisture": 10.75, "crudeProtein": 11.02, "crudeFat": 4.22, "crudeFiber": 1.7, "crudeAsh": 3.0, "metabolizableEnergy": 338.0,
+      "calcium": 0.008, "phosphorus": 0.285, "magnesium": 0.114, "potassium": 0.195, "sodium": 0.005,
+      "omega3": 0.08, "omega6": 2.0, "linoleicAcid": 1.9, "ala": 0.08,
+      "lysine": 0.232, "methionine": 0.234, "cystine": 0.196, "threonine": 0.353, "tryptophan": 0.119, "arginine": 0.376, "valine": 0.504, "isoleucine": 0.432, "leucine": 1.235,
+      "zinc": 1.68, "copper": 0.516, "iron": 3.17, "manganese": 1.63, "selenium": 0.0023,
+      "vitA": 0, "vitE": 0.18, "vitB1": 0.421, "vitB2": 0.29, "vitB6": 0.384, "niacin": 4.72, "pantothenicAcid": 0.848, "folicAcid": 0.085,
+      "maxRatioPercent": 40, "minRatioPercent": 10, "canSprout": true,
+      "notes": "黍属 Panicum miliaceum 去壳籽粒，牡丹鹦鹉主食谷粒之一。"
+    },
+    {
+      "name": "白小米", "category": "主食", "isHulled": true, "basis": "As Fed",
+      "dataSource": "USDA FDC 170185 (Proso millet, white)", "dataConfidence": "B",
+      "moisture": 11.0, "crudeProtein": 11.2, "crudeFat": 4.0, "crudeFiber": 1.6, "crudeAsh": 2.9, "metabolizableEnergy": 334.0,
+      "calcium": 0.008, "phosphorus": 0.282, "magnesium": 0.114, "potassium": 0.195, "sodium": 0.005,
+      "omega3": 0.08, "omega6": 1.9, "linoleicAcid": 1.8, "ala": 0.08,
+      "lysine": 0.225, "methionine": 0.228, "cystine": 0.192, "threonine": 0.346, "tryptophan": 0.116, "arginine": 0.368, "valine": 0.494, "isoleucine": 0.423, "leucine": 1.208,
+      "zinc": 1.65, "copper": 0.50, "iron": 3.1, "manganese": 1.6, "selenium": 0.0023,
+      "vitA": 0, "vitE": 0.17, "vitB1": 0.42, "vitB2": 0.28, "vitB6": 0.38, "niacin": 4.6, "pantothenicAcid": 0.83, "folicAcid": 0.084,
+      "maxRatioPercent": 40, "minRatioPercent": 10, "canSprout": true,
+      "notes": "黍属白粒品种去壳籽粒，营养与黄小米接近。"
+    },
+    {
+      "name": "谷子穗", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "Feedipedia (Spray millet)", "dataConfidence": "C",
+      "moisture": 10.0, "crudeProtein": 11.0, "crudeFat": 4.0, "crudeFiber": 8.0, "crudeAsh": 4.0, "metabolizableEnergy": 320.0,
+      "calcium": 0.02, "phosphorus": 0.28, "magnesium": 0.11, "potassium": 0.20, "sodium": 0.005,
+      "maxRatioPercent": 30, "canSprout": false,
+      "notes": "带穗黍子，极佳的诱食/训练/断奶过渡食物。"
+    },
+    {
+      "name": "稗子", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "Feedipedia (Barnyard millet)", "dataConfidence": "C",
+      "moisture": 10.0, "crudeProtein": 11.0, "crudeFat": 4.0, "crudeFiber": 9.8, "crudeAsh": 4.5, "metabolizableEnergy": 285.0,
+      "calcium": 0.02, "phosphorus": 0.30, "magnesium": 0.14, "potassium": 0.33, "sodium": 0.008,
+      "maxRatioPercent": 20, "canSprout": true,
+      "notes": "Echinochloa frumentacea，传统笼鸟常用谷物，带壳粗纤维高。"
+    },
+    {
+      "name": "葵花籽", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "USDA FDC 170182 (Sunflower seed kernels)", "dataConfidence": "B",
+      "moisture": 4.8, "crudeProtein": 20.8, "crudeFat": 51.5, "crudeFiber": 7.0, "crudeAsh": 3.4, "metabolizableEnergy": 570.0,
+      "calcium": 0.078, "phosphorus": 0.66, "magnesium": 0.325, "potassium": 0.645, "sodium": 0.009,
+      "omega3": 0.13, "omega6": 23.0, "linoleicAcid": 23.0, "ala": 0.13,
+      "lysine": 0.84, "methionine": 0.53, "cystine": 0.45, "threonine": 0.82, "tryptophan": 0.30, "arginine": 1.81, "valine": 1.13, "isoleucine": 0.92, "leucine": 1.47,
+      "zinc": 5.0, "copper": 1.8, "iron": 5.25, "manganese": 1.95, "selenium": 0.053,
+      "vitA": 50, "vitE": 35.17, "vitB1": 1.48, "vitB2": 0.355, "vitB6": 1.345, "niacin": 8.335, "pantothenicAcid": 1.13, "folicAcid": 0.227,
+      "maxRatioPercent": 15, "canSprout": true,
+      "notes": "高油高VE、高ω-6；能量密度极高，须严格限比防肥胖。"
+    },
+    {
+      "name": "红花籽", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "Feedipedia (Safflower seed)", "dataConfidence": "C",
+      "moisture": 6.0, "crudeProtein": 16.0, "crudeFat": 32.0, "crudeFiber": 22.0, "crudeAsh": 3.0, "metabolizableEnergy": 410.0,
+      "calcium": 0.18, "phosphorus": 0.55, "magnesium": 0.40, "potassium": 0.60, "sodium": 0.01,
+      "omega3": 0.1, "omega6": 28.0, "linoleicAcid": 28.0, "ala": 0.1,
+      "maxRatioPercent": 10, "canSprout": true,
+      "notes": "亚油酸含量最高的种子之一，带壳须限比。"
+    },
+    {
+      "name": "燕麦", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "USDA FDC 170125 (Oats, whole)", "dataConfidence": "B",
+      "moisture": 12.5, "crudeProtein": 13.0, "crudeFat": 6.5, "crudeFiber": 10.0, "crudeAsh": 3.0, "metabolizableEnergy": 340.0,
+      "calcium": 0.054, "phosphorus": 0.345, "magnesium": 0.138, "potassium": 0.366, "sodium": 0.002,
+      "omega3": 0.11, "omega6": 2.5, "linoleicAcid": 2.5, "ala": 0.11,
+      "lysine": 0.42, "methionine": 0.23, "cystine": 0.30, "threonine": 0.35, "tryptophan": 0.16, "arginine": 0.62, "valine": 0.58, "isoleucine": 0.42, "leucine": 0.85,
+      "zinc": 3.6, "copper": 0.4, "iron": 4.3, "manganese": 3.6, "selenium": 0.028,
+      "vitA": 0, "vitB1": 0.6, "vitB2": 0.13, "vitB6": 0.12, "niacin": 1.1, "pantothenicAcid": 1.1, "biotin": 0.025, "folicAcid": 0.056,
+      "maxRatioPercent": 20, "canSprout": true,
+      "notes": "富含B1、生物素、锰；冬季与换羽期增能佳品。"
+    },
+    {
+      "name": "火麻仁", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "USDA FDC 170144 (Hemp seed)", "dataConfidence": "B",
+      "moisture": 9.0, "crudeProtein": 25.0, "crudeFat": 35.0, "crudeFiber": 20.0, "crudeAsh": 6.0, "metabolizableEnergy": 500.0,
+      "calcium": 0.07, "phosphorus": 0.99, "magnesium": 0.49, "potassium": 1.2, "sodium": 0.005,
+      "omega3": 8.7, "omega6": 18.0, "linoleicAcid": 18.0, "ala": 8.7,
+      "lysine": 1.2, "methionine": 0.5, "cystine": 0.4, "threonine": 0.9, "tryptophan": 0.4, "arginine": 2.7, "valine": 1.3, "isoleucine": 1.0, "leucine": 1.7,
+      "zinc": 7.0, "copper": 1.6, "iron": 8.0, "manganese": 7.0,
+      "vitA": 11, "vitE": 0.8, "vitB1": 0.4, "vitB2": 0.28, "vitB6": 0.6, "niacin": 9.2, "folicAcid": 0.11,
+      "maxRatioPercent": 10, "canSprout": true,
+      "notes": "高蛋白高油，富含ω-3/ω-6；能量密度高须限比防肥胖。"
+    },
+    {
+      "name": "亚麻籽", "category": "补充剂", "isHulled": false, "basis": "As Fed",
+      "dataSource": "USDA FDC 170168 (Flaxseed)", "dataConfidence": "B",
+      "moisture": 7.0, "crudeProtein": 18.3, "crudeFat": 42.2, "crudeFiber": 7.0, "crudeAsh": 3.7, "metabolizableEnergy": 450.0,
+      "calcium": 0.255, "phosphorus": 0.642, "magnesium": 0.392, "potassium": 0.813, "sodium": 0.03,
+      "omega3": 22.8, "omega6": 5.9, "linoleicAcid": 5.9, "ala": 22.8,
+      "lysine": 0.86, "methionine": 0.37, "cystine": 0.45, "threonine": 0.77, "tryptophan": 0.30, "arginine": 1.93, "valine": 1.07, "isoleucine": 0.89, "leucine": 1.24,
+      "zinc": 4.34, "copper": 1.22, "iron": 5.73, "manganese": 2.48, "selenium": 0.025,
+      "vitA": 0, "vitE": 0.31, "vitK": 0.004, "vitB1": 1.64, "vitB2": 0.16, "vitB6": 0.47, "niacin": 3.08, "pantothenicAcid": 0.99,
+      "maxRatioPercent": 5, "canSprout": true,
+      "notes": "ω-3(ALA)含量极高；含生氰糖苷须限比少量添加。"
+    },
+    {
+      "name": "尼日尔籽", "category": "主食", "isHulled": false, "basis": "As Fed",
+      "dataSource": "Feedipedia (Niger seed)", "dataConfidence": "C",
+      "moisture": 6.0, "crudeProtein": 24.0, "crudeFat": 38.0, "crudeFiber": 13.0, "crudeAsh": 4.5, "metabolizableEnergy": 480.0,
+      "calcium": 0.20, "phosphorus": 0.55, "magnesium": 0.25, "potassium": 0.70, "sodium": 0.01,
+      "omega3": 1.0, "omega6": 25.0, "linoleicAcid": 25.0, "ala": 1.0,
+      "maxRatioPercent": 10, "canSprout": true,
+      "notes": "高油高ω-6小粒种子，适口性极佳；高脂须限比。"
+    }
+  ],
+  "blends": [
+    {
+      "name": "牡丹鹦鹉日常混合粮",
+      "description": "成鸟维护期基础配方，以小米为主，搭配油料种子补充能量与必需脂肪酸。合计100%。",
+      "isActive": true,
+      "bindings": [
+        { "stage": "成鸟维护期", "speciesUuid": null }
+      ],
+      "items": [
+        { "foodName": "黄小米", "percent": 30 },
+        { "foodName": "白小米", "percent": 20 },
+        { "foodName": "谷子穗", "percent": 15 },
+        { "foodName": "稗子", "percent": 10 },
+        { "foodName": "葵花籽", "percent": 8 },
+        { "foodName": "红花籽", "percent": 7 },
+        { "foodName": "燕麦", "percent": 5 },
+        { "foodName": "火麻仁", "percent": 3 },
+        { "foodName": "亚麻籽", "percent": 1 },
+        { "foodName": "尼日尔籽", "percent": 1 }
+      ]
+    },
+    {
+      "name": "牡丹鹦鹉换羽期高能粮",
+      "description": "换羽期提升蛋白质与含硫氨基酸(蛋氨酸/胱氨酸)的配方，增加油料种子比例。合计100%。",
+      "isActive": true,
+      "bindings": [
+        { "stage": "换羽期", "speciesUuid": null },
+        { "stage": "繁殖准备期", "speciesUuid": null }
+      ],
+      "items": [
+        { "foodName": "黄小米", "percent": 20 },
+        { "foodName": "白小米", "percent": 15 },
+        { "foodName": "稗子", "percent": 10 },
+        { "foodName": "葵花籽", "percent": 15 },
+        { "foodName": "红花籽", "percent": 10 },
+        { "foodName": "燕麦", "percent": 10 },
+        { "foodName": "火麻仁", "percent": 8 },
+        { "foodName": "亚麻籽", "percent": 4 },
+        { "foodName": "尼日尔籽", "percent": 8 }
+      ]
+    }
+  ],
+  "feedingPlans": []
+}

@@ -4,9 +4,11 @@ import '../services/license_service.dart';
 enum PremiumStatus { free, pro }
 
 class PremiumNotifier extends StateNotifier<PremiumStatus> {
-  final LicenseService _license = LicenseService();
+  final LicenseService _license;
 
-  PremiumNotifier() : super(PremiumStatus.free) {
+  PremiumNotifier({LicenseService? license})
+      : _license = license ?? LicenseService(),
+        super(PremiumStatus.free) {
     // 同步读取（LicenseService.init() 已在 main 中调用）
     state = _license.isPro ? PremiumStatus.pro : PremiumStatus.free;
   }

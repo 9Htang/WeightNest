@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,8 @@ import '../../repositories/species_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../repositories/weight_repository.dart';
 import '../../utils/app_version.dart';
+import '../stage/stage_constants.dart';
+import '../stage/stage_repository.dart';
 import 'db_inspector_screen.dart';
 import 'plugin_status_screen.dart';
 import 'log_viewer_screen.dart';
@@ -25,7 +28,8 @@ class DebugDashboardScreen extends ConsumerStatefulWidget {
   const DebugDashboardScreen({super.key});
 
   @override
-  ConsumerState<DebugDashboardScreen> createState() => _DebugDashboardScreenState();
+  ConsumerState<DebugDashboardScreen> createState() =>
+      _DebugDashboardScreenState();
 }
 
 class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
@@ -94,7 +98,8 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
                   color: theme.colorScheme.primary,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const DbInspectorScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const DbInspectorScreen()),
                   ),
                 ),
                 _ToolCard(
@@ -103,7 +108,8 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
                   color: theme.colorScheme.secondary,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const PluginStatusScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const PluginStatusScreen()),
                   ),
                 ),
                 _ToolCard(
@@ -137,6 +143,12 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
                   onTap: () => _onRandomBirdTap(context),
                 ),
                 _ToolCard(
+                  icon: Icons.layers_outlined,
+                  label: 'Stage 缓存',
+                  color: Colors.teal,
+                  onTap: () => _showStageCacheSheet(context),
+                ),
+                _ToolCard(
                   icon: Icons.info_outline,
                   label: '应用信息',
                   color: Colors.teal,
@@ -162,6 +174,43 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
     );
   }
 
+  Future<void> _showStageCacheSheet(BuildContext context) async {
+    final db = pluginRegistry.db;
+    if (db == null) return;
+    final birds = await db.select(db.birds).get();
+    final ids = birds.map((b) => b.id).toList();
+    final stages = db.getStagesSync(ids);
+    final counts = <String, int>{for (final s in RecipeStage.all) s: 0};
+    for (final s in stages.values) {
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    final rows = await db.select(db.birdStages).get();
+    final src = <String, int>{'auto': 0, 'manual': 0, 'breeding': 0};
+    for (final r in rows) {
+      src[r.source] = (src[r.source] ?? 0) + 1;
+    }
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _StageCacheSheet(
+        counts: counts,
+        sourceCounts: src,
+        totalBirds: ids.length,
+        onRecompute: () async {
+          await pluginRegistry.call('stage', 'recomputeAll');
+          if (context.mounted) {
+            Navigator.pop(context);
+            _showStageCacheSheet(context);
+          }
+        },
+      ),
+    );
+  }
+
   void _showAppInfo(BuildContext context) {
     showDialog(
       context: context,
@@ -182,6 +231,14 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
               _infoRow('启用插件数', '${pluginRegistry.enabledPlugins.length}'),
               const SizedBox(height: 4),
               _infoRow('DB 就绪', '${pluginRegistry.db != null}'),
+              const SizedBox(height: 4),
+              FutureBuilder<int>(
+                future: _fetchBirdStageCount(),
+                builder: (_, snap) => _infoRow(
+                  'birdStages',
+                  snap.hasData ? '${snap.data} 行' : '…',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -195,12 +252,23 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
     );
   }
 
+  Future<int> _fetchBirdStageCount() async {
+    final db = pluginRegistry.db;
+    if (db == null) return 0;
+    final count = await (db.selectOnly(db.birdStages)
+          ..addColumns([db.birdStages.id.count()]))
+        .map((row) => row.read(db.birdStages.id.count()) ?? 0)
+        .getSingle();
+    return count;
+  }
+
   Widget _infoRow(String label, String value) {
     return Row(
       children: [
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          child: Text(label,
+              style: const TextStyle(color: Colors.grey, fontSize: 13)),
         ),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
       ],
@@ -240,7 +308,8 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('⚠️ 清空数据库'),
-        content: const Text('这将删除所有数据（鸟、体重、任务、房间、容器、品种、喂药方案、繁育记录等），且不可恢复。\n\n确定要继续吗？'),
+        content: const Text(
+            '这将删除所有数据（鸟、体重、任务、房间、容器、品种、喂药方案、繁育记录等），且不可恢复。\n\n确定要继续吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -272,6 +341,7 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
         await db.delete(db.weights).go();
         await db.delete(db.medications).go();
         await db.delete(db.breedingPairs).go();
+        await db.delete(db.birdStages).go(); // 显式删除，与其余表保持一致
         await db.delete(db.birds).go();
         await db.delete(db.enclosures).go();
         await db.delete(db.rooms).go();
@@ -287,7 +357,8 @@ class _DebugDashboardScreenState extends ConsumerState<DebugDashboardScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('数据库已清空'), duration: Duration(seconds: 2)),
+          const SnackBar(
+              content: Text('数据库已清空'), duration: Duration(seconds: 2)),
         );
       }
     } catch (e) {
@@ -314,14 +385,14 @@ class _RandomBirdSheet extends StatefulWidget {
 /// 用于稳定触发 WeightPlugin / MedicationPlugin 的对应告警类型，
 /// 便于在不依赖真实业务数据的情况下测试告警与任务系统。
 enum _BirdRole {
-  normalAdult,      // 正常成鸟：基线 ±3% 平稳波动
-  overdueAdult,      // 严重超期未称重成鸟：最近记录停在 2.5x 间隔之前
-  normalChick,       // 正常雏鸟：稳定增长
-  decliningChick,    // 体重下降雏鸟：连续多次下降，触发"体重下降/连续下降"
-  slowGrowthChick,   // 生长缓慢雏鸟：增长曲线明显低于正常斜率
+  normalAdult, // 正常成鸟：基线 ±3% 平稳波动
+  overdueAdult, // 严重超期未称重成鸟：最近记录停在 2.5x 间隔之前
+  normalChick, // 正常雏鸟：稳定增长
+  decliningChick, // 体重下降雏鸟：连续多次下降，触发"体重下降/连续下降"
+  slowGrowthChick, // 生长缓慢雏鸟：增长曲线明显低于正常斜率
   weaningDropJuvenile, // 断奶期骤降：幼鸟阶段末尾体重突然跳水
   baselineDeviationAdult, // 基线偏离成鸟：与手动基线差距过大
-  noDataAdult,        // 长期无数据：90 天内无任何体重记录
+  noDataAdult, // 长期无数据：90 天内无任何体重记录
 }
 
 class _RandomBirdSheetState extends State<_RandomBirdSheet> {
@@ -330,9 +401,30 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
   String? _result;
 
   static const _names = [
-    '小绿', '阿黄', '豆豆', '团子', '奶茶', '糯米', '芝麻', '花花',
-    '胡椒', '可可', '布丁', '松饼', '泡芙', '拿铁', '抹茶', '焦糖',
-    '雪球', '墨墨', '橘子', '柚子', '汤圆', '栗子', '南瓜', '冬瓜',
+    '小绿',
+    '阿黄',
+    '豆豆',
+    '团子',
+    '奶茶',
+    '糯米',
+    '芝麻',
+    '花花',
+    '胡椒',
+    '可可',
+    '布丁',
+    '松饼',
+    '泡芙',
+    '拿铁',
+    '抹茶',
+    '焦糖',
+    '雪球',
+    '墨墨',
+    '橘子',
+    '柚子',
+    '汤圆',
+    '栗子',
+    '南瓜',
+    '冬瓜',
   ];
   static const _genders = ['公', '母', '未知'];
   static const _drugNames = ['阿莫西林', '恩诺沙星', '甲硝唑', '维生素B', '益生菌'];
@@ -348,7 +440,10 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
   Future<void> _generate() async {
     final db = pluginRegistry.db;
     if (db == null) return;
-    setState(() { _loading = true; _result = null; });
+    setState(() {
+      _loading = true;
+      _result = null;
+    });
 
     try {
       final rng = Random();
@@ -396,7 +491,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
         if (encs.isEmpty) {
           final n = 1 + rng.nextInt(3); // 1-3 个
           for (int i = 0; i < n; i++) {
-            await db.createEnclosure(enclosureLabels[i], room.id, createdAt: now, updatedAt: now);
+            await db.createEnclosure(enclosureLabels[i], room.id,
+                createdAt: now, updatedAt: now);
           }
           encs = await db.getEnclosuresByRoom(room.id);
         }
@@ -456,19 +552,10 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
             role == _BirdRole.baselineDeviationAdult ||
             role == _BirdRole.noDataAdult;
         if (isAdultRole && rng.nextDouble() < 0.2) {
-          final drug = _drugNames[rng.nextInt(_drugNames.length)];
-          await db.addMedication(
-            birdId: bird.id,
-            drugName: drug,
-            dosage: '${(rng.nextInt(4) + 1) * 5}mg',
-            timesPerDay: rng.nextInt(2) + 1,
-            // 4 天前开始，确保至少有一次服药窗口已过期但未标记完成，
-            // 配合任务生成可触发"漏服药物"告警
-            startDate: now.subtract(const Duration(days: 4)),
-            createdAt: now,
-            updatedAt: now,
-          );
-          medsCreated++;
+          // v17 breaking change: medication generation requires drug library data.
+          // Skip random medication creation for debug data generation.
+          // final drug = _drugNames[rng.nextInt(_drugNames.length)];
+          // await db.addMedication(...);
         }
       }
 
@@ -485,9 +572,13 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
             '已覆盖 8 种角色场景，告警应在下次检测时触发';
       });
     } catch (e, st) {
-      setState(() { _result = '错误：$e\n$st'; });
+      setState(() {
+        _result = '错误：$e\n$st';
+      });
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
@@ -544,7 +635,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
         // 21 天内每 7 天一条，平稳波动 ±3%
         for (int d = 21; d >= 0; d -= 7) {
           final w = base * (0.97 + rng.nextDouble() * 0.06);
-          await insert(w, AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(6))));
+          await insert(w,
+              AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(6))));
         }
         break;
 
@@ -560,7 +652,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
         // 每日一条，稳定增长
         for (int d = 14; d >= 0; d -= 1) {
           final grown = base + (14 - d) * (base * 0.04);
-          await insert(grown, AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(4))));
+          await insert(grown,
+              AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(4))));
         }
         break;
 
@@ -581,7 +674,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
         // 增长斜率明显低于正常水平（正常约 4%/天，这里约 1%/天）
         for (int d = 14; d >= 0; d -= 1) {
           final grown = base + (14 - d) * (base * 0.01);
-          await insert(grown, AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(4))));
+          await insert(grown,
+              AppClock.now.subtract(Duration(days: d, hours: rng.nextInt(4))));
         }
         break;
 
@@ -664,7 +758,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
               onPressed: _loading ? null : _generate,
               child: _loading
                   ? const SizedBox(
-                      height: 18, width: 18,
+                      height: 18,
+                      width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Text('开始生成'),
             ),
@@ -674,9 +769,8 @@ class _RandomBirdSheetState extends State<_RandomBirdSheet> {
             const SizedBox(height: 12),
             Text(_result!,
                 style: TextStyle(
-                    color: _result!.startsWith('错误')
-                        ? Colors.red
-                        : Colors.green)),
+                    color:
+                        _result!.startsWith('错误') ? Colors.red : Colors.green)),
           ],
         ],
       ),
@@ -739,7 +833,8 @@ class _OverrideBannerState extends State<_OverrideBanner> {
           TextButton.icon(
             onPressed: widget.onReset,
             icon: Icon(Icons.restore, size: 16, color: theme.colorScheme.error),
-            label: Text('Reset', style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
+            label: Text('Reset',
+                style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               visualDensity: VisualDensity.compact,
@@ -751,8 +846,12 @@ class _OverrideBannerState extends State<_OverrideBanner> {
   }
 
   static String _fmt(DateTime dt) {
-    final y = dt.year, m = dt.month.toString().padLeft(2, '0'), d = dt.day.toString().padLeft(2, '0');
-    final hh = dt.hour.toString().padLeft(2, '0'), mm = dt.minute.toString().padLeft(2, '0'), ss = dt.second.toString().padLeft(2, '0');
+    final y = dt.year,
+        m = dt.month.toString().padLeft(2, '0'),
+        d = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0'),
+        mm = dt.minute.toString().padLeft(2, '0'),
+        ss = dt.second.toString().padLeft(2, '0');
     return '$y-$m-$d $hh:$mm:$ss';
   }
 }
@@ -780,7 +879,8 @@ class _TimeControlSheetState extends State<_TimeControlSheet> {
       initialTime: TimeOfDay.fromDateTime(_picked),
     );
     if (time == null || !mounted) return;
-    setState(() => _picked = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    setState(() => _picked =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 
   @override
@@ -794,9 +894,14 @@ class _TimeControlSheetState extends State<_TimeControlSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('时间控制', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text('时间控制',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('当前: ${_fmt(_picked)}', style: TextStyle(color: theme.colorScheme.onSurface.withAlpha(180), fontSize: 13)),
+            Text('当前: ${_fmt(_picked)}',
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withAlpha(180),
+                    fontSize: 13)),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _pick,
@@ -869,9 +974,210 @@ class _TimeControlSheetState extends State<_TimeControlSheet> {
   }
 
   String _fmt(DateTime dt) {
-    final y = dt.year, m = dt.month.toString().padLeft(2, '0'), d = dt.day.toString().padLeft(2, '0');
-    final hh = dt.hour.toString().padLeft(2, '0'), mm = dt.minute.toString().padLeft(2, '0');
+    final y = dt.year,
+        m = dt.month.toString().padLeft(2, '0'),
+        d = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0'),
+        mm = dt.minute.toString().padLeft(2, '0');
     return '$y-$m-$d $hh:$mm';
+  }
+}
+
+// ── Stage 缓存查看器 ──
+
+class _StageCacheSheet extends StatefulWidget {
+  final Map<String, int> counts;
+  final Map<String, int> sourceCounts;
+  final int totalBirds;
+  final Future<void> Function() onRecompute;
+
+  const _StageCacheSheet({
+    required this.counts,
+    required this.sourceCounts,
+    required this.totalBirds,
+    required this.onRecompute,
+  });
+
+  @override
+  State<_StageCacheSheet> createState() => _StageCacheSheetState();
+}
+
+class _StageCacheSheetState extends State<_StageCacheSheet> {
+  bool _recomputing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final maxCount = widget.counts.values.fold<int>(1, (a, b) => a > b ? a : b);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      expand: false,
+      builder: (ctx, controller) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: ListView(
+          controller: controller,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Stage 缓存状态',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('共 ${widget.totalBirds} 只鸟 · 数据来源：内存缓存',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: Colors.grey)),
+            const SizedBox(height: 16),
+
+            // 8 阶段分布
+            Text('阶段分布',
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...RecipeStage.all.map((stage) {
+              final n = widget.counts[stage] ?? 0;
+              final pct =
+                  maxCount > 0 ? (n / maxCount) : 0.0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      child: Text(stage,
+                          style: theme.textTheme.bodySmall),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 14,
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation(
+                            _stageBarColor(stage, theme),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 32,
+                      child: Text('$n',
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            const SizedBox(height: 20),
+
+            // Source 分布
+            Text('来源分布',
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _sourceChip('auto', widget.sourceCounts['auto'] ?? 0,
+                    Colors.blue, theme),
+                const SizedBox(width: 8),
+                _sourceChip('manual', widget.sourceCounts['manual'] ?? 0,
+                    Colors.orange, theme),
+                const SizedBox(width: 8),
+                _sourceChip('breeding', widget.sourceCounts['breeding'] ?? 0,
+                    Colors.pink, theme),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // 重算按钮
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _recomputing
+                    ? null
+                    : () async {
+                        setState(() => _recomputing = true);
+                        try {
+                          await widget.onRecompute();
+                        } finally {
+                          if (mounted) setState(() => _recomputing = false);
+                        }
+                      },
+                icon: _recomputing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.refresh, size: 18),
+                label: Text(_recomputing ? '重算中…' : '重算全部'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _stageBarColor(String stage, ThemeData theme) {
+    switch (stage) {
+      case '雏鸟':
+      case '断奶期':
+        return Colors.orange;
+      case '亚成体':
+        return Colors.green;
+      case '繁殖准备期':
+      case '产蛋孵化期':
+      case '育雏期':
+        return Colors.pink;
+      case '换羽期':
+        return Colors.purple;
+      default:
+        return theme.colorScheme.primary;
+    }
+  }
+
+  Widget _sourceChip(
+      String label, int count, Color color, ThemeData theme) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withAlpha(25),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withAlpha(80)),
+        ),
+        child: Column(
+          children: [
+            Text('$count',
+                style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold, color: color)),
+            Text(label,
+                style: theme.textTheme.bodySmall?.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
   }
 }
 

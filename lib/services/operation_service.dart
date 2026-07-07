@@ -49,19 +49,19 @@ class OperationService {
     final log = await _db.transaction(() async {
       // 1. 写入统一操作日志
       final logId = await _db.into(_db.activityLogs).insertReturning(
-        ActivityLogsCompanion.insert(
-          uuid: genUuid(),
-          birdId: Value(birdId),
-          pluginId: pluginId,
-          actionType: actionType,
-          summary: summary,
-          details: Value(details != null ? jsonEncode(details) : null),
-          relatedTaskId: Value(relatedTaskId),
-          operatedBy: Value(operatedBy),
-          operatedAt: Value(opAt),
-          createdAt: Value(AppClock.now),
-        ),
-      );
+            ActivityLogsCompanion.insert(
+              uuid: genUuid(),
+              birdId: Value(birdId),
+              pluginId: pluginId,
+              actionType: actionType,
+              summary: summary,
+              details: Value(details != null ? jsonEncode(details) : null),
+              relatedTaskId: Value(relatedTaskId),
+              operatedBy: Value(operatedBy),
+              operatedAt: Value(opAt),
+              createdAt: Value(AppClock.now),
+            ),
+          );
 
       // 2. 自动完成关联的待办任务
       if (relatedTaskId != null) {
@@ -124,19 +124,19 @@ class OperationService {
 
     // 1. 写入统一操作日志（参与外层事务）
     final log = await _db.into(_db.activityLogs).insertReturning(
-      ActivityLogsCompanion.insert(
-        uuid: genUuid(),
-        birdId: Value(birdId),
-        pluginId: pluginId,
-        actionType: actionType,
-        summary: summary,
-        details: Value(details != null ? jsonEncode(details) : null),
-        relatedTaskId: Value(relatedTaskId),
-        operatedBy: Value(operatedBy),
-        operatedAt: Value(opAt),
-        createdAt: Value(AppClock.now),
-      ),
-    );
+          ActivityLogsCompanion.insert(
+            uuid: genUuid(),
+            birdId: Value(birdId),
+            pluginId: pluginId,
+            actionType: actionType,
+            summary: summary,
+            details: Value(details != null ? jsonEncode(details) : null),
+            relatedTaskId: Value(relatedTaskId),
+            operatedBy: Value(operatedBy),
+            operatedAt: Value(opAt),
+            createdAt: Value(AppClock.now),
+          ),
+        );
 
     // 2. 自动完成关联的待办任务（参与外层事务）
     if (relatedTaskId != null) {
@@ -162,7 +162,8 @@ class OperationService {
       operatedAt: opAt,
     ));
 
-    debugPrint('[OperationService] $pluginId/$actionType #${log.id} (in-tx): $summary');
+    debugPrint(
+        '[OperationService] $pluginId/$actionType #${log.id} (in-tx): $summary');
     return log;
   }
 
@@ -192,7 +193,8 @@ class OperationService {
       }
 
       // 删除操作日志
-      await (_db.delete(_db.activityLogs)..where((t) => t.id.equals(logId))).go();
+      await (_db.delete(_db.activityLogs)..where((t) => t.id.equals(logId)))
+          .go();
 
       debugPrint('[OperationService] revoked #$logId: ${log.summary}');
       return log;

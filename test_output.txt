@@ -1,0 +1,61 @@
+﻿flutter : Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+At line:1 char:68
++ ... WeightNest; flutter test test/unit/weight_math_test.dart --reporter=e ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Flutter assets ...st this source!:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+00:00 +0: loading C:/Users/Cwb/.openclaw/workspace/projects/WeightNest/test/unit/weight_math_test.dart
+00:00 +0: logGrowth normal increase: ln(110/100) ≈ 0.0953
+00:00 +1: logGrowth no change returns 0
+00:00 +2: logGrowth weight loss returns negative value
+00:00 +3: logGrowth prev=0 returns 0 safely
+00:00 +4: logGrowth curr=0 returns 0 safely
+00:00 +5: logGrowth both zero returns 0
+00:00 +6: normalize24h exact 24h returns rate unchanged
+00:00 +7: normalize24h 12h doubles the rate
+00:00 +8: normalize24h 48h halves the rate
+00:00 +9: normalize24h 0h returns rate unchanged (safe, no extrapolation)
+00:00 +10: normalize24h negative hours returns rate unchanged (safe)
+00:00 +11: hoursBetween same time returns 0
+00:00 +12: hoursBetween exactly 1 hour apart
+00:00 +13: avg normal average of [1, 2, 3] = 2
+00:00 +14: avg single element returns itself
+00:00 +15: ewma empty list returns empty
+00:00 +16: ewma single element returns list with that element
+00:00 +17: ewma known 3-step sequence alpha=0.2
+00:00 +18: effectiveInterval delegates to BirdWithDetails.effectiveWeighIntervalDays
+00:00 +19: isWeaningPhase weaningOverride=true → always true, no other checks
+00:00 +20: isWeaningPhase weaningOverride=false → always false
+00:00 +21: isWeaningPhase age < (nestlingEndDays - 5) → too young, false
+00:00 +22: isWeaningPhase age > juvenileEndDays → too old, false
+00:00 +23: isWeaningPhase fewer than 3 weights → false
+00:00 +24: isWeaningPhase peak drop < 5% → false
+00:00 +25: isWeaningPhase peak drop ≥5% but fewer than 2 consecutive drops → false
+00:00 +26: isWeaningPhase auto-enter: peak drop ≥5% + ≥2 consecutive drops in last 3 → true
+00:00 +26 -1: isWeaningPhase auto-enter: peak drop ≥5% + ≥2 consecutive drops in last 3 → true [E]
+  Expected: true
+    Actual: <false>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 480:18  expect
+  test\unit\weight_math_test.dart 458:7               main.<fn>.<fn>
+  
+00:00 +26 -1: isWeaningPhase auto-exit: age > juvenileEndDays + 10 → false
+00:00 +27 -1: isWeaningPhase auto-exit: last 3 stable <3% range and last ≥ first → false
+00:00 +28 -1: isWeaningPhase auto-exit: weight recovered above 1.05 × weaning minimum → false
+00:00 +29 -1: isLatestAbnormalDirection fewer than 2 weights → none (insufficient data)
+00:00 +30 -1: isLatestAbnormalDirection adult, deviation within ±10% → none (normal)
+00:00 +31 -1: isLatestAbnormalDirection adult, deviation > +15% → high
+00:00 +32 -1: isLatestAbnormalDirection adult, deviation < -15% → low (danger zone)
+00:00 +33 -1: isLatestAbnormalDirection adult, deviation between -10% and -15% → low (warning)
+00:00 +34 -1: isLatestAbnormalDirection adult, deviation between +10% and +15% → high (warning)
+00:00 +35 -1: isLatestAbnormalDirection adult with manualBaselineG uses it instead of EMA
+00:00 +36 -1: isLatestAbnormalDirection chick with slow growth (< chickGrowthSlowRate) → low
+00:00 +37 -1: isLatestAbnormalDirection chick with healthy growth (≥ chickGrowthSlowRate) → none
+00:00 +38 -1: isLatestAbnormalDirection chick in weaning phase with drop > weaningWarningDropPct → low
+00:00 +39 -1: isLatestAbnormalDirection juvenile with deviation beyond threshold → low
+00:00 +40 -1: isLatestAbnormalDirection juvenile with < 3 weights and no manual baseline → none
+00:00 +41 -1: isLatestAbnormal returns true when direction is low
+00:00 +42 -1: isLatestAbnormal returns false when direction is none
+00:00 +43 -1: Some tests failed.

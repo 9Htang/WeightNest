@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../repositories/bird_repository.dart';
+import '../../widgets/feather_icon.dart';
 import '../worker/worker_screen.dart';
 import 'weigh_provider.dart';
 import 'weigh_input_widgets.dart';
@@ -102,9 +103,7 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                           icon: const Icon(Icons.clear, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
-                            ref
-                                .read(weighProvider.notifier)
-                                .setSearchQuery('');
+                            ref.read(weighProvider.notifier).setSearchQuery('');
                           },
                         )
                       : null,
@@ -128,8 +127,7 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                 children: [
                   // ── 顶部鸟信息卡片 ──
                   if (bird != null)
-                    _BirdInfoHeader(
-                        bird: bird, state: state, theme: theme),
+                    _BirdInfoHeader(bird: bird, state: state, theme: theme),
 
                   // ── 输入区域：Stack+Offstage 双分支保活，切换零卡顿 ──
                   Stack(
@@ -141,7 +139,8 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
                               child: WeighDisplay(
                                 weightText: state.weightText,
                                 message: state.message,
@@ -152,7 +151,8 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                                 onPlus1: () => notifier.adjustWeight(1),
                                 onPlus10: () => notifier.adjustWeight(10),
                                 isFasting: state.isFasting,
-                                onToggleFasting: () => notifier.setFasting(!state.isFasting),
+                                onToggleFasting: () =>
+                                    notifier.setFasting(!state.isFasting),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -176,9 +176,13 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
                               weightText: state.weightText,
                               message: state.message,
                               isFasting: state.isFasting,
-                              onToggleFasting: () => notifier.setFasting(!state.isFasting),
-                              lastWeightG: state.latestWeights[state.currentBird?.bird.id]?.weightG,
-                              growthStage: state.currentBird?.growthStage ?? '成鸟',
+                              onToggleFasting: () =>
+                                  notifier.setFasting(!state.isFasting),
+                              lastWeightG: state
+                                  .latestWeights[state.currentBird?.bird.id]
+                                  ?.weightG,
+                              growthStage:
+                                  state.currentBird?.growthStage ?? '成鸟',
                               sensitivity: inputConfig.sensitivity,
                               speedThreshold: inputConfig.speedThreshold,
                               windowSize: inputConfig.windowSize,
@@ -201,10 +205,7 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
             ),
           ),
           // ── 底部操作栏（含三层导航） ──
-          _BottomActions(
-              notifier: notifier,
-              state: state,
-              theme: theme),
+          _BottomActions(notifier: notifier, state: state, theme: theme),
         ],
       ),
     );
@@ -232,16 +233,14 @@ class _WeighScreenState extends ConsumerState<WeighScreen> {
           0,
           Padding(
             padding: const EdgeInsets.only(right: 6),
-            child: Text(
-                '${state.currentIndex + 1}/${state.birds.length}',
+            child: Text('${state.currentIndex + 1}/${state.birds.length}',
                 style: TextStyle(
                     fontSize: 13,
                     color: theme.colorScheme.onSurface.withAlpha(140))),
           ));
     }
     if (parts.isEmpty) {
-      return Text(
-          '称重记录 ${state.currentIndex + 1}/${state.birds.length}');
+      return Text('称重记录 ${state.currentIndex + 1}/${state.birds.length}');
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -276,8 +275,7 @@ class _BirdInfoHeader extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             Container(
@@ -289,11 +287,8 @@ class _BirdInfoHeader extends StatelessWidget {
                     : scheme.secondary.withAlpha(40),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.pets,
-                color: weighed
-                    ? scheme.primary
-                    : scheme.secondary,
+              child: FeatherIcon(
+                color: weighed ? scheme.primary : scheme.secondary,
               ),
             ),
             const SizedBox(width: 12),
@@ -321,8 +316,7 @@ class _BirdInfoHeader extends StatelessWidget {
                   Text(
                     '${bird.species.name} · ${bird.growthStage} · ${bird.ageDays}天',
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withAlpha(140)),
+                        color: theme.colorScheme.onSurface.withAlpha(140)),
                   ),
                 ],
               ),
@@ -356,9 +350,7 @@ class _BottomActions extends ConsumerWidget {
   final ThemeData theme;
 
   const _BottomActions(
-      {required this.notifier,
-      required this.state,
-      required this.theme});
+      {required this.notifier, required this.state, required this.theme});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -369,8 +361,7 @@ class _BottomActions extends ConsumerWidget {
         decoration: BoxDecoration(
           color: scheme.surface,
           border: Border(
-            top: BorderSide(
-                color: scheme.outlineVariant.withAlpha(40)),
+            top: BorderSide(color: scheme.outlineVariant.withAlpha(40)),
           ),
         ),
         child: Column(
@@ -441,8 +432,7 @@ class _BottomActions extends ConsumerWidget {
                   onPressed: state.hasPrev && !state.isSaving
                       ? notifier.prevBird
                       : null,
-                  icon: const Icon(Icons.arrow_back_ios_new,
-                      size: 20),
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 20),
                   visualDensity: VisualDensity.compact,
                 ),
                 const SizedBox(width: 4),
@@ -451,7 +441,8 @@ class _BottomActions extends ConsumerWidget {
                 TextButton(
                   onPressed: () {
                     final cfg = ref.read(weighInputConfigProvider);
-                    final notifier = ref.read(weighInputConfigProvider.notifier);
+                    final notifier =
+                        ref.read(weighInputConfigProvider.notifier);
                     notifier.setMode(
                       cfg.mode == WeighInputMode.dial
                           ? WeighInputMode.keypad
@@ -459,7 +450,8 @@ class _BottomActions extends ConsumerWidget {
                     );
                   },
                   child: Text(
-                    ref.watch(weighInputConfigProvider).mode == WeighInputMode.dial
+                    ref.watch(weighInputConfigProvider).mode ==
+                            WeighInputMode.dial
                         ? '键盘'
                         : '转盘',
                   ),
@@ -469,8 +461,7 @@ class _BottomActions extends ConsumerWidget {
 
                 // 保存按钮
                 FilledButton(
-                  onPressed:
-                      state.isSaving ? null : notifier.saveWeight,
+                  onPressed: state.isSaving ? null : notifier.saveWeight,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
@@ -480,10 +471,8 @@ class _BottomActions extends ConsumerWidget {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white))
-                      : const Text('保存',
-                          style: TextStyle(fontSize: 18)),
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('保存', style: TextStyle(fontSize: 18)),
                 ),
 
                 const Spacer(),
@@ -501,8 +490,7 @@ class _BottomActions extends ConsumerWidget {
                   onPressed: state.hasNext && !state.isSaving
                       ? notifier.nextBird
                       : null,
-                  icon: const Icon(Icons.arrow_forward_ios,
-                      size: 20),
+                  icon: const Icon(Icons.arrow_forward_ios, size: 20),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -549,17 +537,14 @@ class _NavBtn extends StatelessWidget {
             children: [
               if (!trailing) ...[
                 Icon(icon, size: 12, color: scheme.primary),
-                if (doubleIcon)
-                  Icon(icon, size: 12, color: scheme.primary),
+                if (doubleIcon) Icon(icon, size: 12, color: scheme.primary),
                 const SizedBox(width: 2),
               ],
               Text(label,
-                  style: TextStyle(
-                      fontSize: 11, color: scheme.primary)),
+                  style: TextStyle(fontSize: 11, color: scheme.primary)),
               if (trailing) ...[
                 const SizedBox(width: 2),
-                if (doubleIcon)
-                  Icon(icon, size: 12, color: scheme.primary),
+                if (doubleIcon) Icon(icon, size: 12, color: scheme.primary),
                 Icon(icon, size: 12, color: scheme.primary),
               ],
             ],

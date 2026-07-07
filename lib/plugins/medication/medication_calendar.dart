@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import '../../core/app_clock.dart';
 import '../../core/plugin_registry.dart';
@@ -19,15 +18,17 @@ class MedicationCalendarView extends StatefulWidget {
 
 class _MedicationCalendarViewState extends State<MedicationCalendarView> {
   late DateTime _selectedDay;
-  int _refreshKey = 0;
+
+  // Holds the day view so we can ask it to re-fetch without rebuilding the
+  // whole subtree. Avoids the _refreshKey + ValueKey pattern that tore down
+  // and rebuilt the entire day view (and its FutureBuilder) on every reload.
+  final GlobalKey<_MedicationDayViewState> _dayKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _selectedDay = widget.initialDay ?? AppClock.now;
   }
-
-  void _reload() => setState(() => _refreshKey++);
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +42,15 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
         // Date selector
         _buildDateBar(theme),
         const Divider(),
-        // Day detail
+        // Day detail. Re-keyed only when the day changes; in-place reloads go
+        // through _dayKey.currentState.reload().
         Expanded(
           child: _MedicationDayView(
-            key: ValueKey('${_selectedDay.toIso8601String()}-$_refreshKey'),
+            key: ValueKey(_selectedDay.toIso8601String()),
             db: db,
             day: _selectedDay,
             birdId: widget.birdId,
-            onChanged: _reload,
+            reload: () => _dayKey.currentState?.reload(),
           ),
         ),
       ],
@@ -66,7 +68,8 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
       child: Row(children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
-          onPressed: () => setState(() => _selectedDay = _selectedDay.subtract(const Duration(days: 1))),
+          onPressed: () => setState(() =>
+              _selectedDay = _selectedDay.subtract(const Duration(days: 1))),
         ),
         InkWell(
           onTap: () async {
@@ -108,24 +111,52 @@ class _MedicationCalendarViewState extends State<MedicationCalendarView> {
 }
 
 /// Renders medication logs for a single day.
-class _MedicationDayView extends StatelessWidget {
+class _MedicationDayView extends StatefulWidget {
   final AppDatabase db;
   final DateTime day;
   final int? birdId;
-  final VoidCallback onChanged;
+  final VoidCallback reload;
 
   const _MedicationDayView({
     super.key,
     required this.db,
     required this.day,
     this.birdId,
-    required this.onChanged,
+    required this.reload,
   });
+
+  @override
+  State<_MedicationDayView> createState() => _MedicationDayViewState();
+}
+
+class _MedicationDayViewState extends State<_MedicationDayView> {
+  // Future cached in State: swapping it re-subscribes the FutureBuilder
+  // without rebuilding the widget subtree from scratch.
+  late Future<List<MedTaskInfo>> _logsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _logsFuture = _fetchLogs();
+  }
+
+  void reload() {
+    setState(() {
+      _logsFuture = _fetchLogs();
+    });
+  }
+
+  Future<List<MedTaskInfo>> _fetchLogs() async {
+    if (widget.birdId != null) {
+      return widget.db.getTodayLogs(widget.birdId!);
+    }
+    return widget.db.getAllTodayLogs();
+  }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<MedTaskInfo>>(
-      future: _fetchLogs(),
+      future: _logsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
@@ -136,7 +167,7 @@ class _MedicationDayView extends StatelessWidget {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.event_busy, size: 48, color: Colors.grey.shade300),
               const SizedBox(height: 12),
-              Text('${day.month}月${day.day}日暂无喂药记录',
+              Text('${widget.day.month}月${widget.day.day}日暂无喂药记录',
                   style: TextStyle(color: Colors.grey.shade500)),
             ]),
           );
@@ -144,13 +175,6 @@ class _MedicationDayView extends StatelessWidget {
         return _buildLogList(context, logs);
       },
     );
-  }
-
-  Future<List<MedTaskInfo>> _fetchLogs() async {
-    if (birdId != null) {
-      return db.getTodayLogs(birdId!);
-    }
-    return db.getAllTodayLogs();
   }
 
   Widget _buildLogList(BuildContext context, List<MedTaskInfo> logs) {
@@ -178,73 +202,124 @@ class _MedicationDayView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Icon(doneCount == totalCount ? Icons.check_circle : Icons.medication,
-                        color: doneCount == totalCount ? Colors.green : Colors.teal, size: 20),
+                    Icon(
+                        doneCount == totalCount
+                            ? Icons.check_circle
+                            : Icons.medication,
+                        color: doneCount == totalCount
+                            ? Colors.green
+                            : Colors.teal,
+                        size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('$drug  ·  ${items.first.dosage}',
-                            style: theme.textTheme.titleSmall),
-                        Text('鹦鹉 #$birdId',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      ]),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$drug  ·  ${items.first.dosage}',
+                                style: theme.textTheme.titleSmall),
+                            Text('鹦鹉 #$birdId',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600)),
+                          ]),
                     ),
                     Text('$doneCount/$totalCount',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                            color: doneCount == totalCount ? Colors.green : Colors.orange)),
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: doneCount == totalCount
+                                ? Colors.green
+                                : Colors.orange)),
                   ]),
                   const SizedBox(height: 12),
-                  Wrap(spacing: 8, runSpacing: 8, children: items.map((l) {
-                    final threshold = l.task.deadline ?? l.task.dueDate;
-                    final isLate = !l.isDone && !l.isSkipped && threshold.isBefore(AppClock.now);
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: (l.isDone || l.isSkipped) ? null : () async {
-                        await db.giveMedication(l.task.id);
-                        onChanged();
-                      },
-                      child: Container(
-                        width: 100,
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                        decoration: BoxDecoration(
+                  Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: items.map((l) {
+                        final threshold = l.task.deadline ?? l.task.dueDate;
+                        final isLate = !l.isDone &&
+                            !l.isSkipped &&
+                            threshold.isBefore(AppClock.now);
+                        return InkWell(
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: l.isDone ? Colors.green.shade300
-                              : l.isSkipped ? Colors.grey.shade300
-                              : isLate ? Colors.red.shade300
-                              : Colors.blue.shade300),
-                          color: l.isDone ? Colors.green.shade50
-                              : l.isSkipped ? Colors.grey.shade100
-                              : isLate ? Colors.red.shade50
-                              : Colors.blue.shade50,
-                        ),
-                        child: Column(children: [
-                          Icon(l.isDone ? Icons.check_circle
-                              : l.isSkipped ? Icons.cancel
-                              : isLate ? Icons.warning
-                              : Icons.schedule,
-                              size: 20,
-                              color: l.isDone ? Colors.green
-                                  : l.isSkipped ? Colors.grey
-                                  : isLate ? Colors.red
-                                  : Colors.blue),
-                          const SizedBox(height: 4),
-                          Text(l.timeLabel,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-                                  color: l.isDone ? Colors.green.shade800
-                                      : l.isSkipped ? Colors.grey
-                                      : isLate ? Colors.red.shade700
-                                      : Colors.blue.shade800)),
-                          const SizedBox(height: 2),
-                          Text(l.isDone ? '已完成' : l.isSkipped ? '已跳过' : isLate ? '逾期' : '待喂',
-                              style: TextStyle(fontSize: 10,
-                                  color: l.isDone ? Colors.green.shade600
-                                      : l.isSkipped ? Colors.grey
-                                      : isLate ? Colors.red
-                                      : Colors.blue.shade600)),
-                        ]),
-                      ),
-                    );
-                  }).toList()),
+                          onTap: (l.isDone || l.isSkipped)
+                              ? null
+                              : () async {
+                                  await widget.db.giveMedication(l.task.id);
+                                  widget.reload();
+                                },
+                          child: Container(
+                            width: 100,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: l.isDone
+                                      ? Colors.green.shade300
+                                      : l.isSkipped
+                                          ? Colors.grey.shade300
+                                          : isLate
+                                              ? Colors.red.shade300
+                                              : Colors.blue.shade300),
+                              color: l.isDone
+                                  ? Colors.green.shade50
+                                  : l.isSkipped
+                                      ? Colors.grey.shade100
+                                      : isLate
+                                          ? Colors.red.shade50
+                                          : Colors.blue.shade50,
+                            ),
+                            child: Column(children: [
+                              Icon(
+                                  l.isDone
+                                      ? Icons.check_circle
+                                      : l.isSkipped
+                                          ? Icons.cancel
+                                          : isLate
+                                              ? Icons.warning
+                                              : Icons.schedule,
+                                  size: 20,
+                                  color: l.isDone
+                                      ? Colors.green
+                                      : l.isSkipped
+                                          ? Colors.grey
+                                          : isLate
+                                              ? Colors.red
+                                              : Colors.blue),
+                              const SizedBox(height: 4),
+                              Text(l.timeLabel,
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: l.isDone
+                                          ? Colors.green.shade800
+                                          : l.isSkipped
+                                              ? Colors.grey
+                                              : isLate
+                                                  ? Colors.red.shade700
+                                                  : Colors.blue.shade800)),
+                              const SizedBox(height: 2),
+                              Text(
+                                  l.isDone
+                                      ? '已完成'
+                                      : l.isSkipped
+                                          ? '已跳过'
+                                          : isLate
+                                              ? '逾期'
+                                              : '待喂',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: l.isDone
+                                          ? Colors.green.shade600
+                                          : l.isSkipped
+                                              ? Colors.grey
+                                              : isLate
+                                                  ? Colors.red
+                                                  : Colors.blue.shade600)),
+                            ]),
+                          ),
+                        );
+                      }).toList()),
                 ],
               ),
             ),

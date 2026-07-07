@@ -17,9 +17,9 @@ enum WeighInputMode {
 
 extension WeighInputModeLabel on WeighInputMode {
   String get label => switch (this) {
-    WeighInputMode.keypad => '按键',
-    WeighInputMode.dial   => '转盘',
-  };
+        WeighInputMode.keypad => '按键',
+        WeighInputMode.dial => '转盘',
+      };
 }
 
 // ═══════════════════════════════════════════════
@@ -33,9 +33,9 @@ enum DialSide {
 
 extension DialSideLabel on DialSide {
   String get label => switch (this) {
-    DialSide.left  => '左手',
-    DialSide.right => '右手',
-  };
+        DialSide.left => '左手',
+        DialSide.right => '右手',
+      };
 }
 
 // ═══════════════════════════════════════════════
@@ -47,11 +47,11 @@ class WeighInputConfig {
   final DialSide dialSide;
   final double sensitivity; // 刻度角度（10° ~ 30°），默认 15°
   final double speedThreshold; // 慢/快分界线 (°/s)，默认 70
-  final int windowSize;        // 滑动平均帧数，默认 3
-  final double fastStep;       // 快速滑动步长 (g)，默认 0.5
+  final int windowSize; // 滑动平均帧数，默认 3
+  final double fastStep; // 快速滑动步长 (g)，默认 0.5
   final double dialWidthPercent; // 转盘宽度占屏幕宽度比例 p，默认 0.25
   final double arcRadiusPercent; // 弧线半径占屏幕高度比例，默认 0.25（独立于转盘宽度）
-  final double strokeWidth;      // 弧线描边宽度（px），默认 30
+  final double strokeWidth; // 弧线描边宽度（px），默认 30
 
   static const double sensitivityMin = 10.0;
   static const double sensitivityMax = 30.0;
@@ -171,7 +171,8 @@ class WeighInputConfig {
       speedThreshold: speedThr.clamp(speedThresholdMin, speedThresholdMax),
       windowSize: winSize.clamp(windowSizeMin, windowSizeMax),
       fastStep: fastStep.clamp(fastStepMin, fastStepMax),
-      dialWidthPercent: dialWidth.clamp(dialWidthPercentMin, dialWidthPercentMax),
+      dialWidthPercent:
+          dialWidth.clamp(dialWidthPercentMin, dialWidthPercentMax),
       arcRadiusPercent: arcRPct.clamp(arcRadiusPercentMin, arcRadiusPercentMax),
       strokeWidth: strokeW.clamp(strokeWidthMin, strokeWidthMax),
     );

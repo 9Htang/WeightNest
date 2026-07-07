@@ -29,6 +29,9 @@ abstract class FeaturePlugin {
   /// Disabled plugins are hidden from UI and their server routes are skipped.
   bool enabled = true;
 
+  /// Internal plugins are always enabled and hidden from plugin management UI.
+  bool get isInternal => false;
+
   /// Database tables declared by this plugin (for drift schema generation).
   List<dynamic> get tables;
 
@@ -81,7 +84,8 @@ abstract class FeaturePlugin {
   /// Detect anomalies contributed by this plugin.
   /// Called by AlertService.detectAll() — aggregated across all enabled plugins.
   /// [birdId] optionally limits detection to a single bird; null = scan all.
-  Future<List<PluginAlert>> detectAlerts(AppDatabase db, {int? birdId}) async => [];
+  Future<List<PluginAlert>> detectAlerts(AppDatabase db, {int? birdId}) async =>
+      [];
 
   // ── Slot G: 任务派发 ──
 
@@ -94,7 +98,9 @@ abstract class FeaturePlugin {
   /// If [birdId] is provided, only return descriptors for that bird (used for
   /// event-driven task generation, e.g. after a new bird is created).
   /// If null, scan all birds (used for daily batch generation).
-  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db, {int? birdId}) async => [];
+  Future<List<PluginTaskDescriptor>> detectTasks(AppDatabase db,
+          {int? birdId}) async =>
+      [];
 
   /// Register event handlers — subscribe to domain events from other plugins.
   void registerEvents(EventBus bus) {}
@@ -112,7 +118,10 @@ abstract class FeaturePlugin {
   /// Return null to fall back to the default emoji logic.
   /// [size] is the desired dimension (56 for detail header, 40 for list tile).
   /// [onTap] is set only when the avatar should respond to taps (detail header).
-  Widget? buildAvatar(int birdId, {double size = 56, VoidCallback? onTap}) =>
+  /// [fillHeight] when true, the avatar should stretch to fill the parent's
+  /// height (used by list cards with a leading column) and use sharp corners.
+  /// [backgroundColor] overrides the emoji fallback background color.
+  Widget? buildAvatar(int birdId, {double size = 56, VoidCallback? onTap, String? growthStage, bool fillHeight = false, Color? backgroundColor}) =>
       null;
 }
 
@@ -187,8 +196,8 @@ class PluginPage {
 class DetailSection {
   final String title;
   final IconData? icon;
-  final int priority;          // lower = higher up
-  final bool defaultExpanded;  // open by default?
+  final int priority; // lower = higher up
+  final bool defaultExpanded; // open by default?
   final Widget child;
 
   const DetailSection({
@@ -222,6 +231,7 @@ class QuickAction {
 class EnclosureWeighAction {
   final IconData icon;
   final String tooltip;
+
   /// builder receives enclosureId, returns the weigh page widget.
   final Widget Function(int enclosureId) builder;
 
@@ -239,6 +249,7 @@ class EnclosureWeighAction {
 class RoomWeighAction {
   final IconData icon;
   final String tooltip;
+
   /// builder receives roomId, returns the weigh page widget.
   final Widget Function(int roomId) builder;
 

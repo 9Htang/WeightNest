@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../core/app_clock.dart';
 import '../../core/plugin_registry.dart';
 import '../../database/database.dart';
+import 'drug_library_repository.dart';
 import 'medication_repository.dart';
-import 'medication_config_screen.dart';
+import 'feeding_record_sheet.dart';
+import 'dose_calculation_screen.dart';
 
 /// 鹦鹉详情页「喂药计划」Tab 内容
 class MedicationSection extends StatefulWidget {
@@ -15,63 +17,71 @@ class MedicationSection extends StatefulWidget {
 }
 
 class _MedicationSectionState extends State<MedicationSection> {
-  int _refreshKey = 0;
-  MedicationConfig _config = MedicationConfig.defaults;
   final Set<int> _confirmingDelete = {};
 
   AppDatabase get _db => pluginRegistry.db!;
 
+  // Cache the two load Futures in State. Reloading swaps the Futures (the
+  // FutureBuilders re-subscribe) without changing widget keys, so the subtree
+  // is reconciled in place rather than being torn down and rebuilt.
+  late Future<List<MedicationWithDetails>> _medsFuture;
+  late Future<List<MedTaskInfo>> _logsFuture;
+
   @override
   void initState() {
     super.initState();
-    _loadConfig();
+    _medsFuture = _db.getMedicationsByBird(widget.birdId);
+    _logsFuture = _db.getTodayMedTasks(widget.birdId);
   }
 
-  Future<void> _loadConfig() async {
-    final c = await MedicationConfig.load();
-    if (mounted) setState(() => _config = c);
+  void _reload() {
+    setState(() {
+      _medsFuture = _db.getMedicationsByBird(widget.birdId);
+      _logsFuture = _db.getTodayMedTasks(widget.birdId);
+    });
   }
-
-  void _reload() => setState(() => _refreshKey++);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return FutureBuilder<List<Medication>>(
-      key: ValueKey('meds_$_refreshKey'),
-      future: _db.getMedicationsByBird(widget.birdId),
+    return FutureBuilder<List<MedicationWithDetails>>(
+      future: _medsFuture,
       builder: (context, medSnapshot) {
         final meds = medSnapshot.data ?? [];
 
         return FutureBuilder<List<MedTaskInfo>>(
-          key: ValueKey('logs_$_refreshKey'),
-          future: _db.getTodayLogs(widget.birdId),
+          future: _logsFuture,
           builder: (context, logSnapshot) {
             final logs = logSnapshot.data ?? [];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 活跃药品列表 ──
+                // ── 活跃药品方案列表 ──
                 if (meds.isNotEmpty) ...[
                   ...meds.asMap().entries.map((entry) {
                     final m = entry.value;
-                    final isConfirming = _confirmingDelete.contains(m.id);
-                    return _MedicationCard(
+                    final isConfirming =
+                        _confirmingDelete.contains(m.medication.id);
+                    return _MedicationPlanCard(
                       medication: m,
                       isConfirmingDelete: isConfirming,
                       onDeleteTap: () {
                         if (isConfirming) {
-                          _doDelete(m.id);
+                          _doDelete(m.medication.id);
                         } else {
-                          setState(() => _confirmingDelete.add(m.id));
+                          setState(
+                              () => _confirmingDelete.add(m.medication.id));
                           Future.delayed(const Duration(seconds: 3), () {
-                            if (mounted && _confirmingDelete.contains(m.id)) {
-                              setState(() => _confirmingDelete.remove(m.id));
+                            if (mounted &&
+                                _confirmingDelete.contains(m.medication.id)) {
+                              setState(() =>
+                                  _confirmingDelete.remove(m.medication.id));
                             }
                           });
                         }
                       },
+                      onRecordFeeding: () => _reload(),
                     );
                   }),
                 ] else
@@ -79,14 +89,20 @@ class _MedicationSectionState extends State<MedicationSection> {
 
                 const SizedBox(height: 12),
 
-                // ── 添加药品按钮 ──
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('添加药品'),
-                    onPressed: () => _showAddDialog(context),
-                  ),
+                // ── 剂量计算器入口 ──
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.calculate, size: 18),
+                  label: const Text('剂量计算器'),
+                  onPressed: () async {
+                    final result = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            DoseCalculationScreen(initialBirdId: widget.birdId),
+                      ),
+                    );
+                    if (result == true) _reload();
+                  },
                 ),
 
                 const SizedBox(height: 16),
@@ -94,29 +110,27 @@ class _MedicationSectionState extends State<MedicationSection> {
                 // ── 今日喂药记录 ──
                 if (logs.isNotEmpty) ...[
                   Row(children: [
-                    Icon(Icons.today, size: 18, color: theme.colorScheme.primary),
+                    Icon(Icons.today,
+                        size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 6),
                     Text('今日喂药记录',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
                   const SizedBox(height: 8),
                   ...logs.map((l) => _TodayLogItem(
                         data: l,
-                        onGive: () => pluginRegistry.operationService.record(
-                            pluginId: 'medication',
-                            actionType: 'medication_given',
-                            birdId: l.task.birdId,
-                            summary: '喂药: ${l.drugName} ${l.dosage}',
-                            details: {
-                              'drugName': l.drugName,
-                              'dosage': l.dosage,
-                              'medicationId': l.medicationId,
-                            },
-                            relatedTaskId: l.task.id,
-                          ).then((_) => _reload()),
-                        onSkip: () => _db.skipMedication(l.task.id).then((_) => _reload()),
+                        onTap: () => _showFeedingSheet(l),
                       )),
-                ],
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text('今天暂无喂药任务',
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey.shade500)),
+                    ),
+                  ),
               ],
             );
           },
@@ -132,9 +146,10 @@ class _MedicationSectionState extends State<MedicationSection> {
       child: Column(children: [
         Icon(Icons.medication_outlined, size: 36, color: Colors.grey.shade300),
         const SizedBox(height: 8),
-        Text('暂无喂药计划', style: TextStyle(color: Colors.grey.shade500)),
+        Text('暂无喂药方案', style: TextStyle(color: Colors.grey.shade500)),
         const SizedBox(height: 4),
-        Text('点击下方按钮添加药品', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+        Text('使用剂量计算器创建方案',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
       ]),
     );
   }
@@ -144,39 +159,45 @@ class _MedicationSectionState extends State<MedicationSection> {
     _reload();
   }
 
-  void _showAddDialog(BuildContext context) {
+  void _showFeedingSheet(MedTaskInfo log) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => _AddMedicationSheet(
-        birdId: widget.birdId,
-        config: _config,
-        onAdded: _reload,
+      builder: (ctx) => FeedingRecordSheet(
+        data: log,
+        onRecorded: _reload,
       ),
     );
   }
 }
 
-/// 药品卡片
-class _MedicationCard extends StatelessWidget {
-  final Medication medication;
+// ═══════════════════════════════════════════════════════════════════════════════
+// Medication Plan Card (new schema)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _MedicationPlanCard extends StatelessWidget {
+  final MedicationWithDetails medication;
   final bool isConfirmingDelete;
   final VoidCallback onDeleteTap;
+  final VoidCallback onRecordFeeding;
 
-  const _MedicationCard({
+  const _MedicationPlanCard({
     required this.medication,
     required this.isConfirmingDelete,
     required this.onDeleteTap,
+    required this.onRecordFeeding,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLongTerm = medication.endDate == null;
-    final startStr = '${medication.startDate.month}/${medication.startDate.day}';
-    final endStr = isLongTerm ? '长期' : '${medication.endDate!.month}/${medication.endDate!.day}';
-    final remainDays = isLongTerm ? null : medication.endDate!.difference(AppClock.now).inDays;
+    final med = medication.medication;
+    final isLongTerm = med.endDate == null;
+    final startStr = '${med.startDate.month}/${med.startDate.day}';
+    final endStr =
+        isLongTerm ? '长期' : '${med.endDate!.month}/${med.endDate!.day}';
+    final remainDays =
+        isLongTerm ? null : med.endDate!.difference(AppClock.now).inDays;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -185,45 +206,79 @@ class _MedicationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 药品名 + 用量
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     Text(medication.drugName,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
-                        color: _drugTypeColor(medication.drugType).withAlpha(30),
+                        color: _drugCategoryColor(medication.drugCategory)
+                            .withAlpha(30),
                       ),
-                      child: Text(medication.drugType,
-                          style: TextStyle(fontSize: 10, color: _drugTypeColor(medication.drugType))),
+                      child: Text(medication.drugCategory,
+                          style: TextStyle(
+                              fontSize: 10,
+                              color:
+                                  _drugCategoryColor(medication.drugCategory))),
                     ),
                   ]),
                   const SizedBox(height: 4),
                   Text(
-                    '${medication.dosage} · ${medication.timesPerDay}次/日',
+                    '${medication.dosageDisplay} · ${medication.formulation} · ${med.timesPerDay}次/日',
                     style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    isLongTerm
-                        ? '$startStr 起 · 长期用药'
-                        : '$startStr ~ $endStr${remainDays != null ? " (剩 $remainDays 天)" : ""}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                  ),
-                  if (medication.notes != null && medication.notes!.isNotEmpty) ...[
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        color: Colors.orange.shade100,
+                      ),
+                      child: Text(medication.diseaseName,
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.orange.shade800)),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isLongTerm
+                          ? '$startStr 起 · 长期用药'
+                          : '$startStr ~ $endStr${remainDays != null ? " (剩 $remainDays 天)" : ""}',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ]),
+                  if (med.notes != null && med.notes!.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(medication.notes!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    Text(med.notes!,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                  // Stop reason if deactivated
+                  if (med.stopReason != null && med.stopReason!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      const Icon(Icons.stop_circle,
+                          size: 12, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text('停药: ${med.stopReason}',
+                          style:
+                              const TextStyle(fontSize: 11, color: Colors.red)),
+                    ]),
                   ],
                 ],
               ),
             ),
-            // 删除按钮
+            // Delete button
             TextButton(
               onPressed: onDeleteTap,
               style: TextButton.styleFrom(
@@ -241,7 +296,7 @@ class _MedicationCard extends StatelessWidget {
     );
   }
 
-  static Color _drugTypeColor(String type) {
+  static Color _drugCategoryColor(String type) {
     switch (type) {
       case '抗生素':
         return Colors.red;
@@ -251,25 +306,30 @@ class _MedicationCard extends StatelessWidget {
         return Colors.green;
       case '益生菌':
         return Colors.blue;
+      case '抗真菌':
+        return Colors.purple;
       default:
         return Colors.grey;
     }
   }
 }
 
-/// 今日喂药记录条目
+// ═══════════════════════════════════════════════════════════════════════════════
+// Today Log Item (opens feeding record sheet on tap)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 class _TodayLogItem extends StatelessWidget {
   final MedTaskInfo data;
-  final VoidCallback onGive;
-  final VoidCallback onSkip;
+  final VoidCallback onTap;
 
-  const _TodayLogItem({required this.data, required this.onGive, required this.onSkip});
+  const _TodayLogItem({required this.data, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final threshold = data.task.deadline ?? data.task.dueDate;
-    final isLate = !data.isDone && !data.isSkipped && threshold.isBefore(AppClock.now);
+    final isLate =
+        !data.isDone && !data.isSkipped && threshold.isBefore(AppClock.now);
 
     Color bgColor;
     if (data.isDone) {
@@ -285,372 +345,63 @@ class _TodayLogItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
       color: bgColor,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(children: [
-          Icon(
-            data.isDone ? Icons.check_circle : data.isSkipped ? Icons.cancel : Icons.schedule,
-            size: 18,
-            color: data.isDone
-                ? Colors.green
-                : data.isSkipped
-                    ? Colors.grey
-                    : isLate
-                        ? Colors.red
-                        : Colors.blue,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${data.timeLabel}  ${data.drugName}  ${data.dosage}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: data.isDone ? Colors.green.shade800 : data.isSkipped ? Colors.grey : null,
-                  ),
-                ),
-                Text(data.statusLabel,
+      child: InkWell(
+        onTap: data.isDone || data.isSkipped ? null : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(children: [
+            Icon(
+              data.isDone
+                  ? Icons.check_circle
+                  : data.isSkipped
+                      ? Icons.cancel
+                      : Icons.schedule,
+              size: 18,
+              color: data.isDone
+                  ? Colors.green
+                  : data.isSkipped
+                      ? Colors.grey
+                      : isLate
+                          ? Colors.red
+                          : Colors.blue,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${data.timeLabel}  ${data.drugName}  ${data.dosage}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: data.isDone
-                          ? Colors.green
+                          ? Colors.green.shade800
                           : data.isSkipped
                               ? Colors.grey
-                              : isLate
-                                  ? Colors.red
-                                  : Colors.blue,
-                    )),
-                Text(
-                  '发布 ${data.task.createdAt.month}/${data.task.createdAt.day} '
-                  '${data.task.createdAt.hour.toString().padLeft(2, '0')}:${data.task.createdAt.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-                ),
-              ],
-            ),
-          ),
-          if (!data.isDone && !data.isSkipped) ...[
-            TextButton(
-              onPressed: onSkip,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.grey,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('跳过', style: TextStyle(fontSize: 12)),
-            ),
-            const SizedBox(width: 4),
-            FilledButton(
-              onPressed: onGive,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(fontSize: 12),
-              ),
-              child: const Text('已喂'),
-            ),
-          ],
-        ]),
-      ),
-    );
-  }
-}
-
-/// 添加药品底部 Sheet
-class _AddMedicationSheet extends StatefulWidget {
-  final int birdId;
-  final MedicationConfig config;
-  final VoidCallback onAdded;
-
-  const _AddMedicationSheet({
-    required this.birdId,
-    required this.config,
-    required this.onAdded,
-  });
-
-  @override
-  State<_AddMedicationSheet> createState() => _AddMedicationSheetState();
-}
-
-class _AddMedicationSheetState extends State<_AddMedicationSheet> {
-  final _nameCtrl = TextEditingController();
-  final _dosageCtrl = TextEditingController();
-  String _drugType = '其他';
-  int _timesPerDay = 2;
-  int _durationDays = 7;
-  bool _isLongTerm = false;
-  List<TimeOfDay> _customTimes = [];
-  bool _useCustomTimes = false;
-  final _notesCtrl = TextEditingController();
-  MedicationConfig _config = MedicationConfig.defaults;
-
-  @override
-  void initState() {
-    super.initState();
-    _timesPerDay = widget.config.defaultDoses;
-    _config = widget.config;
-    _regenTimes();
-  }
-
-  void _regenTimes() {
-    if (!_useCustomTimes) {
-      _customTimes = _config.distributeDoses(_timesPerDay);
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _dosageCtrl.dispose();
-    _notesCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 拖拽条
-              Center(
-                child: Container(
-                  width: 32, height: 4,
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(2), color: Colors.grey.shade300),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text('添加药品', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-
-              // 药品名
-              TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: '药品名', hintText: '恩诺沙星', border: OutlineInputBorder()),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 12),
-
-              // 药品类型 + 用量
-              Row(children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _drugType,
-                    decoration: const InputDecoration(labelText: '类型', border: OutlineInputBorder()),
-                    items: ['抗生素', '驱虫', '维生素', '益生菌', '其他']
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                    onChanged: (v) => setState(() => _drugType = v!),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _dosageCtrl,
-                    decoration: const InputDecoration(labelText: '用量', hintText: '0.5ml', border: OutlineInputBorder()),
-                    textInputAction: TextInputAction.next,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-
-              // 每日次数 + 自定义切换
-              Row(children: [
-                Text('每日次数', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                const Spacer(),
-                TextButton.icon(
-                  icon: Icon(_useCustomTimes ? Icons.auto_fix_high : Icons.edit_calendar, size: 14),
-                  label: Text(_useCustomTimes ? '自动分配' : '自定义时间', style: const TextStyle(fontSize: 12)),
-                  onPressed: () {
-                    setState(() {
-                      _useCustomTimes = !_useCustomTimes;
-                      if (!_useCustomTimes) _regenTimes();
-                    });
-                  },
-                ),
-              ]),
-              const SizedBox(height: 8),
-              if (!_useCustomTimes) ...[
-                // 自动模式: 选择次数
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 1, label: Text('1次'), icon: Icon(Icons.looks_one, size: 14)),
-                    ButtonSegment(value: 2, label: Text('2次'), icon: Icon(Icons.looks_two, size: 14)),
-                    ButtonSegment(value: 3, label: Text('3次'), icon: Icon(Icons.looks_3, size: 14)),
-                    ButtonSegment(value: 4, label: Text('4次'), icon: Icon(Icons.looks_4, size: 14)),
-                  ],
-                  selected: {_timesPerDay},
-                  onSelectionChanged: (v) {
-                    setState(() { _timesPerDay = v.first; _regenTimes(); });
-                  },
-                  showSelectedIcon: false,
-                ),
-                const SizedBox(height: 8),
-                // 显示自动生成的时间
-                Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: _customTimes.asMap().entries.map((e) {
-                    final t = e.value;
-                    return ActionChip(
-                      avatar: const Icon(Icons.schedule, size: 14),
-                      label: Text('${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
-                      onPressed: () => _pickCustomTime(e.key),
-                      visualDensity: VisualDensity.compact,
-                    );
-                  }).toList(),
-                ),
-              ] else ...[
-                // 自定义模式: 手动时间列表
-                Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: [
-                    ..._customTimes.asMap().entries.map((e) {
-                      final t = e.value;
-                      return InputChip(
-                        avatar: const Icon(Icons.schedule, size: 14),
-                        label: Text('${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
-                        onPressed: () => _pickCustomTime(e.key),
-                        onDeleted: () {
-                          setState(() => _customTimes.removeAt(e.key));
-                        },
-                        visualDensity: VisualDensity.compact,
-                      );
-                    }),
-                    ActionChip(
-                      avatar: const Icon(Icons.add, size: 14),
-                      label: const Text('添加时间'),
-                      onPressed: _addCustomTime,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-
-              // 用药天数
-              Row(children: [
-                Expanded(
-                  child: RadioListTile<bool>(
-                    value: false,
-                    groupValue: _isLongTerm,
-                    onChanged: (v) => setState(() => _isLongTerm = v!),
-                    title: const Text('指定天数', style: TextStyle(fontSize: 13)),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<bool>(
-                    value: true,
-                    groupValue: _isLongTerm,
-                    onChanged: (v) => setState(() => _isLongTerm = v!),
-                    title: const Text('长期用药', style: TextStyle(fontSize: 13)),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ]),
-              if (!_isLongTerm) ...[
-                const SizedBox(height: 4),
-                Row(children: [
-                  const Text('用药', style: TextStyle(fontSize: 13)),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 80,
-                    child: TextField(
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: '7',
-                        suffixText: '天',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      ),
-                      onChanged: (v) => _durationDays = int.tryParse(v) ?? 7,
+                              : null,
                     ),
                   ),
-                ]),
-              ],
-              const SizedBox(height: 12),
-
-              // 备注
-              TextField(
-                controller: _notesCtrl,
-                decoration: const InputDecoration(labelText: '备注 (选填)', hintText: '饭后服用', border: OutlineInputBorder()),
-                maxLines: 2,
+                  Text(data.statusLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: data.isDone
+                            ? Colors.green
+                            : data.isSkipped
+                                ? Colors.grey
+                                : isLate
+                                    ? Colors.red
+                                    : Colors.blue,
+                      )),
+                ],
               ),
-              const SizedBox(height: 20),
-
-              // 保存按钮
-              FilledButton.icon(
-                icon: const Icon(Icons.save, size: 18),
-                label: const Text('保存'),
-                onPressed: _nameCtrl.text.trim().isEmpty || _dosageCtrl.text.trim().isEmpty || _customTimes.isEmpty
-                    ? null
-                    : () => _doSave(),
-              ),
-            ],
-          ),
+            ),
+            if (!data.isDone && !data.isSkipped)
+              const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+          ]),
         ),
       ),
     );
-  }
-
-  Future<void> _pickCustomTime(int index) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _customTimes[index],
-      cancelText: '取消',
-      confirmText: '确定',
-    );
-    if (picked != null && mounted) {
-      setState(() => _customTimes[index] = picked);
-    }
-  }
-
-  Future<void> _addCustomTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: const TimeOfDay(hour: 12, minute: 0),
-      cancelText: '取消',
-      confirmText: '确定',
-    );
-    if (picked != null && mounted) {
-      setState(() => _customTimes.add(picked));
-    }
-  }
-
-  Future<void> _doSave() async {
-    final db = pluginRegistry.db!;
-    final endDate = _isLongTerm ? null : AppClock.now.add(Duration(days: _durationDays));
-
-    await db.addMedication(
-      birdId: widget.birdId,
-      drugName: _nameCtrl.text.trim(),
-      dosage: _dosageCtrl.text.trim(),
-      drugType: _drugType,
-      timesPerDay: _customTimes.length,
-      endDate: endDate,
-      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-      customTimes: _customTimes,
-    );
-
-    if (mounted) {
-      Navigator.pop(context);
-      widget.onAdded();
-    }
   }
 }

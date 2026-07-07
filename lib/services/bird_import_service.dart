@@ -10,6 +10,7 @@ import '../repositories/bird_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../repositories/species_repository.dart';
 import '../plugins/medication/medication_repository.dart';
+import '../plugins/medication/drug_library_repository.dart';
 import '../plugins/breeding/breeding_repository.dart';
 import '../utils/uuid.dart';
 
@@ -99,8 +100,8 @@ class BirdImportService {
       final allUuids = birdsJson
           .map((bj) => (bj['bird'] as Map<String, dynamic>)['uuid'] as String)
           .toList();
-      final existingSet = (await db.getBirdsByUuids(allUuids))
-          .map((b) => b.uuid).toSet();
+      final existingSet =
+          (await db.getBirdsByUuids(allUuids)).map((b) => b.uuid).toSet();
 
       // 批量加载所有物种（一次 SQL）
       final allSpecies = await db.getAllSpecies();
@@ -142,11 +143,18 @@ class BirdImportService {
             missingSpecies.add(ImportSpeciesInfo(
               uuid: speciesUuid,
               name: speciesName,
-              nestlingEndDays: (speciesJson['nestlingEndDays'] as num?)?.toInt() ?? 45,
-              juvenileEndDays: (speciesJson['juvenileEndDays'] as num?)?.toInt() ?? 120,
-              nestlingWeighIntervalDays: (speciesJson['nestlingWeighIntervalDays'] as num?)?.toInt() ?? 1,
-              juvenileWeighIntervalDays: (speciesJson['juvenileWeighIntervalDays'] as num?)?.toInt() ?? 3,
-              adultWeighIntervalDays: (speciesJson['adultWeighIntervalDays'] as num?)?.toInt() ?? 7,
+              nestlingEndDays:
+                  (speciesJson['nestlingEndDays'] as num?)?.toInt() ?? 45,
+              juvenileEndDays:
+                  (speciesJson['juvenileEndDays'] as num?)?.toInt() ?? 120,
+              nestlingWeighIntervalDays:
+                  (speciesJson['nestlingWeighIntervalDays'] as num?)?.toInt() ??
+                      1,
+              juvenileWeighIntervalDays:
+                  (speciesJson['juvenileWeighIntervalDays'] as num?)?.toInt() ??
+                      3,
+              adultWeighIntervalDays:
+                  (speciesJson['adultWeighIntervalDays'] as num?)?.toInt() ?? 7,
             ));
           }
         }
@@ -165,7 +173,9 @@ class BirdImportService {
 
   // ── 导入执行 ──
 
-  Future<BirdImportResult> importBirds(File file, AppDatabase db, {
+  Future<BirdImportResult> importBirds(
+    File file,
+    AppDatabase db, {
     List<ImportSpeciesInfo> missingSpecies = const [],
   }) async {
     final errors = <String>[];
@@ -178,7 +188,8 @@ class BirdImportService {
       // 先创建缺失物种
       for (final ms in missingSpecies) {
         try {
-          await db.upsertByUuid(ms.uuid,
+          await db.upsertByUuid(
+            ms.uuid,
             name: ms.name,
             nestlingEndDays: ms.nestlingEndDays,
             juvenileEndDays: ms.juvenileEndDays,
@@ -186,17 +197,19 @@ class BirdImportService {
             juvenileWeighIntervalDays: ms.juvenileWeighIntervalDays,
             adultWeighIntervalDays: ms.adultWeighIntervalDays,
           );
-          debugPrint('BirdImportService: created species "${ms.name}" (${ms.uuid})');
+          debugPrint(
+              'BirdImportService: created species "${ms.name}" (${ms.uuid})');
         } catch (e) {
-          debugPrint('BirdImportService: failed to create species "${ms.name}": $e');
+          debugPrint(
+              'BirdImportService: failed to create species "${ms.name}": $e');
         }
       }
 
       // 一次解密解压：同时拿到 data.json 和文件目录
       final (:data, :dir) = await _decryptAndUnzipFull(file);
       if (data == null || dir == null) {
-        return BirdImportResult(importedCount: 0, skippedCount: 0,
-            errors: ['无法解析或解压文件']);
+        return BirdImportResult(
+            importedCount: 0, skippedCount: 0, errors: ['无法解析或解压文件']);
       }
 
       try {
@@ -222,9 +235,11 @@ class BirdImportService {
             }
 
             // 解析物种
-            final speciesId = await _resolveSpecies(db, speciesJson, speciesCache);
+            final speciesId =
+                await _resolveSpecies(db, speciesJson, speciesCache);
             if (speciesId == null) {
-              errors.add('${birdJson['name']}: 无法匹配物种 "${speciesJson['name']}"');
+              errors
+                  .add('${birdJson['name']}: 无法匹配物种 "${speciesJson['name']}"');
               continue;
             }
 
@@ -257,10 +272,12 @@ class BirdImportService {
               uuidToNewId[uuid] = newId;
 
               // 合并 sortOrder / weighIntervalDays / manualBaselineG / weaningOverride / status 为一次 update
-              await db.updateBird(newId,
+              await db.updateBird(
+                newId,
                 sortOrder: (birdJson['sortOrder'] as num?)?.toInt(),
                 weighIntervalDays: birdJson['weighIntervalDays'] as int?,
-                manualBaselineG: (birdJson['manualBaselineG'] as num?)?.toDouble(),
+                manualBaselineG:
+                    (birdJson['manualBaselineG'] as num?)?.toDouble(),
                 weaningOverride: birdJson['weaningOverride'] as bool?,
                 status: birdJson['status'] as String?,
               );
@@ -275,8 +292,12 @@ class BirdImportService {
                     recordedAt: DateTime.parse(wj['recordedAt'] as String),
                     isFasting: (wj['isFasting'] as bool?) ?? false,
                     notes: wj['notes'] as String?,
-                    createdAt: wj['createdAt'] != null ? DateTime.parse(wj['createdAt'] as String) : null,
-                    updatedAt: wj['updatedAt'] != null ? DateTime.parse(wj['updatedAt'] as String) : null,
+                    createdAt: wj['createdAt'] != null
+                        ? DateTime.parse(wj['createdAt'] as String)
+                        : null,
+                    updatedAt: wj['updatedAt'] != null
+                        ? DateTime.parse(wj['updatedAt'] as String)
+                        : null,
                   );
                 } catch (e) {
                   debugPrint('BirdImportService: weight import error: $e');
@@ -287,7 +308,8 @@ class BirdImportService {
               final medications = bj['medications'] as List<dynamic>? ?? [];
               for (final mj in medications) {
                 try {
-                  await _insertMedication(db, newId, mj as Map<String, dynamic>);
+                  await _insertMedication(
+                      db, newId, mj as Map<String, dynamic>);
                 } catch (e) {
                   debugPrint('BirdImportService: medication import error: $e');
                 }
@@ -307,7 +329,8 @@ class BirdImportService {
               final logs = bj['activityLogs'] as List<dynamic>? ?? [];
               for (final lj in logs) {
                 try {
-                  await _insertActivityLog(db, newId, lj as Map<String, dynamic>);
+                  await _insertActivityLog(
+                      db, newId, lj as Map<String, dynamic>);
                 } catch (e) {
                   debugPrint('BirdImportService: activityLog import error: $e');
                 }
@@ -317,7 +340,8 @@ class BirdImportService {
               final alerts = bj['alertRecords'] as List<dynamic>? ?? [];
               for (final aj in alerts) {
                 try {
-                  await _insertAlertRecord(db, newId, aj as Map<String, dynamic>);
+                  await _insertAlertRecord(
+                      db, newId, aj as Map<String, dynamic>);
                 } catch (e) {
                   debugPrint('BirdImportService: alertRecord import error: $e');
                 }
@@ -327,7 +351,8 @@ class BirdImportService {
               final photos = bj['galleryPhotos'] as List<dynamic>? ?? [];
               for (final pj in photos) {
                 try {
-                  await _importPhoto(db, dir, newId, uuid, pj as Map<String, dynamic>);
+                  await _importPhoto(
+                      db, dir, newId, uuid, pj as Map<String, dynamic>);
                 } catch (e) {
                   debugPrint('BirdImportService: photo import error: $e');
                 }
@@ -370,13 +395,15 @@ class BirdImportService {
     } catch (e) {
       debugPrint('BirdImportService.importBirds error: $e');
       errors.add('导入失败: $e');
-      return BirdImportResult(importedCount: imported, skippedCount: skipped, errors: errors);
+      return BirdImportResult(
+          importedCount: imported, skippedCount: skipped, errors: errors);
     }
   }
 
   // ── 物种解析 ──
 
-  Future<int?> _resolveSpecies(AppDatabase db, Map<String, dynamic> speciesJson, Map<String, int> cache) async {
+  Future<int?> _resolveSpecies(AppDatabase db, Map<String, dynamic> speciesJson,
+      Map<String, int> cache) async {
     final uuid = speciesJson['uuid'] as String?;
     final name = speciesJson['name'] as String?;
 
@@ -412,90 +439,129 @@ class BirdImportService {
 
   // ── 关联数据插入 ──
 
-  Future<void> _insertMedication(AppDatabase db, int birdId, Map<String, dynamic> mj) async {
-    final startDate = DateTime.parse(mj['startDate'] as String);
-    final endDate = mj['endDate'] != null ? DateTime.parse(mj['endDate'] as String) : null;
-    final createdAt = mj['createdAt'] != null ? DateTime.parse(mj['createdAt'] as String) : AppClock.now;
-    final updatedAt = mj['updatedAt'] != null ? DateTime.parse(mj['updatedAt'] as String) : AppClock.now;
+  Future<void> _insertMedication(
+      AppDatabase db, int birdId, Map<String, dynamic> mj) async {
+    // Only import new-format medication records (v17+)
+    final drugLibraryId = mj['drugLibraryId'] as int?;
+    final formulationId = mj['formulationId'] as int?;
+    final diseaseCatalogId = mj['diseaseCatalogId'] as int?;
+    if (drugLibraryId == null ||
+        formulationId == null ||
+        diseaseCatalogId == null) {
+      return; // Skip old-format medications
+    }
 
-    await db.addMedication(
+    final startDate = DateTime.parse(mj['startDate'] as String);
+    final endDate =
+        mj['endDate'] != null ? DateTime.parse(mj['endDate'] as String) : null;
+    final createdAt = mj['createdAt'] != null
+        ? DateTime.parse(mj['createdAt'] as String)
+        : AppClock.now;
+    final updatedAt = mj['updatedAt'] != null
+        ? DateTime.parse(mj['updatedAt'] as String)
+        : AppClock.now;
+
+    await db.addMedicationFromLibrary(
       birdId: birdId,
-      drugName: mj['drugName'] as String,
-      dosage: mj['dosage'] as String,
+      drugLibraryId: drugLibraryId,
+      formulationId: formulationId,
+      diseaseCatalogId: diseaseCatalogId,
+      doseRuleId: mj['doseRuleId'] as int?,
+      calculatedDosage: (mj['calculatedDosage'] as String?) ??
+          (mj['manualDosage'] as String?) ??
+          '',
+      manualDosage: mj['manualDosage'] as String?,
       timesPerDay: (mj['timesPerDay'] as num?)?.toInt() ?? 1,
-      drugType: (mj['drugType'] as String?) ?? '其他',
       startDate: startDate,
       endDate: endDate,
       notes: mj['notes'] as String?,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
     );
   }
 
-  Future<void> _insertTask(AppDatabase db, int birdId, Map<String, dynamic> tj) async {
+  Future<void> _insertTask(
+      AppDatabase db, int birdId, Map<String, dynamic> tj) async {
     final dueDate = DateTime.parse(tj['dueDate'] as String);
-    final deadline = tj['deadline'] != null ? DateTime.parse(tj['deadline'] as String) : null;
-    final completedAt = tj['completedAt'] != null ? DateTime.parse(tj['completedAt'] as String) : null;
-    final createdAt = tj['createdAt'] != null ? DateTime.parse(tj['createdAt'] as String) : AppClock.now;
-    final updatedAt = tj['updatedAt'] != null ? DateTime.parse(tj['updatedAt'] as String) : AppClock.now;
+    final deadline = tj['deadline'] != null
+        ? DateTime.parse(tj['deadline'] as String)
+        : null;
+    final completedAt = tj['completedAt'] != null
+        ? DateTime.parse(tj['completedAt'] as String)
+        : null;
+    final createdAt = tj['createdAt'] != null
+        ? DateTime.parse(tj['createdAt'] as String)
+        : AppClock.now;
+    final updatedAt = tj['updatedAt'] != null
+        ? DateTime.parse(tj['updatedAt'] as String)
+        : AppClock.now;
 
     await db.into(db.tasks).insert(TasksCompanion.insert(
-      uuid: (tj['uuid'] as String?) ?? genUuid(),
-      birdId: birdId,
-      roomId: Value(null),
-      assignedUserId: Value(tj['assignedUserId'] as int?),
-      taskType: Value((tj['taskType'] as String?) ?? 'weigh'),
-      dueDate: dueDate,
-      deadline: Value(deadline),
-      status: Value((tj['status'] as String?) ?? '待完成'),
-      completedAt: Value(completedAt),
-      completedBy: Value(tj['completedBy'] as int?),
-      metadata: Value(tj['metadata'] as String?),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-    ));
+          uuid: (tj['uuid'] as String?) ?? genUuid(),
+          birdId: birdId,
+          roomId: Value(null),
+          assignedUserId: Value(tj['assignedUserId'] as int?),
+          taskType: Value((tj['taskType'] as String?) ?? 'weigh'),
+          dueDate: dueDate,
+          deadline: Value(deadline),
+          status: Value((tj['status'] as String?) ?? '待完成'),
+          completedAt: Value(completedAt),
+          completedBy: Value(tj['completedBy'] as int?),
+          metadata: Value(tj['metadata'] as String?),
+          createdAt: Value(createdAt),
+          updatedAt: Value(updatedAt),
+        ));
   }
 
-  Future<void> _insertActivityLog(AppDatabase db, int birdId, Map<String, dynamic> lj) async {
+  Future<void> _insertActivityLog(
+      AppDatabase db, int birdId, Map<String, dynamic> lj) async {
     final operatedAt = DateTime.parse(lj['operatedAt'] as String);
-    final createdAt = lj['createdAt'] != null ? DateTime.parse(lj['createdAt'] as String) : AppClock.now;
+    final createdAt = lj['createdAt'] != null
+        ? DateTime.parse(lj['createdAt'] as String)
+        : AppClock.now;
 
     await db.into(db.activityLogs).insert(ActivityLogsCompanion.insert(
-      uuid: (lj['uuid'] as String?) ?? genUuid(),
-      birdId: Value(birdId),
-      pluginId: (lj['pluginId'] as String?) ?? '',
-      actionType: (lj['actionType'] as String?) ?? '',
-      summary: (lj['summary'] as String?) ?? '',
-      details: Value(lj['details'] as String?),
-      relatedTaskId: Value(lj['relatedTaskId'] as int?),
-      operatedBy: Value(lj['operatedBy'] as int?),
-      operatedAt: Value(operatedAt),
-      createdAt: Value(createdAt),
-    ));
+          uuid: (lj['uuid'] as String?) ?? genUuid(),
+          birdId: Value(birdId),
+          pluginId: (lj['pluginId'] as String?) ?? '',
+          actionType: (lj['actionType'] as String?) ?? '',
+          summary: (lj['summary'] as String?) ?? '',
+          details: Value(lj['details'] as String?),
+          relatedTaskId: Value(lj['relatedTaskId'] as int?),
+          operatedBy: Value(lj['operatedBy'] as int?),
+          operatedAt: Value(operatedAt),
+          createdAt: Value(createdAt),
+        ));
   }
 
-  Future<void> _insertAlertRecord(AppDatabase db, int birdId, Map<String, dynamic> aj) async {
-    final resolvedAt = aj['resolvedAt'] != null ? DateTime.parse(aj['resolvedAt'] as String) : null;
-    final createdAt = aj['createdAt'] != null ? DateTime.parse(aj['createdAt'] as String) : AppClock.now;
-    final updatedAt = aj['updatedAt'] != null ? DateTime.parse(aj['updatedAt'] as String) : AppClock.now;
+  Future<void> _insertAlertRecord(
+      AppDatabase db, int birdId, Map<String, dynamic> aj) async {
+    final resolvedAt = aj['resolvedAt'] != null
+        ? DateTime.parse(aj['resolvedAt'] as String)
+        : null;
+    final createdAt = aj['createdAt'] != null
+        ? DateTime.parse(aj['createdAt'] as String)
+        : AppClock.now;
+    final updatedAt = aj['updatedAt'] != null
+        ? DateTime.parse(aj['updatedAt'] as String)
+        : AppClock.now;
 
     await db.into(db.alertRecords).insert(AlertRecordsCompanion.insert(
-      uuid: (aj['uuid'] as String?) ?? genUuid(),
-      birdId: birdId,
-      alertType: (aj['alertType'] as String?) ?? '',
-      description: (aj['description'] as String?) ?? '',
-      severity: (aj['severity'] as String?) ?? 'warning',
-      isRead: Value((aj['isRead'] as bool?) ?? false),
-      isResolved: Value((aj['isResolved'] as bool?) ?? false),
-      resolvedAt: Value(resolvedAt),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-    ));
+          uuid: (aj['uuid'] as String?) ?? genUuid(),
+          birdId: birdId,
+          alertType: (aj['alertType'] as String?) ?? '',
+          description: (aj['description'] as String?) ?? '',
+          severity: (aj['severity'] as String?) ?? 'warning',
+          isRead: Value((aj['isRead'] as bool?) ?? false),
+          isResolved: Value((aj['isResolved'] as bool?) ?? false),
+          resolvedAt: Value(resolvedAt),
+          createdAt: Value(createdAt),
+          updatedAt: Value(updatedAt),
+        ));
   }
 
   // ── 照片导入 ──
 
-  Future<void> _importPhoto(AppDatabase db, Directory zipDir, int birdId, String birdUuid, Map<String, dynamic> pj) async {
+  Future<void> _importPhoto(AppDatabase db, Directory zipDir, int birdId,
+      String birdUuid, Map<String, dynamic> pj) async {
     final fileName = pj['fileName'] as String?;
     if (fileName == null) return;
 
@@ -513,7 +579,8 @@ class BirdImportService {
     String? newVideoPath;
     final videoFileName = pj['videoFileName'] as String?;
     if (videoFileName != null) {
-      final zipVideoPath = p.join(zipDir.path, 'gallery', birdUuid, videoFileName);
+      final zipVideoPath =
+          p.join(zipDir.path, 'gallery', birdUuid, videoFileName);
       final zipVideoFile = File(zipVideoPath);
       if (await zipVideoFile.exists()) {
         newVideoPath = await _storage.saveVideo(birdId, zipVideoPath);
@@ -523,18 +590,21 @@ class BirdImportService {
     // 插入 birdPhotos 记录
     final sortOrder = (pj['sortOrder'] as num?)?.toInt() ?? 0;
     final mediaType = (pj['mediaType'] as String?) ?? 'photo';
-    final createdAt = pj['createdAt'] != null ? DateTime.parse(pj['createdAt'] as String) : AppClock.now;
+    final createdAt = pj['createdAt'] != null
+        ? DateTime.parse(pj['createdAt'] as String)
+        : AppClock.now;
     await db.into(db.birdPhotos).insert(BirdPhotosCompanion.insert(
-      birdId: birdId,
-      filePath: newRelativePath,
-      sortOrder: Value(sortOrder),
-      mediaType: Value(mediaType),
-      videoFilePath: Value(newVideoPath),
-      createdAt: Value(createdAt),
-    ));
+          birdId: birdId,
+          filePath: newRelativePath,
+          sortOrder: Value(sortOrder),
+          mediaType: Value(mediaType),
+          videoFilePath: Value(newVideoPath),
+          createdAt: Value(createdAt),
+        ));
   }
 
-  Future<void> _importAvatar(AppDatabase db, Directory zipDir, int birdId, String birdUuid, Map<String, dynamic> aj) async {
+  Future<void> _importAvatar(AppDatabase db, Directory zipDir, int birdId,
+      String birdUuid, Map<String, dynamic> aj) async {
     final fileName = aj['fileName'] as String?;
     if (fileName == null) return;
 
@@ -544,14 +614,17 @@ class BirdImportService {
 
     final newRelativePath = await _storage.saveAvatar(birdId, zipAvatarPath);
 
-    final updatedAt = aj['updatedAt'] != null ? DateTime.parse(aj['updatedAt'] as String) : AppClock.now;
+    final updatedAt = aj['updatedAt'] != null
+        ? DateTime.parse(aj['updatedAt'] as String)
+        : AppClock.now;
     // 删除旧头像记录再插入（birdId 有唯一约束）
-    await (db.delete(db.birdAvatars)..where((t) => t.birdId.equals(birdId))).go();
+    await (db.delete(db.birdAvatars)..where((t) => t.birdId.equals(birdId)))
+        .go();
     await db.into(db.birdAvatars).insert(BirdAvatarsCompanion.insert(
-      birdId: birdId,
-      filePath: newRelativePath,
-      updatedAt: Value(updatedAt),
-    ));
+          birdId: birdId,
+          filePath: newRelativePath,
+          updatedAt: Value(updatedAt),
+        ));
   }
 
   // ── 繁育数据导入 ──
@@ -598,18 +671,19 @@ class BirdImportService {
           ? DateTime.parse(pMap['updatedAt'] as String)
           : AppClock.now;
 
-      final pairId = await db.into(db.breedingPairs).insert(BreedingPairsCompanion.insert(
-        uuid: (pMap['uuid'] as String?) ?? genUuid(),
-        maleBirdId: maleId,
-        femaleBirdId: femaleId,
-        pairName: Value(pMap['pairName'] as String?),
-        status: Value((pMap['status'] as String?) ?? 'active'),
-        pairedDate: Value(pairedDate),
-        separatedDate: Value(separatedDate),
-        notes: Value(pMap['notes'] as String?),
-        createdAt: Value(createdAt),
-        updatedAt: Value(updatedAt),
-      ));
+      final pairId =
+          await db.into(db.breedingPairs).insert(BreedingPairsCompanion.insert(
+                uuid: (pMap['uuid'] as String?) ?? genUuid(),
+                maleBirdId: maleId,
+                femaleBirdId: femaleId,
+                pairName: Value(pMap['pairName'] as String?),
+                status: Value((pMap['status'] as String?) ?? 'active'),
+                pairedDate: Value(pairedDate),
+                separatedDate: Value(separatedDate),
+                notes: Value(pMap['notes'] as String?),
+                createdAt: Value(createdAt),
+                updatedAt: Value(updatedAt),
+              ));
       pairUuidToId[pMap['uuid'] as String] = pairId;
     }
 
@@ -635,17 +709,19 @@ class BirdImportService {
           ? DateTime.parse(rMap['updatedAt'] as String)
           : AppClock.now;
 
-      final recordId = await db.into(db.breedingRecords).insert(BreedingRecordsCompanion.insert(
-        uuid: (rMap['uuid'] as String?) ?? genUuid(),
-        pairId: pairId,
-        stage: Value((rMap['stage'] as String?) ?? '配对'),
-        startDate: Value(startDate),
-        endDate: Value(endDate),
-        endReason: Value(rMap['endReason'] as String?),
-        notes: Value(rMap['notes'] as String?),
-        createdAt: Value(createdAt),
-        updatedAt: Value(updatedAt),
-      ));
+      final recordId = await db
+          .into(db.breedingRecords)
+          .insert(BreedingRecordsCompanion.insert(
+            uuid: (rMap['uuid'] as String?) ?? genUuid(),
+            pairId: pairId,
+            stage: Value((rMap['stage'] as String?) ?? '配对'),
+            startDate: Value(startDate),
+            endDate: Value(endDate),
+            endReason: Value(rMap['endReason'] as String?),
+            notes: Value(rMap['notes'] as String?),
+            createdAt: Value(createdAt),
+            updatedAt: Value(updatedAt),
+          ));
       recordUuidToId[rMap['uuid'] as String] = recordId;
     }
 
@@ -674,16 +750,16 @@ class BirdImportService {
           : AppClock.now;
 
       await db.into(db.eggs).insert(EggsCompanion.insert(
-        uuid: (eMap['uuid'] as String?) ?? genUuid(),
-        breedingRecordId: recordId,
-        laidDate: laidDate,
-        hatchDate: Value(hatchDate),
-        status: Value((eMap['status'] as String?) ?? '孵化中'),
-        chickBirdId: Value(chickBirdId),
-        notes: Value(eMap['notes'] as String?),
-        createdAt: Value(createdAt),
-        updatedAt: Value(updatedAt),
-      ));
+            uuid: (eMap['uuid'] as String?) ?? genUuid(),
+            breedingRecordId: recordId,
+            laidDate: laidDate,
+            hatchDate: Value(hatchDate),
+            status: Value((eMap['status'] as String?) ?? '孵化中'),
+            chickBirdId: Value(chickBirdId),
+            notes: Value(eMap['notes'] as String?),
+            createdAt: Value(createdAt),
+            updatedAt: Value(updatedAt),
+          ));
     }
 
     // 导入踩背记录
@@ -703,12 +779,12 @@ class BirdImportService {
           : AppClock.now;
 
       await db.into(db.matingEvents).insert(MatingEventsCompanion.insert(
-        uuid: (meMap['uuid'] as String?) ?? genUuid(),
-        breedingRecordId: recordId,
-        observedDate: observedDate,
-        notes: Value(meMap['notes'] as String?),
-        createdAt: Value(createdAt),
-      ));
+            uuid: (meMap['uuid'] as String?) ?? genUuid(),
+            breedingRecordId: recordId,
+            observedDate: observedDate,
+            notes: Value(meMap['notes'] as String?),
+            createdAt: Value(createdAt),
+          ));
     }
   }
 
@@ -747,8 +823,8 @@ class BirdImportService {
 
   /// 一次解压：同时提取 data.json 和写出所有文件到临时目录。
   /// 返回 record: (data: 解析后的 JSON, dir: 临时目录)
-  Future<({Map<String, dynamic>? data, Directory? dir})>
-      _decryptAndUnzipFull(File file) async {
+  Future<({Map<String, dynamic>? data, Directory? dir})> _decryptAndUnzipFull(
+      File file) async {
     try {
       final bytes = await file.readAsBytes();
       if (bytes.length < 5) return (data: null, dir: null);
